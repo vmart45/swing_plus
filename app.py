@@ -42,7 +42,7 @@ if missing:
 st.sidebar.header("Filters")
 
 min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
-age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, 25))
+age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, 41))
 
 df_filtered = df[(df["Age"] >= age_range[0]) & (df["Age"] <= age_range[1])]
 
