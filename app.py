@@ -1,6 +1,5 @@
 import pandas as pd
 import streamlit as st
-import plotly.express as px
 import os
 
 # =============================
@@ -72,7 +71,6 @@ st.subheader("📊 Player Metrics Table")
 
 display_cols = [c for c in ["Name", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] + extra_cols if c in df_filtered.columns]
 
-# Rename for readability
 rename_map = {
     "Swing+": "Swing+",
     "ProjSwing+": "ProjSwing+",
@@ -133,12 +131,22 @@ st.subheader("🔍 Player Detail View")
 player_select = st.selectbox("Select a Player", sorted(df_filtered["Name"].unique()))
 player_data = df[df["Name"] == player_select].iloc[0]
 
-colA, colB, colC = st.columns(3)
-colA.metric("Swing+", round(player_data["Swing+"], 1))
-colB.metric("ProjSwing+", round(player_data["ProjSwing+"], 1))
-colC.metric("PowerIndex+", round(player_data["PowerIndex+"], 1))
+# Calculate ranks (1 = best)
+total_players = len(df)
+df["Swing+_rank"] = df["Swing+"].rank(ascending=False, method="min").astype(int)
+df["ProjSwing+_rank"] = df["ProjSwing+"].rank(ascending=False, method="min").astype(int)
+df["PowerIndex+_rank"] = df["PowerIndex+"].rank(ascending=False, method="min").astype(int)
 
-# Optional: include mechanical context if available
+p_swing_rank = df.loc[df["Name"] == player_select, "Swing+_rank"].iloc[0]
+p_proj_rank = df.loc[df["Name"] == player_select, "ProjSwing+_rank"].iloc[0]
+p_power_rank = df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]
+
+colA, colB, colC = st.columns(3)
+colA.metric("Swing+", f"{round(player_data['Swing+'], 1)} ({p_swing_rank} / {total_players})")
+colB.metric("ProjSwing+", f"{round(player_data['ProjSwing+'], 1)} ({p_proj_rank} / {total_players})")
+colC.metric("PowerIndex+", f"{round(player_data['PowerIndex+'], 1)} ({p_power_rank} / {total_players})")
+
+# Optional: Mechanical context
 if set(extra_cols).issubset(df.columns):
     st.markdown("**Swing Mechanics**")
     col1, col2, col3, col4 = st.columns(4)
