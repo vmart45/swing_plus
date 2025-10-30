@@ -45,7 +45,7 @@ if missing:
 st.sidebar.header("Filters", divider="gray")
 
 min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
-age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, 25))
+age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, 41))
 
 df_filtered = df[(df["Age"] >= age_range[0]) & (df["Age"] <= age_range[1])]
 
@@ -56,7 +56,7 @@ if search_name:
 if "swings_competitive" in df.columns:
     swings_min = int(df["swings_competitive"].min())
     swings_max = int(df["swings_competitive"].max())
-    swings_range = st.sidebar.slider("Swings Competitive", swings_min, swings_max, (swings_min, swings_max))
+    swings_range = st.sidebar.slider("Competitive Swings", swings_min, swings_max, (swings_min, swings_max))
     df_filtered = df_filtered[
         (df_filtered["swings_competitive"] >= swings_range[0]) &
         (df_filtered["swings_competitive"] <= swings_range[1])
