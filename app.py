@@ -13,100 +13,117 @@ st.set_page_config(
 
 st.title("⚾ Swing+ & ProjSwing+ Dashboard")
 st.markdown("""
-This dashboard visualizes **Swing+**, **ProjSwing+**, **PowerIndex+**, and **GapPotential**  
-from your `ProjSwingPlus_Output.csv`.  
-Use the filters below to explore players and compare across metrics.
+Visualize **Swing+**, **ProjSwing+**, **PowerIndex+**, and **GapPotential**  
+loaded directly from your GitHub repository.
 """)
 
 # =============================
-# LOAD DATA
+# LOAD DATA FROM GITHUB
 # =============================
-uploaded_file = st.file_uploader("Upload your ProjSwingPlus_Output.csv", type=["csv"])
-if uploaded_file:
-    df = pd.read_csv(uploaded_file)
+# 🔧 Replace with your actual repo raw file URL:
+CSV_URL = "https://raw.githubusercontent.com/<your-username>/<your-repo-name>/main/ProjSwingPlus_Output.csv"
 
-    # Ensure key columns exist
-    required_cols = ["Name", "Age", "Swing+", "PowerIndex+", "ProjSwing+", "GapPotential"]
-    missing = [c for c in required_cols if c not in df.columns]
-    if missing:
-        st.error(f"Missing columns: {missing}")
-        st.stop()
+@st.cache_data
+def load_data(url: str):
+    return pd.read_csv(url)
 
-    # =============================
-    # FILTERS
-    # =============================
-    st.sidebar.header("Filters")
-    min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
-    age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, 25))
-    df_filtered = df[(df["Age"] >= age_range[0]) & (df["Age"] <= age_range[1])]
+try:
+    df = load_data(CSV_URL)
+except Exception as e:
+    st.error(f"❌ Could not load CSV from GitHub:\n\n{e}")
+    st.stop()
 
-    search_name = st.sidebar.text_input("Search Player by Name")
-    if search_name:
-        df_filtered = df_filtered[df_filtered["Name"].str.contains(search_name, case=False, na=False)]
+# Validate columns
+required_cols = ["Name", "Age", "Swing+", "PowerIndex+", "ProjSwing+", "GapPotential"]
+missing = [c for c in required_cols if c not in df.columns]
+if missing:
+    st.error(f"Missing columns: {missing}")
+    st.stop()
 
-    # =============================
-    # TABLE DISPLAY
-    # =============================
-    st.subheader("📊 Player Metrics Table")
+# =============================
+# SIDEBAR FILTERS
+# =============================
+st.sidebar.header("Filters")
+
+min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
+age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, 25))
+
+df_filtered = df[(df["Age"] >= age_range[0]) & (df["Age"] <= age_range[1])]
+
+search_name = st.sidebar.text_input("Search Player by Name")
+if search_name:
+    df_filtered = df_filtered[df_filtered["Name"].str.contains(search_name, case=False, na=False)]
+
+# =============================
+# MAIN TABLE
+# =============================
+st.subheader("📊 Player Metrics Table")
+
+st.dataframe(
+    df_filtered[["Name", "Age", "Swing+", "PowerIndex+", "ProjSwing+", "GapPotential"]]
+    .sort_values("ProjSwing+", ascending=False)
+    .style.background_gradient(subset=["ProjSwing+"], cmap="YlOrBr")
+    .format(precision=1),
+    use_container_width=True
+)
+
+# =============================
+# SCATTER PLOT
+# =============================
+st.subheader("📈 Swing+ vs ProjSwing+ Scatter")
+
+fig = px.scatter(
+    df_filtered,
+    x="Swing+",
+    y="ProjSwing+",
+    color="PowerIndex+",
+    color_continuous_scale="YlOrBr",
+    hover_name="Name",
+    size="GapPotential",
+    title="Swing+ vs ProjSwing+ (Colored by PowerIndex+)",
+    template="plotly_white"
+)
+fig.add_hline(y=100, line_dash="dash", line_color="gray")
+fig.add_vline(x=100, line_dash="dash", line_color="gray")
+st.plotly_chart(fig, use_container_width=True)
+
+# =============================
+# LEADERBOARDS
+# =============================
+st.subheader("🏆 Top 10 Leaderboards")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.markdown("**Top 10 by ProjSwing+**")
+    top_proj = df_filtered.sort_values("ProjSwing+", ascending=False).head(10)
     st.dataframe(
-        df_filtered[["Name", "Age", "Swing+", "PowerIndex+", "ProjSwing+", "GapPotential"]]
-        .sort_values("ProjSwing+", ascending=False)
+        top_proj[["Name", "Age", "ProjSwing+", "Swing+", "GapPotential"]]
         .style.background_gradient(subset=["ProjSwing+"], cmap="YlOrBr")
-        .format(precision=1)
+        .format(precision=1),
+        use_container_width=True
     )
 
-    # =============================
-    # VISUAL COMPARISONS
-    # =============================
-    st.subheader("📈 Swing+ vs ProjSwing+ Scatter")
-    fig = px.scatter(
-        df_filtered,
-        x="Swing+",
-        y="ProjSwing+",
-        color="PowerIndex+",
-        color_continuous_scale="YlOrBr",
-        hover_name="Name",
-        size="GapPotential",
-        title="Swing+ vs ProjSwing+ (Colored by PowerIndex+)",
-        template="plotly_white"
+with col2:
+    st.markdown("**Top 10 by PowerIndex+**")
+    top_power = df_filtered.sort_values("PowerIndex+", ascending=False).head(10)
+    st.dataframe(
+        top_power[["Name", "Age", "PowerIndex+", "Swing+", "ProjSwing+"]]
+        .style.background_gradient(subset=["PowerIndex+"], cmap="YlOrBr")
+        .format(precision=1),
+        use_container_width=True
     )
-    fig.add_hline(y=100, line_dash="dash", line_color="gray")
-    fig.add_vline(x=100, line_dash="dash", line_color="gray")
-    st.plotly_chart(fig, use_container_width=True)
 
-    # =============================
-    # LEADERBOARDS
-    # =============================
-    st.subheader("🏆 Top 10 Leaderboards")
+# =============================
+# PLAYER DETAIL
+# =============================
+st.subheader("🔍 Player Detail View")
 
-    col1, col2 = st.columns(2)
+player_select = st.selectbox("Select a Player", sorted(df_filtered["Name"].unique()))
+player_data = df[df["Name"] == player_select].iloc[0]
 
-    with col1:
-        st.markdown("**Top 10 by ProjSwing+**")
-        top_proj = df_filtered.sort_values("ProjSwing+", ascending=False).head(10)
-        st.dataframe(top_proj[["Name", "Age", "ProjSwing+", "Swing+", "GapPotential"]]
-                     .style.background_gradient(subset=["ProjSwing+"], cmap="YlOrBr")
-                     .format(precision=1))
-
-    with col2:
-        st.markdown("**Top 10 by PowerIndex+**")
-        top_power = df_filtered.sort_values("PowerIndex+", ascending=False).head(10)
-        st.dataframe(top_power[["Name", "Age", "PowerIndex+", "Swing+", "ProjSwing+"]]
-                     .style.background_gradient(subset=["PowerIndex+"], cmap="YlOrBr")
-                     .format(precision=1))
-
-    # =============================
-    # PLAYER DETAIL SECTION
-    # =============================
-    st.subheader("🔍 Player Detail View")
-    player_select = st.selectbox("Select a Player", sorted(df_filtered["Name"].unique()))
-    player_data = df[df["Name"] == player_select].iloc[0]
-
-    colA, colB, colC, colD = st.columns(4)
-    colA.metric("Swing+", round(player_data["Swing+"], 1))
-    colB.metric("PowerIndex+", round(player_data["PowerIndex+"], 1))
-    colC.metric("ProjSwing+", round(player_data["ProjSwing+"], 1))
-    colD.metric("GapPotential", round(player_data["GapPotential"], 1))
-
-else:
-    st.info("👆 Upload `ProjSwingPlus_Output.csv` to begin.")
+colA, colB, colC, colD = st.columns(4)
+colA.metric("Swing+", round(player_data["Swing+"], 1))
+colB.metric("PowerIndex+", round(player_data["PowerIndex+"], 1))
+colC.metric("ProjSwing+", round(player_data["ProjSwing+"], 1))
+colD.metric("GapPotential", round(player_data["GapPotential"], 1))
