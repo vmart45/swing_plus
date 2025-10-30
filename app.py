@@ -1,6 +1,5 @@
 import pandas as pd
 import streamlit as st
-import requests
 import os
 
 # =============================
@@ -14,54 +13,17 @@ st.set_page_config(
 
 st.title("⚾ Swing+ & ProjSwing+ Dashboard")
 st.markdown("""
-Interactive dashboard for **Swing+**, **ProjSwing+**, and **PowerIndex+**.  
-Explore swing efficiency, mechanical power, and batted-ball traits across players.
+Explore **Swing+**, **ProjSwing+**, and **PowerIndex+** —  
+a modern approach to evaluating swing efficiency, scalability, and mechanical power.
 """)
 
 # =============================
-# MLB LOGO MAPPING
-# =============================
-mlb_teams = [
-    {"team": "AZ", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/ari.png"},
-    {"team": "ATL", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/atl.png"},
-    {"team": "BAL", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/bal.png"},
-    {"team": "BOS", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/bos.png"},
-    {"team": "CHC", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/chc.png"},
-    {"team": "CWS", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/chw.png"},
-    {"team": "CIN", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/cin.png"},
-    {"team": "CLE", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/cle.png"},
-    {"team": "COL", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/col.png"},
-    {"team": "DET", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/det.png"},
-    {"team": "HOU", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/hou.png"},
-    {"team": "KC",  "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/kc.png"},
-    {"team": "LAA", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/laa.png"},
-    {"team": "LAD", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/lad.png"},
-    {"team": "MIA", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/mia.png"},
-    {"team": "MIL", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/mil.png"},
-    {"team": "MIN", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/min.png"},
-    {"team": "NYM", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/nym.png"},
-    {"team": "NYY", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/nyy.png"},
-    {"team": "OAK", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/oak.png"},
-    {"team": "PHI", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/phi.png"},
-    {"team": "PIT", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/pit.png"},
-    {"team": "SD",  "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/sd.png"},
-    {"team": "SF",  "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/sf.png"},
-    {"team": "SEA", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/sea.png"},
-    {"team": "STL","logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/stl.png"},
-    {"team": "TB",  "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/tb.png"},
-    {"team": "TEX","logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/tex.png"},
-    {"team": "TOR","logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/tor.png"},
-    {"team": "WSH","logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/wsh.png"}
-]
-image_dict = {t["team"]: t["logo_url"] for t in mlb_teams}
-TEAM_MAP = {"ARI": "AZ", "CHW": "CWS", "KCR": "KC", "SDP": "SD", "SFG": "SF", "TBR": "TB", "WSN": "WSH"}
-
-# =============================
-# LOAD CSV
+# LOAD DATA
 # =============================
 DATA_PATH = "ProjSwingPlus_Output.csv"
+
 if not os.path.exists(DATA_PATH):
-    st.error(f"❌ Missing `{DATA_PATH}` in app directory.")
+    st.error(f"❌ Could not find `{DATA_PATH}` in the app directory.")
     st.stop()
 
 @st.cache_data
@@ -70,37 +32,26 @@ def load_data(path):
 
 df = load_data(DATA_PATH)
 
-if "id" not in df.columns:
-    st.error("❌ `id` column not found in CSV.")
+# =============================
+# VALIDATE REQUIRED COLUMNS
+# =============================
+core_cols = ["Name", "Age", "Swing+", "PowerIndex+", "ProjSwing+"]
+extra_cols = ["avg_bat_speed", "swing_length", "attack_angle", "swing_tilt"]
+required_cols = core_cols + [c for c in extra_cols if c in df.columns]
+
+missing = [c for c in core_cols if c not in df.columns]
+if missing:
+    st.error(f"Missing required columns: {missing}")
     st.stop()
 
 # =============================
-# PERSISTENT TEAM FETCHING (no spinner / re-fetch)
-# =============================
-@st.cache_data(persist=True, show_spinner=False)
-def get_team_data(ids):
-    team_map = {}
-    for pid in ids:
-        try:
-            url = f"https://statsapi.mlb.com/api/v1/people?personIds={pid}&hydrate=currentTeam"
-            r = requests.get(url, timeout=5).json()
-            team_link = r["people"][0]["currentTeam"]["link"]
-            team_data = requests.get(f"https://statsapi.mlb.com{team_link}", timeout=5).json()
-            abbr = team_data["teams"][0]["abbreviation"]
-            team_map[pid] = TEAM_MAP.get(abbr, abbr)
-        except Exception:
-            team_map[pid] = None
-    return team_map
-
-team_dict = get_team_data(df["id"].unique())
-df["Team"] = df["id"].map(team_dict)
-
-# =============================
-# FILTERS
+# SIDEBAR FILTERS
 # =============================
 st.sidebar.header("Filters")
+
 min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
 age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, 25))
+
 df_filtered = df[(df["Age"] >= age_range[0]) & (df["Age"] <= age_range[1])]
 
 search_name = st.sidebar.text_input("Search Player by Name")
@@ -108,53 +59,69 @@ if search_name:
     df_filtered = df_filtered[df_filtered["Name"].str.contains(search_name, case=False, na=False)]
 
 # =============================
-# COMPUTE RANKS
+# COLOR SCHEMES
 # =============================
-total_players = len(df)
-for stat in ["Swing+", "ProjSwing+", "PowerIndex+"]:
-    df[f"{stat}_rank"] = df[stat].rank(ascending=False, method="min").astype(int)
+main_cmap = "RdYlBu_r"   # red–white–blue for main metrics
+elite_cmap = "Reds"      # solid red gradient for top performers
 
 # =============================
 # PLAYER METRICS TABLE
 # =============================
 st.subheader("📊 Player Metrics Table")
 
-# dynamically include extra stats if present
-extra_stats = [c for c in ["BatSpeed", "AttackAngle", "SweetSpotPct"] if c in df.columns]
-cols = ["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] + extra_stats
+display_cols = [c for c in ["Name", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] + extra_cols if c in df_filtered.columns]
 
-styled = (
-    df_filtered[cols]
+rename_map = {
+    "Swing+": "Swing+",
+    "ProjSwing+": "ProjSwing+",
+    "PowerIndex+": "PowerIndex+",
+    "avg_bat_speed": "Avg Bat Speed (mph)",
+    "swing_length": "Swing Length (m)",
+    "attack_angle": "Attack Angle (°)",
+    "swing_tilt": "Swing Tilt (°)"
+}
+
+styled_df = (
+    df_filtered[display_cols]
+    .rename(columns=rename_map)
     .sort_values("Swing+", ascending=False)
-    .style.background_gradient(subset=["Swing+"], cmap="Reds")
-    .background_gradient(subset=["ProjSwing+"], cmap="Oranges")
-    .background_gradient(subset=["PowerIndex+"], cmap="Purples")
+    .reset_index(drop=True)
+    .style.background_gradient(
+        subset=["Swing+", "ProjSwing+", "PowerIndex+"], cmap=main_cmap
+    )
     .format(precision=1)
 )
-st.dataframe(styled, use_container_width=True)
+
+st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
 # =============================
 # LEADERBOARDS
 # =============================
 st.subheader("🏆 Top 10 Leaderboards")
+
 col1, col2 = st.columns(2)
 
-def make_leaderboard(df_in, metric):
-    cols_lb = ["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] + extra_stats
-    return (
-        df_in.sort_values(metric, ascending=False)
-        .head(10)[cols_lb]
-        .style.background_gradient(subset=[metric], cmap="Reds")
-        .format(precision=1)
+with col1:
+    st.markdown("**Top 10 by Swing+**")
+    top_swing = df_filtered.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
+    st.dataframe(
+        top_swing[["Name", "Age", "Swing+", "ProjSwing+", "PowerIndex+"]]
+        .style.background_gradient(subset=["Swing+"], cmap=elite_cmap)
+        .format(precision=1),
+        use_container_width=True,
+        hide_index=True
     )
 
-with col1:
-    st.markdown("**Top 10 by ProjSwing+**")
-    st.dataframe(make_leaderboard(df_filtered, "ProjSwing+"), use_container_width=True)
-
 with col2:
-    st.markdown("**Top 10 by PowerIndex+**")
-    st.dataframe(make_leaderboard(df_filtered, "PowerIndex+"), use_container_width=True)
+    st.markdown("**Top 10 by ProjSwing+**")
+    top_proj = df_filtered.sort_values("ProjSwing+", ascending=False).head(10).reset_index(drop=True)
+    st.dataframe(
+        top_proj[["Name", "Age", "ProjSwing+", "Swing+", "PowerIndex+"]]
+        .style.background_gradient(subset=["ProjSwing+"], cmap=elite_cmap)
+        .format(precision=1),
+        use_container_width=True,
+        hide_index=True
+    )
 
 # =============================
 # PLAYER DETAIL VIEW
@@ -162,28 +129,51 @@ with col2:
 st.subheader("🔍 Player Detail View")
 
 player_select = st.selectbox("Select a Player", sorted(df_filtered["Name"].unique()))
-player_row = df[df["Name"] == player_select].iloc[0]
-team_logo = image_dict.get(player_row["Team"], "")
-team_name = player_row["Team"]
+player_data = df[df["Name"] == player_select].iloc[0]
 
-if team_logo:
-    st.markdown(
-        f"""
-        <div style="display:flex; align-items:center; gap:10px;">
-            <img src="{team_logo}" width="45">
-            <h2 style="margin:0;">{player_row['Name']} ({team_name})</h2>
+# Rank calculations
+total_players = len(df)
+df["Swing+_rank"] = df["Swing+"].rank(ascending=False, method="min").astype(int)
+df["ProjSwing+_rank"] = df["ProjSwing+"].rank(ascending=False, method="min").astype(int)
+df["PowerIndex+_rank"] = df["PowerIndex+"].rank(ascending=False, method="min").astype(int)
+
+p_swing_rank = df.loc[df["Name"] == player_select, "Swing+_rank"].iloc[0]
+p_proj_rank = df.loc[df["Name"] == player_select, "ProjSwing+_rank"].iloc[0]
+p_power_rank = df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]
+
+# =============================
+# Custom-styled HTML metric cards
+# =============================
+st.markdown(
+    f"""
+    <div style="display:flex; justify-content:space-around; margin-top:10px;">
+        <div style="text-align:center;">
+            <h3 style="margin-bottom:0;">Swing+</h3>
+            <h2 style="margin:0;">{round(player_data['Swing+'], 1)}</h2>
+            <p style="color:gray; font-size:12px; margin-top:0;">Rank: {p_swing_rank} / {total_players}</p>
         </div>
-        """,
-        unsafe_allow_html=True
-    )
-else:
-    st.header(player_row["Name"])
+        <div style="text-align:center;">
+            <h3 style="margin-bottom:0;">ProjSwing+</h3>
+            <h2 style="margin:0;">{round(player_data['ProjSwing+'], 1)}</h2>
+            <p style="color:gray; font-size:12px; margin-top:0;">Rank: {p_proj_rank} / {total_players}</p>
+        </div>
+        <div style="text-align:center;">
+            <h3 style="margin-bottom:0;">PowerIndex+</h3>
+            <h2 style="margin:0;">{round(player_data['PowerIndex+'], 1)}</h2>
+            <p style="color:gray; font-size:12px; margin-top:0;">Rank: {p_power_rank} / {total_players}</p>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
-colA, colB, colC = st.columns(3)
-colA.metric("Swing+", f"{player_row['Swing+']:.1f}", f"Rank {int(player_row['Swing+_rank'])}/{total_players}")
-colB.metric("ProjSwing+", f"{player_row['ProjSwing+']:.1f}", f"Rank {int(player_row['ProjSwing+_rank'])}/{total_players}")
-colC.metric("PowerIndex+", f"{player_row['PowerIndex+']:.1f}", f"Rank {int(player_row['PowerIndex+_rank'])}/{total_players}")
-
-if extra_stats:
-    st.write("**Additional Metrics:**")
-    st.dataframe(player_row[extra_stats].to_frame().T.style.format(precision=1))
+# =============================
+# Optional Swing Mechanics Section
+# =============================
+if set(extra_cols).issubset(df.columns):
+    st.markdown("**Swing Mechanics**")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Avg Bat Speed", f"{round(player_data['avg_bat_speed'], 1)} mph")
+    col2.metric("Swing Length", round(player_data["swing_length"], 2))
+    col3.metric("Attack Angle", round(player_data["attack_angle"], 1))
+    col4.metric("Swing Tilt", round(player_data["swing_tilt"], 1))
