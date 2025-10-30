@@ -19,7 +19,7 @@ a modern approach to evaluating swing efficiency, scalability, and mechanical po
 """)
 
 # =============================
-# MLB LOGOS DICTIONARY
+# MLB LOGOS
 # =============================
 mlb_teams = [
     {"team": "AZ", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/ari.png"},
@@ -54,17 +54,12 @@ mlb_teams = [
     {"team": "WSH", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/wsh.png"}
 ]
 image_dict = {t["team"]: t["logo_url"] for t in mlb_teams}
-
-TEAM_MAP = {
-    "ARI": "AZ", "CHW": "CWS", "KCR": "KC", "SDP": "SD", "SFG": "SF",
-    "TBR": "TB", "WSN": "WSH", "LAA": "LAA", "LAD": "LAD"
-}
+TEAM_MAP = {"ARI": "AZ", "CHW": "CWS", "KCR": "KC", "SDP": "SD", "SFG": "SF", "TBR": "TB", "WSN": "WSH"}
 
 # =============================
 # LOAD DATA
 # =============================
 DATA_PATH = "ProjSwingPlus_Output.csv"
-
 if not os.path.exists(DATA_PATH):
     st.error(f"❌ Could not find `{DATA_PATH}` in the app directory.")
     st.stop()
@@ -74,17 +69,15 @@ def load_data(path):
     return pd.read_csv(path)
 
 df = load_data(DATA_PATH)
-
 if "id" not in df.columns:
     st.error("❌ Missing `id` column in ProjSwingPlus_Output.csv")
     st.stop()
 
 # =============================
-# FETCH TEAMS USING MLB API
+# FETCH TEAMS VIA MLB API
 # =============================
 @st.cache_data(show_spinner=False)
 def get_team_from_api(pid: int):
-    """Fetch current team abbreviation for a player via MLB Stats API."""
     try:
         url = f"https://statsapi.mlb.com/api/v1/people?personIds={pid}&hydrate=currentTeam"
         r = requests.get(url, timeout=5).json()
@@ -101,7 +94,7 @@ df["Team"] = df["id"].apply(get_team_from_api)
 df["Logo"] = df["Team"].map(image_dict)
 
 # =============================
-# SIDEBAR FILTERS
+# FILTERS
 # =============================
 st.sidebar.header("Filters")
 min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
@@ -113,21 +106,41 @@ if search_name:
     df_filtered = df_filtered[df_filtered["Name"].str.contains(search_name, case=False, na=False)]
 
 # =============================
-# TABLE WITH TEAM LOGOS
+# COMPUTE RANKS (BEFORE SELECTION)
+# =============================
+total_players = len(df)
+for col in ["Swing+", "ProjSwing+", "PowerIndex+"]:
+    df[f"{col}_rank"] = df[col].rank(ascending=False, method="min").astype(int)
+
+# =============================
+# PLAYER METRICS TABLE (SCROLLABLE)
 # =============================
 st.subheader("📊 Player Metrics Table")
 
-def logo_html(url):
-    return f'<img src="{url}" width="35">' if pd.notna(url) else ""
+logo_md = df_filtered["Team"].map(lambda t: f"![]({image_dict.get(t, '')})" if pd.notna(t) else "")
+display_df = pd.concat([logo_md.rename("Logo"), df_filtered[["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"]]], axis=1)
 
-df_filtered["Logo"] = df_filtered["Logo"].apply(logo_html)
+st.dataframe(display_df.style.format(precision=1), use_container_width=True)
 
-table_html = (
-    df_filtered.sort_values("Swing+", ascending=False)
-    [["Logo", "Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"]]
-    .to_html(escape=False, index=False)
-)
-st.markdown(table_html, unsafe_allow_html=True)
+# =============================
+# LEADERBOARDS
+# =============================
+st.subheader("🏆 Top 10 Leaderboards")
+col1, col2 = st.columns(2)
+
+def make_leaderboard(df_in, sort_col):
+    df_top = df_in.sort_values(sort_col, ascending=False).head(10)
+    df_top["Logo"] = df_top["Team"].map(lambda t: f"![]({image_dict.get(t, '')})" if pd.notna(t) else "")
+    cols = ["Logo", "Name", "Team", sort_col, "Swing+", "ProjSwing+" if sort_col != "ProjSwing+" else "PowerIndex+"]
+    return df_top[cols]
+
+with col1:
+    st.markdown("**Top 10 by ProjSwing+**")
+    st.dataframe(make_leaderboard(df_filtered, "ProjSwing+").style.format(precision=1), use_container_width=True)
+
+with col2:
+    st.markdown("**Top 10 by PowerIndex+**")
+    st.dataframe(make_leaderboard(df_filtered, "PowerIndex+").style.format(precision=1), use_container_width=True)
 
 # =============================
 # PLAYER DETAIL VIEW
@@ -136,16 +149,14 @@ st.subheader("🔍 Player Detail View")
 
 player_select = st.selectbox("Select a Player", sorted(df_filtered["Name"].unique()))
 player_row = df[df["Name"] == player_select].iloc[0]
-
-team_logo = player_row["Logo"]
+team_logo = image_dict.get(player_row["Team"], "")
 team_name = player_row["Team"]
 
-# Player header with logo
 if team_logo:
     st.markdown(
         f"""
         <div style="display:flex; align-items:center; gap:10px;">
-            {team_logo}
+            <img src="{team_logo}" width="45">
             <h2 style="margin:0;">{player_row['Name']} ({team_name})</h2>
         </div>
         """,
@@ -154,14 +165,7 @@ if team_logo:
 else:
     st.header(player_row["Name"])
 
-# =============================
-# RANKED METRICS
-# =============================
-total_players = len(df)
-for col in ["Swing+", "ProjSwing+", "PowerIndex+"]:
-    df[f"{col}_rank"] = df[col].rank(ascending=False, method="min").astype(int)
-
-col1, col2, col3 = st.columns(3)
-col1.metric("Swing+", f"{player_row['Swing+']:.1f}", f"Rank {int(player_row['Swing+_rank'])}/{total_players}")
-col2.metric("ProjSwing+", f"{player_row['ProjSwing+']:.1f}", f"Rank {int(player_row['ProjSwing+_rank'])}/{total_players}")
-col3.metric("PowerIndex+", f"{player_row['PowerIndex+']:.1f}", f"Rank {int(player_row['PowerIndex+_rank'])}/{total_players}")
+colA, colB, colC = st.columns(3)
+colA.metric("Swing+", f"{player_row['Swing+']:.1f}", f"Rank {int(player_row['Swing+_rank'])}/{total_players}")
+colB.metric("ProjSwing+", f"{player_row['ProjSwing+']:.1f}", f"Rank {int(player_row['ProjSwing+_rank'])}/{total_players}")
+colC.metric("PowerIndex+", f"{player_row['PowerIndex+']:.1f}", f"Rank {int(player_row['PowerIndex+_rank'])}/{total_players}")
