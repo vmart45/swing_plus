@@ -15,7 +15,7 @@ st.set_page_config(
 st.title("⚾ Swing+ & ProjSwing+ Dashboard")
 st.markdown("""
 Explore **Swing+**, **ProjSwing+**, and **PowerIndex+** —  
-an advanced look at swing quality, projectability, and mechanical efficiency.
+a modern approach to evaluating swing efficiency, scalability, and mechanical power.
 """)
 
 # =============================
@@ -60,23 +60,37 @@ if search_name:
     df_filtered = df_filtered[df_filtered["Name"].str.contains(search_name, case=False, na=False)]
 
 # =============================
-# COLOR PALETTE (modern & clean)
+# COLOR SCHEMES
 # =============================
-# Deep blue-to-red diverging palette for metrics
-custom_cmap = "RdYlBu_r"  # reversed so high values = red, low = blue
+main_cmap = "RdYlBu_r"   # red–white–blue for main metrics
+elite_cmap = "Reds"      # solid red gradient for top performers
 
 # =============================
 # PLAYER METRICS TABLE
 # =============================
-st.subheader("📊 Player Metrics Table (Sorted by Swing+)")
+st.subheader("📊 Player Metrics Table")
 
 display_cols = [c for c in ["Name", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] + extra_cols if c in df_filtered.columns]
 
+# Rename for readability
+rename_map = {
+    "Swing+": "Swing+",
+    "ProjSwing+": "ProjSwing+",
+    "PowerIndex+": "PowerIndex+",
+    "avg_bat_speed": "Avg Bat Speed (mph)",
+    "swing_length": "Swing Length (m)",
+    "attack_angle": "Attack Angle (°)",
+    "swing_tilt": "Swing Tilt (°)"
+}
+
 styled_df = (
     df_filtered[display_cols]
+    .rename(columns=rename_map)
     .sort_values("Swing+", ascending=False)
     .reset_index(drop=True)
-    .style.background_gradient(subset=["Swing+", "ProjSwing+", "PowerIndex+"], cmap=custom_cmap)
+    .style.background_gradient(
+        subset=["Swing+", "ProjSwing+", "PowerIndex+"], cmap=main_cmap
+    )
     .format(precision=1)
 )
 
@@ -94,7 +108,7 @@ with col1:
     top_swing = df_filtered.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
     st.dataframe(
         top_swing[["Name", "Age", "Swing+", "ProjSwing+", "PowerIndex+"]]
-        .style.background_gradient(subset=["Swing+"], cmap=custom_cmap)
+        .style.background_gradient(subset=["Swing+"], cmap=elite_cmap)
         .format(precision=1),
         use_container_width=True,
         hide_index=True
@@ -105,7 +119,7 @@ with col2:
     top_proj = df_filtered.sort_values("ProjSwing+", ascending=False).head(10).reset_index(drop=True)
     st.dataframe(
         top_proj[["Name", "Age", "ProjSwing+", "Swing+", "PowerIndex+"]]
-        .style.background_gradient(subset=["ProjSwing+"], cmap=custom_cmap)
+        .style.background_gradient(subset=["ProjSwing+"], cmap=elite_cmap)
         .format(precision=1),
         use_container_width=True,
         hide_index=True
