@@ -1,9 +1,6 @@
 import pandas as pd
 import streamlit as st
 import os
-import requests
-from PIL import Image
-from io import BytesIO
 
 st.set_page_config(
     page_title="Swing+ & ProjSwing+ Dashboard",
@@ -17,7 +14,7 @@ Explore **Swing+**, **ProjSwing+**, and **PowerIndex+** —
 a modern approach to evaluating swing efficiency, scalability, and mechanical power.
 """)
 
-DATA_PATH = "ProjSwingPlus_Output.csv"
+DATA_PATH = "ProjSwingPlus_Output_with_team.csv"
 
 if not os.path.exists(DATA_PATH):
     st.error(f"❌ Could not find `{DATA_PATH}` in the app directory.")
@@ -29,46 +26,18 @@ def load_data(path):
 
 df = load_data(DATA_PATH)
 
-image_dict = {
-    # Example: 'NYY': 'https://www.mlbstatic.com/team-logos/147.svg'
-    # Add your actual abbreviation:logo_url mappings here
-}
-
-def fetch_team_abbreviation(player_id):
-    url = f"https://statsapi.mlb.com/api/v1/people?personIds={player_id}&hydrate=currentTeam"
-    data = requests.get(url).json()
-    url_team = 'https://statsapi.mlb.com/' + data['people'][0]['currentTeam']['link']
-    data_team = requests.get(url_team).json()
-    return data_team['teams'][0]['abbreviation']
-
-def get_team_abbreviation_for_df(df):
-    if 'id' not in df.columns:
-        return [''] * len(df)
-    abbs = []
-    for pid in df['id']:
-        try:
-            abbs.append(fetch_team_abbreviation(pid))
-        except Exception:
-            abbs.append('')
-    return abbs
-
 core_cols = ["Name", "Age", "Swing+", "PowerIndex+", "ProjSwing+"]
 extra_cols = ["avg_bat_speed", "swing_length", "attack_angle", "swing_tilt"]
 if "id" in df.columns:
     core_cols = ["id"] + core_cols
+if "Team" in df.columns and "Team" not in core_cols:
+    core_cols.insert(1, "Team")
 required_cols = core_cols + [c for c in extra_cols if c in df.columns]
 
 missing = [c for c in core_cols if c not in df.columns]
 if missing:
     st.error(f"Missing required columns: {missing}")
     st.stop()
-
-if "id" in df.columns:
-    if "Team" not in df.columns:
-        with st.spinner("Fetching team abbreviations..."):
-            df["Team"] = get_team_abbreviation_for_df(df)
-else:
-    df["Team"] = ""
 
 st.sidebar.header("Filters")
 
@@ -143,7 +112,14 @@ with col2:
 st.subheader("🔍 Player Detail View")
 
 player_select = st.selectbox("Select a Player", sorted(df_filtered["Name"].unique()))
-player_data = df[df["Name"] == player_select].iloc[0]
+player_row = df[df["Name"] == player_select].iloc[0]
+
+st.markdown(
+    f"""
+    <h2 style="text-align:center; margin-bottom:0.5em;">{player_select}</h2>
+    """,
+    unsafe_allow_html=True
+)
 
 total_players = len(df)
 df["Swing+_rank"] = df["Swing+"].rank(ascending=False, method="min").astype(int)
@@ -156,22 +132,31 @@ p_power_rank = df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]
 
 st.markdown(
     f"""
-    <div style="display:flex; justify-content:space-around; margin-top:10px;">
+    <div style="display:flex; justify-content:center; gap:60px; margin-top:10px; margin-bottom:20px;">
         <div style="text-align:center;">
-            <h3 style="margin-bottom:0;">Swing+</h3>
-            <h2 style="margin:0;">{round(player_data['Swing+'], 1)}</h2>
-            <p style="color:gray; font-size:12px; margin-top:0;">Rank: {p_swing_rank} / {total_players}</p>
+            <div style="width:70px; height:70px; border-radius:50%; background:linear-gradient(135deg,#FFECB3,#F44336 80%); display:flex; align-items:center; justify-content:center; margin:0 auto;">
+                <span style="font-size:2em; font-weight:600; color:#222;">{p_swing_rank}</span>
+            </div>
+            <div style="margin-top:6px; font-weight:600;">Swing+</div>
+            <div style="color:gray; font-size:13px;">{round(player_row['Swing+'],1)}</div>
         </div>
         <div style="text-align:center;">
-            <h3 style="margin-bottom:0;">ProjSwing+</h3>
-            <h2 style="margin:0;">{round(player_data['ProjSwing+'], 1)}</h2>
-            <p style="color:gray; font-size:12px; margin-top:0;">Rank: {p_proj_rank} / {total_players}</p>
+            <div style="width:70px; height:70px; border-radius:50%; background:linear-gradient(135deg,#C8E6C9,#388E3C 80%); display:flex; align-items:center; justify-content:center; margin:0 auto;">
+                <span style="font-size:2em; font-weight:600; color:#222;">{p_proj_rank}</span>
+            </div>
+            <div style="margin-top:6px; font-weight:600;">ProjSwing+</div>
+            <div style="color:gray; font-size:13px;">{round(player_row['ProjSwing+'],1)}</div>
         </div>
         <div style="text-align:center;">
-            <h3 style="margin-bottom:0;">PowerIndex+</h3>
-            <h2 style="margin:0;">{round(player_data['PowerIndex+'], 1)}</h2>
-            <p style="color:gray; font-size:12px; margin-top:0;">Rank: {p_power_rank} / {total_players}</p>
+            <div style="width:70px; height:70px; border-radius:50%; background:linear-gradient(135deg,#B3E5FC,#1976D2 80%); display:flex; align-items:center; justify-content:center; margin:0 auto;">
+                <span style="font-size:2em; font-weight:600; color:#222;">{p_power_rank}</span>
+            </div>
+            <div style="margin-top:6px; font-weight:600;">PowerIndex+</div>
+            <div style="color:gray; font-size:13px;">{round(player_row['PowerIndex+'],1)}</div>
         </div>
+    </div>
+    <div style="text-align:center; font-size:12px; color:#888; margin-top:-10px;">
+      Rank out of {total_players} players
     </div>
     """,
     unsafe_allow_html=True
@@ -180,7 +165,7 @@ st.markdown(
 if set(extra_cols).issubset(df.columns):
     st.markdown("**Swing Mechanics**")
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Avg Bat Speed", f"{round(player_data['avg_bat_speed'], 1)} mph")
-    col2.metric("Swing Length", round(player_data["swing_length"], 2))
-    col3.metric("Attack Angle", round(player_data["attack_angle"], 1))
-    col4.metric("Swing Tilt", round(player_data["swing_tilt"], 1))
+    col1.metric("Avg Bat Speed", f"{round(player_row['avg_bat_speed'], 1)} mph")
+    col2.metric("Swing Length", round(player_row["swing_length"], 2))
+    col3.metric("Attack Angle", round(player_row["attack_angle"], 1))
+    col4.metric("Swing Tilt", round(player_row["swing_tilt"], 1))
