@@ -1,6 +1,9 @@
 import pandas as pd
 import streamlit as st
 import os
+from PIL import Image
+import requests
+from io import BytesIO
 
 st.set_page_config(
     page_title="Swing+ & ProjSwing+ Dashboard",
@@ -29,6 +32,42 @@ def load_data(path):
 
 df = load_data(DATA_PATH)
 
+# MLB team logo dictionary
+mlb_teams = [
+    {"team": "AZ", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/ari.png&h=500&w=500"},
+    {"team": "ATL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/atl.png&h=500&w=500"},
+    {"team": "BAL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/bal.png&h=500&w=500"},
+    {"team": "BOS", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/bos.png&h=500&w=500"},
+    {"team": "CHC", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/chc.png&h=500&w=500"},
+    {"team": "CWS", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/chw.png&h=500&w=500"},
+    {"team": "CIN", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/cin.png&h=500&w=500"},
+    {"team": "CLE", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/cle.png&h=500&w=500"},
+    {"team": "COL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/col.png&h=500&w=500"},
+    {"team": "DET", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/det.png&h=500&w=500"},
+    {"team": "HOU", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/hou.png&h=500&w=500"},
+    {"team": "KC", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/kc.png&h=500&w=500"},
+    {"team": "LAA", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/laa.png&h=500&w=500"},
+    {"team": "LAD", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/lad.png&h=500&w=500"},
+    {"team": "MIA", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/mia.png&h=500&w=500"},
+    {"team": "MIL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/mil.png&h=500&w=500"},
+    {"team": "MIN", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/min.png&h=500&w=500"},
+    {"team": "NYM", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/nym.png&h=500&w=500"},
+    {"team": "NYY", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/nyy.png&h=500&w=500"},
+    {"team": "OAK", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/oak.png&h=500&w=500"},
+    {"team": "PHI", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/phi.png&h=500&w=500"},
+    {"team": "PIT", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/pit.png&h=500&w=500"},
+    {"team": "SD", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/sd.png&h=500&w=500"},
+    {"team": "SF", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/sf.png&h=500&w=500"},
+    {"team": "SEA", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/sea.png&h=500&w=500"},
+    {"team": "STL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/stl.png&h=500&w=500"},
+    {"team": "TB", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/tb.png&h=500&w=500"},
+    {"team": "TEX", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/tex.png&h=500&w=500"},
+    {"team": "TOR", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/tor.png&h=500&w=500"},
+    {"team": "WSH", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/wsh.png&h=500&w=500"}
+]
+df_image = pd.DataFrame(mlb_teams)
+image_dict = df_image.set_index('team')['logo_url'].to_dict()
+
 core_cols = ["Name", "Age", "Swing+", "PowerIndex+", "ProjSwing+"]
 extra_cols = ["avg_bat_speed", "swing_length", "attack_angle", "swing_tilt"]
 if "id" in df.columns:
@@ -45,7 +84,7 @@ if missing:
 st.sidebar.header("Filters", divider="gray")
 
 min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
-age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, 41))
+age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, 25))
 
 df_filtered = df[(df["Age"] >= age_range[0]) & (df["Age"] <= age_range[1])]
 
@@ -56,7 +95,7 @@ if search_name:
 if "swings_competitive" in df.columns:
     swings_min = int(df["swings_competitive"].min())
     swings_max = int(df["swings_competitive"].max())
-    swings_range = st.sidebar.slider("Competitive Swings", swings_min, swings_max, (swings_min, swings_max))
+    swings_range = st.sidebar.slider("Swings Competitive", swings_min, swings_max, (swings_min, swings_max))
     df_filtered = df_filtered[
         (df_filtered["swings_competitive"] >= swings_range[0]) &
         (df_filtered["swings_competitive"] <= swings_range[1])
@@ -172,9 +211,61 @@ player_row = df[df["Name"] == player_select].iloc[0]
 
 st.markdown(
     f"""
-    <h3 style="text-align:center; margin-bottom:1.2em; font-size:1.7em; color:#183153; letter-spacing:0.01em;">
-        {player_select}
-    </h3>
+    <div style="display:flex; align-items:center; justify-content:center; gap:28px; margin-bottom:12px;">
+        <div style="flex-shrink:0;">
+    """,
+    unsafe_allow_html=True
+)
+
+# Display MLB headshot if ID present
+if "id" in player_row and pd.notnull(player_row["id"]):
+    player_id = str(int(player_row["id"]))
+    headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
+    try:
+        response = requests.get(headshot_url, timeout=5)
+        if response.status_code == 200:
+            headshot_img = Image.open(BytesIO(response.content))
+            st.image(headshot_img, width=80, caption="", use_column_width=False)
+        else:
+            st.image("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", width=80, use_column_width=False)
+    except Exception:
+        st.image("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", width=80, use_column_width=False)
+else:
+    st.image("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", width=80, use_column_width=False)
+
+st.markdown(
+    f"""
+        </div>
+        <div style="flex-shrink:0;">
+    """,
+    unsafe_allow_html=True
+)
+
+# Player name and team logo
+team_abb = player_row["Team"] if "Team" in player_row and pd.notnull(player_row["Team"]) else ""
+logo_url = image_dict.get(team_abb, "")
+if logo_url:
+    st.markdown(
+        f"""
+        <div style="display:flex; align-items:center; gap:14px;">
+            <span style="font-size:1.7em; font-weight:700; color:#183153; letter-spacing:0.01em;">{player_select}</span>
+            <img src="{logo_url}" style="height:40px; vertical-align:middle; border-radius:7px; background:#eee;"/>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+else:
+    st.markdown(
+        f"""
+        <div style="font-size:1.7em; font-weight:700; color:#183153; letter-spacing:0.01em;">{player_select}</div>
+        """,
+        unsafe_allow_html=True
+    )
+
+st.markdown(
+    """
+        </div>
+    </div>
     """,
     unsafe_allow_html=True
 )
@@ -220,8 +311,31 @@ if set(extra_cols).issubset(df.columns):
         """,
         unsafe_allow_html=True
     )
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Avg Bat Speed", f"{round(player_row['avg_bat_speed'], 1)} mph")
-    col2.metric("Swing Length", round(player_row["swing_length"], 2))
-    col3.metric("Attack Angle", round(player_row["attack_angle"], 1))
-    col4.metric("Swing Tilt", round(player_row["swing_tilt"], 1))
+    st.markdown(
+        """
+        <div style="display: flex; justify-content: center; gap: 32px; margin-top: 10px; margin-bottom: 15px;">
+        """,
+        unsafe_allow_html=True
+    )
+    mech_metrics = [
+        ("Avg Bat Speed", f"{round(player_row['avg_bat_speed'], 1)} mph"),
+        ("Swing Length", f"{round(player_row['swing_length'], 2)}"),
+        ("Attack Angle", f"{round(player_row['attack_angle'], 1)}"),
+        ("Swing Tilt", f"{round(player_row['swing_tilt'], 1)}")
+    ]
+    for label, value in mech_metrics:
+        st.markdown(
+            f"""
+            <div style="background:#f9fafc;border-radius:12px;box-shadow:0 1px 6px #0001;padding:18px 22px;min-width:110px;text-align:center;">
+              <div style="font-size:1.1em;color:#385684;font-weight:600;margin-bottom:2px;">{label}</div>
+              <div style="font-size:1.5em;font-weight:700;color:#183153;">{value}</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    st.markdown(
+        """
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
