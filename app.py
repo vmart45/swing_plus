@@ -100,7 +100,7 @@ def get_player_team(pid):
 
 st.info("Fetching team data from MLB API (cached)… this runs once per player.")
 
-df["Team"] = df["player_id"].apply(get_player_team)
+df["Team"] = df["id"].apply(get_player_team)
 df["Logo"] = df["Team"].map(image_dict)
 
 # =============================
