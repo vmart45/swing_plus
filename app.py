@@ -1,5 +1,8 @@
 import pandas as pd
 import streamlit as st
+import requests
+from PIL import Image
+from io import BytesIO
 import os
 
 # =============================
@@ -13,10 +16,49 @@ st.set_page_config(
 
 st.title("⚾ Swing+ & ProjSwing+ Dashboard")
 st.markdown("""
-Explore **Swing+**, **ProjSwing+**, and **PowerIndex+**""")
+Explore **Swing+**, **ProjSwing+**, and **PowerIndex+** —  
+a modern approach to evaluating swing efficiency, scalability, and mechanical power.
+""")
 
 # =============================
-# LOAD DATA
+# MLB TEAM LOGOS
+# =============================
+mlb_teams = [
+    {"team": "AZ", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/ari.png"},
+    {"team": "ATL", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/atl.png"},
+    {"team": "BAL", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/bal.png"},
+    {"team": "BOS", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/bos.png"},
+    {"team": "CHC", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/chc.png"},
+    {"team": "CWS", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/chw.png"},
+    {"team": "CIN", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/cin.png"},
+    {"team": "CLE", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/cle.png"},
+    {"team": "COL", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/col.png"},
+    {"team": "DET", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/det.png"},
+    {"team": "HOU", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/hou.png"},
+    {"team": "KC", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/kc.png"},
+    {"team": "LAA", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/laa.png"},
+    {"team": "LAD", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/lad.png"},
+    {"team": "MIA", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/mia.png"},
+    {"team": "MIL", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/mil.png"},
+    {"team": "MIN", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/min.png"},
+    {"team": "NYM", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/nym.png"},
+    {"team": "NYY", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/nyy.png"},
+    {"team": "OAK", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/oak.png"},
+    {"team": "PHI", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/phi.png"},
+    {"team": "PIT", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/pit.png"},
+    {"team": "SD", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/sd.png"},
+    {"team": "SF", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/sf.png"},
+    {"team": "SEA", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/sea.png"},
+    {"team": "STL", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/stl.png"},
+    {"team": "TB", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/tb.png"},
+    {"team": "TEX", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/tex.png"},
+    {"team": "TOR", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/tor.png"},
+    {"team": "WSH", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/wsh.png"}
+]
+image_dict = {team["team"]: team["logo_url"] for team in mlb_teams}
+
+# =============================
+# LOAD PLAYER DATA
 # =============================
 DATA_PATH = "ProjSwingPlus_Output.csv"
 
@@ -30,20 +72,12 @@ def load_data(path):
 
 df = load_data(DATA_PATH)
 
-# =============================
-# VALIDATE REQUIRED COLUMNS
-# =============================
-core_cols = ["Name", "Age", "Swing+", "PowerIndex+", "ProjSwing+"]
-extra_cols = ["avg_bat_speed", "swing_length", "attack_angle", "swing_tilt"]
-required_cols = core_cols + [c for c in extra_cols if c in df.columns]
-
-missing = [c for c in core_cols if c not in df.columns]
-if missing:
-    st.error(f"Missing required columns: {missing}")
+if "Team" not in df.columns:
+    st.error("❌ Missing `Team` column in ProjSwingPlus_Output.csv")
     st.stop()
 
 # =============================
-# SIDEBAR FILTERS
+# FILTERS
 # =============================
 st.sidebar.header("Filters")
 
@@ -57,79 +91,51 @@ if search_name:
     df_filtered = df_filtered[df_filtered["Name"].str.contains(search_name, case=False, na=False)]
 
 # =============================
-# COLOR SCHEMES
-# =============================
-main_cmap = "RdYlBu_r"   # red–white–blue for main metrics
-elite_cmap = "Reds"      # solid red gradient for top performers
-
-# =============================
-# PLAYER METRICS TABLE
+# TABLE WITH LOGOS
 # =============================
 st.subheader("📊 Player Metrics Table")
 
-display_cols = [c for c in ["Name", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] + extra_cols if c in df_filtered.columns]
+def logo_html(team):
+    if pd.isna(team) or team not in image_dict:
+        return ""
+    return f'<img src="{image_dict[team]}" width="35">'
 
-rename_map = {
-    "Swing+": "Swing+",
-    "ProjSwing+": "ProjSwing+",
-    "PowerIndex+": "PowerIndex+",
-    "avg_bat_speed": "Avg Bat Speed (mph)",
-    "swing_length": "Swing Length (m)",
-    "attack_angle": "Attack Angle (°)",
-    "swing_tilt": "Swing Tilt (°)"
-}
+df_filtered["Logo"] = df_filtered["Team"].apply(logo_html)
 
-styled_df = (
-    df_filtered[display_cols]
-    .rename(columns=rename_map)
-    .sort_values("Swing+", ascending=False)
-    .reset_index(drop=True)
-    .style.background_gradient(
-        subset=["Swing+", "ProjSwing+", "PowerIndex+"], cmap=main_cmap
-    )
-    .format(precision=1)
+styled_html = (
+    df_filtered.sort_values("Swing+", ascending=False)
+    [["Logo", "Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"]]
+    .to_html(escape=False, index=False)
 )
 
-st.dataframe(styled_df, use_container_width=True, hide_index=True)
+st.markdown(styled_html, unsafe_allow_html=True)
 
 # =============================
-# LEADERBOARDS
-# =============================
-st.subheader("🏆 Top 10 Leaderboards")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.markdown("**Top 10 by Swing+**")
-    top_swing = df_filtered.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
-    st.dataframe(
-        top_swing[["Name", "Age", "Swing+", "ProjSwing+", "PowerIndex+"]]
-        .style.background_gradient(subset=["Swing+"], cmap=elite_cmap)
-        .format(precision=1),
-        use_container_width=True,
-        hide_index=True
-    )
-
-with col2:
-    st.markdown("**Top 10 by ProjSwing+**")
-    top_proj = df_filtered.sort_values("ProjSwing+", ascending=False).head(10).reset_index(drop=True)
-    st.dataframe(
-        top_proj[["Name", "Age", "ProjSwing+", "Swing+", "PowerIndex+"]]
-        .style.background_gradient(subset=["ProjSwing+"], cmap=elite_cmap)
-        .format(precision=1),
-        use_container_width=True,
-        hide_index=True
-    )
-
-# =============================
-# PLAYER DETAIL VIEW
+# PLAYER DETAIL VIEW WITH LOGO
 # =============================
 st.subheader("🔍 Player Detail View")
 
 player_select = st.selectbox("Select a Player", sorted(df_filtered["Name"].unique()))
 player_data = df[df["Name"] == player_select].iloc[0]
+team_logo = image_dict.get(player_data["Team"], None)
 
-# Rank calculations
+# Header with logo + name
+if team_logo:
+    st.markdown(
+        f"""
+        <div style="display:flex; align-items:center; gap:10px;">
+            <img src="{team_logo}" width="60">
+            <h2 style="margin:0;">{player_data['Name']}</h2>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+else:
+    st.header(player_data["Name"])
+
+# =============================
+# RANKS + METRICS
+# =============================
 total_players = len(df)
 df["Swing+_rank"] = df["Swing+"].rank(ascending=False, method="min").astype(int)
 df["ProjSwing+_rank"] = df["ProjSwing+"].rank(ascending=False, method="min").astype(int)
@@ -139,9 +145,6 @@ p_swing_rank = df.loc[df["Name"] == player_select, "Swing+_rank"].iloc[0]
 p_proj_rank = df.loc[df["Name"] == player_select, "ProjSwing+_rank"].iloc[0]
 p_power_rank = df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]
 
-# =============================
-# Custom-styled HTML metric cards
-# =============================
 st.markdown(
     f"""
     <div style="display:flex; justify-content:space-around; margin-top:10px;">
@@ -164,14 +167,3 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
-# =============================
-# Optional Swing Mechanics Section
-# =============================
-if set(extra_cols).issubset(df.columns):
-    st.markdown("**Swing Mechanics**")
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Avg Bat Speed", f"{round(player_data['avg_bat_speed'], 1)} mph")
-    col2.metric("Swing Length", round(player_data["swing_length"], 2))
-    col3.metric("Attack Angle", round(player_data["attack_angle"], 1))
-    col4.metric("Swing Tilt", round(player_data["swing_tilt"], 1))
