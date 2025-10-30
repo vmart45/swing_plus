@@ -14,9 +14,7 @@ st.set_page_config(
 
 st.title("⚾ Swing+ & ProjSwing+ Dashboard")
 st.markdown("""
-Explore **Swing+**, **ProjSwing+**, and **PowerIndex+** —  
-a modern approach to evaluating swing efficiency, scalability, and mechanical power.
-""")
+Explore **Swing+**, **ProjSwing+**, and **PowerIndex+**""")
 
 # =============================
 # MLB LOGOS
