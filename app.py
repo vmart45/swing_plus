@@ -70,26 +70,6 @@ styled_df = (
 
 st.dataframe(styled_df, use_container_width=True)
 
-# =============================
-# SCATTER PLOT
-# =============================
-st.subheader("📈 Swing+ vs ProjSwing+ Scatter")
-
-fig = px.scatter(
-    df_filtered,
-    x="Swing+",
-    y="ProjSwing+",
-    color="PowerIndex+",
-    color_continuous_scale="YlOrBr",
-    hover_name="Name",
-    size="GapPotential",
-    title="Swing+ vs ProjSwing+ (Colored by PowerIndex+)",
-    template="plotly_white"
-)
-fig.add_hline(y=100, line_dash="dash", line_color="gray")
-fig.add_vline(x=100, line_dash="dash", line_color="gray")
-
-st.plotly_chart(fig, use_container_width=True)
 
 # =============================
 # LEADERBOARDS
