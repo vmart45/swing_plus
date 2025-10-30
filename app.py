@@ -14,7 +14,9 @@ st.set_page_config(
 
 st.title("⚾ Swing+ & ProjSwing+ Dashboard")
 st.markdown("""
-Explore **Swing+**, **ProjSwing+**, and **PowerIndex+**""")
+Explore **Swing+**, **ProjSwing+**, and **PowerIndex+** —  
+a modern approach to evaluating swing efficiency, scalability, and mechanical power.
+""")
 
 # =============================
 # MLB LOGOS
@@ -39,7 +41,7 @@ mlb_teams = [
     {"team": "MIN", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/min.png"},
     {"team": "NYM", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/nym.png"},
     {"team": "NYY", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/nyy.png"},
-    {"team": "ATH", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/oak.png"},
+    {"team": "OAK", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/oak.png"},
     {"team": "PHI", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/phi.png"},
     {"team": "PIT", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/pit.png"},
     {"team": "SD", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/sd.png"},
@@ -72,24 +74,26 @@ if "id" not in df.columns:
     st.stop()
 
 # =============================
-# FETCH TEAMS VIA MLB API
+# FETCH TEAMS VIA MLB API (persistently cached)
 # =============================
-@st.cache_data(show_spinner=False)
-def get_team_from_api(pid: int):
-    try:
-        url = f"https://statsapi.mlb.com/api/v1/people?personIds={pid}&hydrate=currentTeam"
-        r = requests.get(url, timeout=5).json()
-        team_link = r["people"][0]["currentTeam"]["link"]
-        team_data = requests.get(f"https://statsapi.mlb.com{team_link}", timeout=5).json()
-        raw_abbr = team_data["teams"][0]["abbreviation"]
-        return TEAM_MAP.get(raw_abbr, raw_abbr)
-    except Exception:
-        return None
+@st.cache_data(persist=True, show_spinner=False)
+def fetch_team_data(ids):
+    team_map = {}
+    for pid in ids:
+        try:
+            url = f"https://statsapi.mlb.com/api/v1/people?personIds={pid}&hydrate=currentTeam"
+            r = requests.get(url, timeout=5).json()
+            team_link = r["people"][0]["currentTeam"]["link"]
+            team_data = requests.get(f"https://statsapi.mlb.com{team_link}", timeout=5).json()
+            raw_abbr = team_data["teams"][0]["abbreviation"]
+            team_map[pid] = TEAM_MAP.get(raw_abbr, raw_abbr)
+        except Exception:
+            team_map[pid] = None
+    return team_map
 
-st.info("Fetching team data from MLB API (cached). Runs once per player ID…")
-
-df["Team"] = df["id"].apply(get_team_from_api)
-df["Logo"] = df["Team"].map(image_dict)
+# Fetch once and persist
+team_dict = fetch_team_data(df["id"].unique())
+df["Team"] = df["id"].map(team_dict)
 
 # =============================
 # FILTERS
@@ -111,14 +115,19 @@ for col in ["Swing+", "ProjSwing+", "PowerIndex+"]:
     df[f"{col}_rank"] = df[col].rank(ascending=False, method="min").astype(int)
 
 # =============================
-# PLAYER METRICS TABLE (SCROLLABLE)
+# PLAYER METRICS TABLE (SCROLLABLE + COLOR)
 # =============================
 st.subheader("📊 Player Metrics Table")
 
-logo_md = df_filtered["Team"].map(lambda t: f"![]({image_dict.get(t, '')})" if pd.notna(t) else "")
-display_df = pd.concat([logo_md.rename("Logo"), df_filtered[["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"]]], axis=1)
-
-st.dataframe(display_df.style.format(precision=1), use_container_width=True)
+styled = (
+    df_filtered[["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"]]
+    .sort_values("Swing+", ascending=False)
+    .style.background_gradient(subset=["Swing+"], cmap="Reds")
+    .background_gradient(subset=["ProjSwing+"], cmap="Oranges")
+    .background_gradient(subset=["PowerIndex+"], cmap="Purples")
+    .format(precision=1)
+)
+st.dataframe(styled, use_container_width=True)
 
 # =============================
 # LEADERBOARDS
@@ -126,19 +135,21 @@ st.dataframe(display_df.style.format(precision=1), use_container_width=True)
 st.subheader("🏆 Top 10 Leaderboards")
 col1, col2 = st.columns(2)
 
-def make_leaderboard(df_in, sort_col):
-    df_top = df_in.sort_values(sort_col, ascending=False).head(10)
-    df_top["Logo"] = df_top["Team"].map(lambda t: f"![]({image_dict.get(t, '')})" if pd.notna(t) else "")
-    cols = ["Logo", "Name", "Team", sort_col, "Swing+", "ProjSwing+" if sort_col != "ProjSwing+" else "PowerIndex+"]
-    return df_top[cols]
+def leaderboard(df_in, stat):
+    return (
+        df_in.sort_values(stat, ascending=False)
+        .head(10)[["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"]]
+        .style.background_gradient(subset=[stat], cmap="Reds")
+        .format(precision=1)
+    )
 
 with col1:
     st.markdown("**Top 10 by ProjSwing+**")
-    st.dataframe(make_leaderboard(df_filtered, "ProjSwing+").style.format(precision=1), use_container_width=True)
+    st.dataframe(leaderboard(df_filtered, "ProjSwing+"), use_container_width=True)
 
 with col2:
     st.markdown("**Top 10 by PowerIndex+**")
-    st.dataframe(make_leaderboard(df_filtered, "PowerIndex+").style.format(precision=1), use_container_width=True)
+    st.dataframe(leaderboard(df_filtered, "PowerIndex+"), use_container_width=True)
 
 # =============================
 # PLAYER DETAIL VIEW
