@@ -131,7 +131,7 @@ st.subheader("🔍 Player Detail View")
 player_select = st.selectbox("Select a Player", sorted(df_filtered["Name"].unique()))
 player_data = df[df["Name"] == player_select].iloc[0]
 
-# Calculate ranks (1 = best)
+# Rank calculations
 total_players = len(df)
 df["Swing+_rank"] = df["Swing+"].rank(ascending=False, method="min").astype(int)
 df["ProjSwing+_rank"] = df["ProjSwing+"].rank(ascending=False, method="min").astype(int)
@@ -141,12 +141,35 @@ p_swing_rank = df.loc[df["Name"] == player_select, "Swing+_rank"].iloc[0]
 p_proj_rank = df.loc[df["Name"] == player_select, "ProjSwing+_rank"].iloc[0]
 p_power_rank = df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]
 
-colA, colB, colC = st.columns(3)
-colA.metric("Swing+", f"{round(player_data['Swing+'], 1)} ({p_swing_rank} / {total_players})")
-colB.metric("ProjSwing+", f"{round(player_data['ProjSwing+'], 1)} ({p_proj_rank} / {total_players})")
-colC.metric("PowerIndex+", f"{round(player_data['PowerIndex+'], 1)} ({p_power_rank} / {total_players})")
+# =============================
+# Custom-styled HTML metric cards
+# =============================
+st.markdown(
+    f"""
+    <div style="display:flex; justify-content:space-around; margin-top:10px;">
+        <div style="text-align:center;">
+            <h3 style="margin-bottom:0;">Swing+</h3>
+            <h2 style="margin:0;">{round(player_data['Swing+'], 1)}</h2>
+            <p style="color:gray; font-size:12px; margin-top:0;">Rank: {p_swing_rank} / {total_players}</p>
+        </div>
+        <div style="text-align:center;">
+            <h3 style="margin-bottom:0;">ProjSwing+</h3>
+            <h2 style="margin:0;">{round(player_data['ProjSwing+'], 1)}</h2>
+            <p style="color:gray; font-size:12px; margin-top:0;">Rank: {p_proj_rank} / {total_players}</p>
+        </div>
+        <div style="text-align:center;">
+            <h3 style="margin-bottom:0;">PowerIndex+</h3>
+            <h2 style="margin:0;">{round(player_data['PowerIndex+'], 1)}</h2>
+            <p style="color:gray; font-size:12px; margin-top:0;">Rank: {p_power_rank} / {total_players}</p>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
-# Optional: Mechanical context
+# =============================
+# Optional Swing Mechanics Section
+# =============================
 if set(extra_cols).issubset(df.columns):
     st.markdown("**Swing Mechanics**")
     col1, col2, col3, col4 = st.columns(4)
