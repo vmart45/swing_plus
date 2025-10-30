@@ -1,6 +1,9 @@
 import pandas as pd
 import streamlit as st
 import os
+import requests
+from PIL import Image
+from io import BytesIO
 
 # =============================
 # PAGE SETUP
@@ -33,16 +36,54 @@ def load_data(path):
 df = load_data(DATA_PATH)
 
 # =============================
+# IMAGE DICTIONARY (example - replace with your image mapping)
+# =============================
+image_dict = {
+    # Example: 'NYY': 'https://www.mlbstatic.com/team-logos/147.svg'
+    # Add your actual abbreviation:logo_url mappings here
+}
+
+def fetch_team_abbreviation(player_id):
+    url = f"https://statsapi.mlb.com/api/v1/people?personIds={player_id}&hydrate=currentTeam"
+    data = requests.get(url).json()
+    url_team = 'https://statsapi.mlb.com/' + data['people'][0]['currentTeam']['link']
+    data_team = requests.get(url_team).json()
+    return data_team['teams'][0]['abbreviation']
+
+def get_team_abbreviation_for_df(df):
+    if 'MLB_ID' not in df.columns:
+        return [''] * len(df)
+    abbs = []
+    for pid in df['MLB_ID']:
+        try:
+            abbs.append(fetch_team_abbreviation(pid))
+        except Exception:
+            abbs.append('')
+    return abbs
+
+# =============================
 # VALIDATE REQUIRED COLUMNS
 # =============================
 core_cols = ["Name", "Age", "Swing+", "PowerIndex+", "ProjSwing+"]
 extra_cols = ["avg_bat_speed", "swing_length", "attack_angle", "swing_tilt"]
+if "MLB_ID" in df.columns:
+    core_cols = ["MLB_ID"] + core_cols
 required_cols = core_cols + [c for c in extra_cols if c in df.columns]
 
 missing = [c for c in core_cols if c not in df.columns]
 if missing:
     st.error(f"Missing required columns: {missing}")
     st.stop()
+
+# =============================
+# Add Team Column
+# =============================
+if "MLB_ID" in df.columns:
+    if "Team" not in df.columns:
+        with st.spinner("Fetching team abbreviations..."):
+            df["Team"] = get_team_abbreviation_for_df(df)
+else:
+    df["Team"] = ""
 
 # =============================
 # SIDEBAR FILTERS
@@ -61,17 +102,18 @@ if search_name:
 # =============================
 # COLOR SCHEMES
 # =============================
-main_cmap = "RdYlBu_r"   # red–white–blue for main metrics
-elite_cmap = "Reds"      # solid red gradient for top performers
+main_cmap = "RdYlBu_r"
+elite_cmap = "Reds"
 
 # =============================
 # PLAYER METRICS TABLE
 # =============================
 st.subheader("📊 Player Metrics Table")
 
-display_cols = [c for c in ["Name", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] + extra_cols if c in df_filtered.columns]
+display_cols = [c for c in ["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] + extra_cols if c in df_filtered.columns]
 
 rename_map = {
+    "Team": "Team",
     "Swing+": "Swing+",
     "ProjSwing+": "ProjSwing+",
     "PowerIndex+": "PowerIndex+",
@@ -104,8 +146,9 @@ col1, col2 = st.columns(2)
 with col1:
     st.markdown("**Top 10 by Swing+**")
     top_swing = df_filtered.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
+    leaderboard_cols = [c for c in ["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] if c in top_swing.columns]
     st.dataframe(
-        top_swing[["Name", "Age", "Swing+", "ProjSwing+", "PowerIndex+"]]
+        top_swing[leaderboard_cols]
         .style.background_gradient(subset=["Swing+"], cmap=elite_cmap)
         .format(precision=1),
         use_container_width=True,
@@ -115,8 +158,9 @@ with col1:
 with col2:
     st.markdown("**Top 10 by ProjSwing+**")
     top_proj = df_filtered.sort_values("ProjSwing+", ascending=False).head(10).reset_index(drop=True)
+    leaderboard_cols = [c for c in ["Name", "Team", "Age", "ProjSwing+", "Swing+", "PowerIndex+"] if c in top_proj.columns]
     st.dataframe(
-        top_proj[["Name", "Age", "ProjSwing+", "Swing+", "PowerIndex+"]]
+        top_proj[leaderboard_cols]
         .style.background_gradient(subset=["ProjSwing+"], cmap=elite_cmap)
         .format(precision=1),
         use_container_width=True,
@@ -131,7 +175,6 @@ st.subheader("🔍 Player Detail View")
 player_select = st.selectbox("Select a Player", sorted(df_filtered["Name"].unique()))
 player_data = df[df["Name"] == player_select].iloc[0]
 
-# Rank calculations
 total_players = len(df)
 df["Swing+_rank"] = df["Swing+"].rank(ascending=False, method="min").astype(int)
 df["ProjSwing+_rank"] = df["ProjSwing+"].rank(ascending=False, method="min").astype(int)
@@ -141,9 +184,6 @@ p_swing_rank = df.loc[df["Name"] == player_select, "Swing+_rank"].iloc[0]
 p_proj_rank = df.loc[df["Name"] == player_select, "ProjSwing+_rank"].iloc[0]
 p_power_rank = df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]
 
-# =============================
-# Custom-styled HTML metric cards
-# =============================
 st.markdown(
     f"""
     <div style="display:flex; justify-content:space-around; margin-top:10px;">
