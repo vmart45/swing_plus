@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
 import plotly.express as px
+import os
 
 # =============================
 # PAGE SETUP
@@ -13,31 +14,32 @@ st.set_page_config(
 
 st.title("⚾ Swing+ & ProjSwing+ Dashboard")
 st.markdown("""
-Visualize **Swing+**, **ProjSwing+**, **PowerIndex+**, and **GapPotential**  
-loaded directly from your GitHub repository.
+Explore **Swing+**, **ProjSwing+**, **PowerIndex+**, and **GapPotential**  
+from your local `ProjSwingPlus_Output.csv` — automatically loaded from this repository.
 """)
 
 # =============================
-# LOAD DATA FROM GITHUB
+# LOAD DATA (LOCAL FILE)
 # =============================
-# 🔧 Replace with your actual repo raw file URL:
-CSV_URL = "https://raw.githubusercontent.com/<your-username>/<your-repo-name>/main/ProjSwingPlus_Output.csv"
+DATA_PATH = "ProjSwingPlus_Output.csv"
 
-@st.cache_data
-def load_data(url: str):
-    return pd.read_csv(url)
-
-try:
-    df = load_data(CSV_URL)
-except Exception as e:
-    st.error(f"❌ Could not load CSV from GitHub:\n\n{e}")
+if not os.path.exists(DATA_PATH):
+    st.error(f"❌ Could not find `{DATA_PATH}` in the app directory.")
     st.stop()
 
-# Validate columns
+@st.cache_data
+def load_data(path):
+    return pd.read_csv(path)
+
+df = load_data(DATA_PATH)
+
+# =============================
+# VALIDATE DATA
+# =============================
 required_cols = ["Name", "Age", "Swing+", "PowerIndex+", "ProjSwing+", "GapPotential"]
 missing = [c for c in required_cols if c not in df.columns]
 if missing:
-    st.error(f"Missing columns: {missing}")
+    st.error(f"Missing required columns: {missing}")
     st.stop()
 
 # =============================
@@ -55,17 +57,18 @@ if search_name:
     df_filtered = df_filtered[df_filtered["Name"].str.contains(search_name, case=False, na=False)]
 
 # =============================
-# MAIN TABLE
+# PLAYER TABLE
 # =============================
 st.subheader("📊 Player Metrics Table")
 
-st.dataframe(
+styled_df = (
     df_filtered[["Name", "Age", "Swing+", "PowerIndex+", "ProjSwing+", "GapPotential"]]
     .sort_values("ProjSwing+", ascending=False)
     .style.background_gradient(subset=["ProjSwing+"], cmap="YlOrBr")
-    .format(precision=1),
-    use_container_width=True
+    .format(precision=1)
 )
+
+st.dataframe(styled_df, use_container_width=True)
 
 # =============================
 # SCATTER PLOT
@@ -85,6 +88,7 @@ fig = px.scatter(
 )
 fig.add_hline(y=100, line_dash="dash", line_color="gray")
 fig.add_vline(x=100, line_dash="dash", line_color="gray")
+
 st.plotly_chart(fig, use_container_width=True)
 
 # =============================
