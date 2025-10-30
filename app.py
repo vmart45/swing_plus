@@ -8,16 +8,19 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("⚾ Swing+ & ProjSwing+ Dashboard")
-st.markdown("""
-Explore **Swing+**, **ProjSwing+**, and **PowerIndex+** —  
-a modern approach to evaluating swing efficiency, scalability, and mechanical power.
-""")
+st.markdown(
+    """
+    <h1 style="text-align:center; margin-bottom:0.8em; font-size:2.7em; letter-spacing:0.02em; color:#183153;">
+        Swing+ & ProjSwing+ Dashboard
+    </h1>
+    """,
+    unsafe_allow_html=True
+)
 
 DATA_PATH = "ProjSwingPlus_Output_with_team.csv"
 
 if not os.path.exists(DATA_PATH):
-    st.error(f"❌ Could not find `{DATA_PATH}` in the app directory.")
+    st.error(f"Could not find `{DATA_PATH}` in the app directory.")
     st.stop()
 
 @st.cache_data
@@ -39,10 +42,10 @@ if missing:
     st.error(f"Missing required columns: {missing}")
     st.stop()
 
-st.sidebar.header("Filters")
+st.sidebar.header("Filters", divider="gray")
 
 min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
-age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, 41))
+age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, 25))
 
 df_filtered = df[(df["Age"] >= age_range[0]) & (df["Age"] <= age_range[1])]
 
@@ -50,10 +53,35 @@ search_name = st.sidebar.text_input("Search Player by Name")
 if search_name:
     df_filtered = df_filtered[df_filtered["Name"].str.contains(search_name, case=False, na=False)]
 
+if "swings_competitive" in df.columns:
+    swings_min = int(df["swings_competitive"].min())
+    swings_max = int(df["swings_competitive"].max())
+    swings_range = st.sidebar.slider("Swings Competitive", swings_min, swings_max, (swings_min, swings_max))
+    df_filtered = df_filtered[
+        (df_filtered["swings_competitive"] >= swings_range[0]) &
+        (df_filtered["swings_competitive"] <= swings_range[1])
+    ]
+
+if "batted_ball_events" in df.columns:
+    bbe_min = int(df["batted_ball_events"].min())
+    bbe_max = int(df["batted_ball_events"].max())
+    bbe_range = st.sidebar.slider("Batted Ball Events", bbe_min, bbe_max, (bbe_min, bbe_max))
+    df_filtered = df_filtered[
+        (df_filtered["batted_ball_events"] >= bbe_range[0]) &
+        (df_filtered["batted_ball_events"] <= bbe_range[1])
+    ]
+
 main_cmap = "RdYlBu_r"
 elite_cmap = "Reds"
 
-st.subheader("📊 Player Metrics Table")
+st.markdown(
+    """
+    <h2 style="text-align:center; margin-top:1.8em; margin-bottom:0.8em; font-size:2em; letter-spacing:0.01em; color:#2a3757;">
+        Player Metrics Table
+    </h2>
+    """,
+    unsafe_allow_html=True
+)
 
 display_cols = [c for c in ["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] + extra_cols if c in df_filtered.columns]
 
@@ -81,12 +109,26 @@ styled_df = (
 
 st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
-st.subheader("🏆 Top 10 Leaderboards")
+st.markdown(
+    """
+    <h2 style="text-align:center; margin-top:1.8em; margin-bottom:0.8em; font-size:2em; letter-spacing:0.01em; color:#2a3757;">
+        Top 10 Leaderboards
+    </h2>
+    """,
+    unsafe_allow_html=True
+)
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown("**Top 10 by Swing+**")
+    st.markdown(
+        """
+        <div style="text-align:center; font-size:1.25em; font-weight:600; margin-bottom:0.7em; color:#385684;">
+            Top 10 by Swing+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
     top_swing = df_filtered.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
     leaderboard_cols = [c for c in ["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] if c in top_swing.columns]
     st.dataframe(
@@ -98,7 +140,14 @@ with col1:
     )
 
 with col2:
-    st.markdown("**Top 10 by ProjSwing+**")
+    st.markdown(
+        """
+        <div style="text-align:center; font-size:1.25em; font-weight:600; margin-bottom:0.7em; color:#385684;">
+            Top 10 by ProjSwing+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
     top_proj = df_filtered.sort_values("ProjSwing+", ascending=False).head(10).reset_index(drop=True)
     leaderboard_cols = [c for c in ["Name", "Team", "Age", "ProjSwing+", "Swing+", "PowerIndex+"] if c in top_proj.columns]
     st.dataframe(
@@ -109,14 +158,23 @@ with col2:
         hide_index=True
     )
 
-st.subheader("🔍 Player Detail View")
+st.markdown(
+    """
+    <h2 style="text-align:center; margin-top:1.8em; margin-bottom:0.7em; font-size:2em; letter-spacing:0.01em; color:#2a3757;">
+        Player Detail View
+    </h2>
+    """,
+    unsafe_allow_html=True
+)
 
 player_select = st.selectbox("Select a Player", sorted(df_filtered["Name"].unique()))
 player_row = df[df["Name"] == player_select].iloc[0]
 
 st.markdown(
     f"""
-    <h2 style="text-align:center; margin-bottom:0.5em;">{player_select}</h2>
+    <h3 style="text-align:center; margin-bottom:1.2em; font-size:1.7em; color:#183153; letter-spacing:0.01em;">
+        {player_select}
+    </h3>
     """,
     unsafe_allow_html=True
 )
@@ -154,7 +212,14 @@ st.markdown(
 )
 
 if set(extra_cols).issubset(df.columns):
-    st.markdown("**Swing Mechanics**")
+    st.markdown(
+        """
+        <h3 style="text-align:center; margin-top:2em; font-size:1.22em; color:#183153; letter-spacing:0.01em;">
+            Swing Mechanics
+        </h3>
+        """,
+        unsafe_allow_html=True
+    )
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Avg Bat Speed", f"{round(player_row['avg_bat_speed'], 1)} mph")
     col2.metric("Swing Length", round(player_row["swing_length"], 2))
