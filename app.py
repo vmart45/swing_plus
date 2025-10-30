@@ -14,7 +14,7 @@ st.set_page_config(
 
 st.title("⚾ Swing+ & ProjSwing+ Dashboard")
 st.markdown("""
-Explore **Swing+**, **ProjSwing+**, **PowerIndex+**, and **GapPotential**  
+Explore **Swing+**, **ProjSwing+**, **PowerIndex+**, and **GapPotential**
 """)
 
 # =============================
@@ -63,12 +63,12 @@ st.subheader("📊 Player Metrics Table")
 styled_df = (
     df_filtered[["Name", "Age", "Swing+", "PowerIndex+", "ProjSwing+", "GapPotential"]]
     .sort_values("ProjSwing+", ascending=False)
+    .reset_index(drop=True)  # ✅ remove index
     .style.background_gradient(subset=["ProjSwing+"], cmap="YlOrBr")
     .format(precision=1)
 )
 
-st.dataframe(styled_df, use_container_width=True)
-
+st.dataframe(styled_df, use_container_width=True, hide_index=True)  # ✅ hide index
 
 # =============================
 # LEADERBOARDS
@@ -79,22 +79,24 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.markdown("**Top 10 by ProjSwing+**")
-    top_proj = df_filtered.sort_values("ProjSwing+", ascending=False).head(10)
+    top_proj = df_filtered.sort_values("ProjSwing+", ascending=False).head(10).reset_index(drop=True)
     st.dataframe(
         top_proj[["Name", "Age", "ProjSwing+", "Swing+", "GapPotential"]]
         .style.background_gradient(subset=["ProjSwing+"], cmap="YlOrBr")
         .format(precision=1),
-        use_container_width=True
+        use_container_width=True,
+        hide_index=True  # ✅ hide index
     )
 
 with col2:
     st.markdown("**Top 10 by PowerIndex+**")
-    top_power = df_filtered.sort_values("PowerIndex+", ascending=False).head(10)
+    top_power = df_filtered.sort_values("PowerIndex+", ascending=False).head(10).reset_index(drop=True)
     st.dataframe(
         top_power[["Name", "Age", "PowerIndex+", "Swing+", "ProjSwing+"]]
         .style.background_gradient(subset=["PowerIndex+"], cmap="YlOrBr")
         .format(precision=1),
-        use_container_width=True
+        use_container_width=True,
+        hide_index=True  # ✅ hide index
     )
 
 # =============================
