@@ -132,31 +132,22 @@ p_power_rank = df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]
 
 st.markdown(
     f"""
-    <div style="display:flex; justify-content:center; gap:60px; margin-top:10px; margin-bottom:20px;">
-        <div style="text-align:center;">
-            <div style="width:70px; height:70px; border-radius:50%; background:linear-gradient(135deg,#FFECB3,#F44336 80%); display:flex; align-items:center; justify-content:center; margin:0 auto;">
-                <span style="font-size:2em; font-weight:600; color:#222;">{p_swing_rank}</span>
-            </div>
-            <div style="margin-top:6px; font-weight:600;">Swing+</div>
-            <div style="color:gray; font-size:13px;">{round(player_row['Swing+'],1)}</div>
-        </div>
-        <div style="text-align:center;">
-            <div style="width:70px; height:70px; border-radius:50%; background:linear-gradient(135deg,#C8E6C9,#388E3C 80%); display:flex; align-items:center; justify-content:center; margin:0 auto;">
-                <span style="font-size:2em; font-weight:600; color:#222;">{p_proj_rank}</span>
-            </div>
-            <div style="margin-top:6px; font-weight:600;">ProjSwing+</div>
-            <div style="color:gray; font-size:13px;">{round(player_row['ProjSwing+'],1)}</div>
-        </div>
-        <div style="text-align:center;">
-            <div style="width:70px; height:70px; border-radius:50%; background:linear-gradient(135deg,#B3E5FC,#1976D2 80%); display:flex; align-items:center; justify-content:center; margin:0 auto;">
-                <span style="font-size:2em; font-weight:600; color:#222;">{p_power_rank}</span>
-            </div>
-            <div style="margin-top:6px; font-weight:600;">PowerIndex+</div>
-            <div style="color:gray; font-size:13px;">{round(player_row['PowerIndex+'],1)}</div>
-        </div>
-    </div>
-    <div style="text-align:center; font-size:12px; color:#888; margin-top:-10px;">
-      Rank out of {total_players} players
+    <div style="display: flex; justify-content: center; gap: 32px; margin-top: 20px; margin-bottom: 28px;">
+      <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
+        <div style="font-size: 2.2em; font-weight: 700; color: #C62828;">{player_row['Swing+']:.1f}</div>
+        <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">Swing+</div>
+        <span style="background: #FFC10733; color: #B71C1C; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_swing_rank} of {total_players}</span>
+      </div>
+      <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
+        <div style="font-size: 2.2em; font-weight: 700; color: #2E7D32;">{player_row['ProjSwing+']:.1f}</div>
+        <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">ProjSwing+</div>
+        <span style="background: #C8E6C933; color: #1B5E20; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_proj_rank} of {total_players}</span>
+      </div>
+      <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
+        <div style="font-size: 2.2em; font-weight: 700; color: #1565C0;">{player_row['PowerIndex+']:.1f}</div>
+        <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">PowerIndex+</div>
+        <span style="background: #B3E5FC33; color: #01579B; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_power_rank} of {total_players}</span>
+      </div>
     </div>
     """,
     unsafe_allow_html=True
