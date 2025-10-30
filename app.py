@@ -15,7 +15,6 @@ st.set_page_config(
 st.title("⚾ Swing+ & ProjSwing+ Dashboard")
 st.markdown("""
 Explore **Swing+**, **ProjSwing+**, **PowerIndex+**, and **GapPotential**  
-from your local `ProjSwingPlus_Output.csv` — automatically loaded from this repository.
 """)
 
 # =============================
