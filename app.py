@@ -14,11 +14,12 @@ st.set_page_config(
 
 st.title("⚾ Swing+ & ProjSwing+ Dashboard")
 st.markdown("""
-Explore **Swing+**, **ProjSwing+**, **PowerIndex+**, and **GapPotential**
+Explore **Swing+**, **ProjSwing+**, and **PowerIndex+** —  
+an advanced look at swing quality, projectability, and mechanical efficiency.
 """)
 
 # =============================
-# LOAD DATA (LOCAL FILE)
+# LOAD DATA
 # =============================
 DATA_PATH = "ProjSwingPlus_Output.csv"
 
@@ -33,10 +34,13 @@ def load_data(path):
 df = load_data(DATA_PATH)
 
 # =============================
-# VALIDATE DATA
+# VALIDATE REQUIRED COLUMNS
 # =============================
-required_cols = ["Name", "Age", "Swing+", "PowerIndex+", "ProjSwing+", "GapPotential"]
-missing = [c for c in required_cols if c not in df.columns]
+core_cols = ["Name", "Age", "Swing+", "PowerIndex+", "ProjSwing+"]
+extra_cols = ["avg_bat_speed", "swing_length", "attack_angle", "swing_tilt"]
+required_cols = core_cols + [c for c in extra_cols if c in df.columns]
+
+missing = [c for c in core_cols if c not in df.columns]
 if missing:
     st.error(f"Missing required columns: {missing}")
     st.stop()
@@ -56,19 +60,27 @@ if search_name:
     df_filtered = df_filtered[df_filtered["Name"].str.contains(search_name, case=False, na=False)]
 
 # =============================
-# PLAYER TABLE
+# COLOR PALETTE (modern & clean)
 # =============================
-st.subheader("📊 Player Metrics Table")
+# Deep blue-to-red diverging palette for metrics
+custom_cmap = "RdYlBu_r"  # reversed so high values = red, low = blue
+
+# =============================
+# PLAYER METRICS TABLE
+# =============================
+st.subheader("📊 Player Metrics Table (Sorted by Swing+)")
+
+display_cols = [c for c in ["Name", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] + extra_cols if c in df_filtered.columns]
 
 styled_df = (
-    df_filtered[["Name", "Age", "Swing+", "PowerIndex+", "ProjSwing+", "GapPotential"]]
-    .sort_values("ProjSwing+", ascending=False)
-    .reset_index(drop=True)  # ✅ remove index
-    .style.background_gradient(subset=["ProjSwing+"], cmap="YlOrBr")
+    df_filtered[display_cols]
+    .sort_values("Swing+", ascending=False)
+    .reset_index(drop=True)
+    .style.background_gradient(subset=["Swing+", "ProjSwing+", "PowerIndex+"], cmap=custom_cmap)
     .format(precision=1)
 )
 
-st.dataframe(styled_df, use_container_width=True, hide_index=True)  # ✅ hide index
+st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
 # =============================
 # LEADERBOARDS
@@ -78,37 +90,45 @@ st.subheader("🏆 Top 10 Leaderboards")
 col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown("**Top 10 by ProjSwing+**")
-    top_proj = df_filtered.sort_values("ProjSwing+", ascending=False).head(10).reset_index(drop=True)
+    st.markdown("**Top 10 by Swing+**")
+    top_swing = df_filtered.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
     st.dataframe(
-        top_proj[["Name", "Age", "ProjSwing+", "Swing+", "GapPotential"]]
-        .style.background_gradient(subset=["ProjSwing+"], cmap="YlOrBr")
+        top_swing[["Name", "Age", "Swing+", "ProjSwing+", "PowerIndex+"]]
+        .style.background_gradient(subset=["Swing+"], cmap=custom_cmap)
         .format(precision=1),
         use_container_width=True,
-        hide_index=True  # ✅ hide index
+        hide_index=True
     )
 
 with col2:
-    st.markdown("**Top 10 by PowerIndex+**")
-    top_power = df_filtered.sort_values("PowerIndex+", ascending=False).head(10).reset_index(drop=True)
+    st.markdown("**Top 10 by ProjSwing+**")
+    top_proj = df_filtered.sort_values("ProjSwing+", ascending=False).head(10).reset_index(drop=True)
     st.dataframe(
-        top_power[["Name", "Age", "PowerIndex+", "Swing+", "ProjSwing+"]]
-        .style.background_gradient(subset=["PowerIndex+"], cmap="YlOrBr")
+        top_proj[["Name", "Age", "ProjSwing+", "Swing+", "PowerIndex+"]]
+        .style.background_gradient(subset=["ProjSwing+"], cmap=custom_cmap)
         .format(precision=1),
         use_container_width=True,
-        hide_index=True  # ✅ hide index
+        hide_index=True
     )
 
 # =============================
-# PLAYER DETAIL
+# PLAYER DETAIL VIEW
 # =============================
 st.subheader("🔍 Player Detail View")
 
 player_select = st.selectbox("Select a Player", sorted(df_filtered["Name"].unique()))
 player_data = df[df["Name"] == player_select].iloc[0]
 
-colA, colB, colC, colD = st.columns(4)
+colA, colB, colC = st.columns(3)
 colA.metric("Swing+", round(player_data["Swing+"], 1))
-colB.metric("PowerIndex+", round(player_data["PowerIndex+"], 1))
-colC.metric("ProjSwing+", round(player_data["ProjSwing+"], 1))
-colD.metric("GapPotential", round(player_data["GapPotential"], 1))
+colB.metric("ProjSwing+", round(player_data["ProjSwing+"], 1))
+colC.metric("PowerIndex+", round(player_data["PowerIndex+"], 1))
+
+# Optional: include mechanical context if available
+if set(extra_cols).issubset(df.columns):
+    st.markdown("**Swing Mechanics**")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Avg Bat Speed", f"{round(player_data['avg_bat_speed'], 1)} mph")
+    col2.metric("Swing Length", round(player_data["swing_length"], 2))
+    col3.metric("Attack Angle", round(player_data["attack_angle"], 1))
+    col4.metric("Swing Tilt", round(player_data["swing_tilt"], 1))
