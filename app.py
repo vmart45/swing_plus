@@ -32,7 +32,6 @@ def load_data(path):
 
 df = load_data(DATA_PATH)
 
-# MLB team logo dictionary
 mlb_teams = [
     {"team": "AZ", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/ari.png&h=500&w=500"},
     {"team": "ATL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/atl.png&h=500&w=500"},
@@ -69,12 +68,14 @@ df_image = pd.DataFrame(mlb_teams)
 image_dict = df_image.set_index('team')['logo_url'].to_dict()
 
 core_cols = ["Name", "Age", "Swing+", "PowerIndex+", "ProjSwing+"]
-extra_cols = ["avg_bat_speed", "swing_length", "attack_angle", "swing_tilt"]
+extra_cols = ["avg_bat_speed", "swing_length", "attack_angle", "swing_tilt", "attack_direction"]
+metric_extras = ["est_woba", "xwOBA_pred"]
+
 if "id" in df.columns:
     core_cols = ["id"] + core_cols
 if "Team" in df.columns and "Team" not in core_cols:
     core_cols.insert(1, "Team")
-required_cols = core_cols + [c for c in extra_cols if c in df.columns]
+required_cols = core_cols + [c for c in extra_cols + metric_extras if c in df.columns]
 
 missing = [c for c in core_cols if c not in df.columns]
 if missing:
@@ -84,7 +85,7 @@ if missing:
 st.sidebar.header("Filters", divider="gray")
 
 min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
-age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, 25))
+age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, max_age))
 
 df_filtered = df[(df["Age"] >= age_range[0]) & (df["Age"] <= age_range[1])]
 
@@ -122,7 +123,13 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-display_cols = [c for c in ["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] + extra_cols if c in df_filtered.columns]
+display_cols = [
+    c for c in [
+        "Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+",
+        "est_woba", "xwOBA_pred",
+        "avg_bat_speed", "swing_length", "attack_angle", "swing_tilt", "attack_direction"
+    ] if c in df_filtered.columns
+]
 
 rename_map = {
     "Team": "Team",
@@ -132,7 +139,10 @@ rename_map = {
     "avg_bat_speed": "Avg Bat Speed (mph)",
     "swing_length": "Swing Length (m)",
     "attack_angle": "Attack Angle (°)",
-    "swing_tilt": "Swing Tilt (°)"
+    "swing_tilt": "Swing Tilt (°)",
+    "attack_direction": "Attack Direction",
+    "est_woba": "xwOBA",
+    "xwOBA_pred": "Predicted xwOBA"
 }
 
 styled_df = (
@@ -141,9 +151,10 @@ styled_df = (
     .sort_values("Swing+", ascending=False)
     .reset_index(drop=True)
     .style.background_gradient(
-        subset=["Swing+", "ProjSwing+", "PowerIndex+"], cmap=main_cmap
+        subset=[c for c in ["Swing+", "ProjSwing+", "PowerIndex+", "xwOBA", "Predicted xwOBA"] if c in rename_map.values()],
+        cmap=main_cmap
     )
-    .format(precision=1)
+    .format(precision=3)
 )
 
 st.dataframe(styled_df, use_container_width=True, hide_index=True)
@@ -217,7 +228,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Display MLB headshot if ID present
 if "id" in player_row and pd.notnull(player_row["id"]):
     player_id = str(int(player_row["id"]))
     headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
@@ -225,13 +235,13 @@ if "id" in player_row and pd.notnull(player_row["id"]):
         response = requests.get(headshot_url, timeout=5)
         if response.status_code == 200:
             headshot_img = Image.open(BytesIO(response.content))
-            st.image(headshot_img, width=80, caption="", use_column_width=False)
+            st.image(headshot_img, width=120, caption="", use_column_width=False)
         else:
-            st.image("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", width=80, use_column_width=False)
+            st.image("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", width=120, use_column_width=False)
     except Exception:
-        st.image("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", width=80, use_column_width=False)
+        st.image("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", width=120, use_column_width=False)
 else:
-    st.image("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", width=80, use_column_width=False)
+    st.image("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", width=120, use_column_width=False)
 
 st.markdown(
     f"""
@@ -241,7 +251,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Player name and team logo
 team_abb = player_row["Team"] if "Team" in player_row and pd.notnull(player_row["Team"]) else ""
 logo_url = image_dict.get(team_abb, "")
 if logo_url:
@@ -318,10 +327,11 @@ if set(extra_cols).issubset(df.columns):
         unsafe_allow_html=True
     )
     mech_metrics = [
-        ("Avg Bat Speed", f"{round(player_row['avg_bat_speed'], 1)} mph"),
-        ("Swing Length", f"{round(player_row['swing_length'], 2)}"),
-        ("Attack Angle", f"{round(player_row['attack_angle'], 1)}"),
-        ("Swing Tilt", f"{round(player_row['swing_tilt'], 1)}")
+        ("Avg Bat Speed", f"{round(player_row['avg_bat_speed'], 1)} mph" if "avg_bat_speed" in player_row else ""),
+        ("Swing Length", f"{round(player_row['swing_length'], 2)}" if "swing_length" in player_row else ""),
+        ("Attack Angle", f"{round(player_row['attack_angle'], 1)}" if "attack_angle" in player_row else ""),
+        ("Swing Tilt", f"{round(player_row['swing_tilt'], 1)}" if "swing_tilt" in player_row else ""),
+        ("Attack Direction", f"{round(player_row['attack_direction'], 1)}" if "attack_direction" in player_row else "")
     ]
     for label, value in mech_metrics:
         st.markdown(
