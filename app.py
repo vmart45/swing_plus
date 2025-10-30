@@ -5,9 +5,6 @@ import requests
 from PIL import Image
 from io import BytesIO
 
-# =============================
-# PAGE SETUP
-# =============================
 st.set_page_config(
     page_title="Swing+ & ProjSwing+ Dashboard",
     page_icon="⚾",
@@ -20,9 +17,6 @@ Explore **Swing+**, **ProjSwing+**, and **PowerIndex+** —
 a modern approach to evaluating swing efficiency, scalability, and mechanical power.
 """)
 
-# =============================
-# LOAD DATA
-# =============================
 DATA_PATH = "ProjSwingPlus_Output.csv"
 
 if not os.path.exists(DATA_PATH):
@@ -35,9 +29,6 @@ def load_data(path):
 
 df = load_data(DATA_PATH)
 
-# =============================
-# IMAGE DICTIONARY (example - replace with your image mapping)
-# =============================
 image_dict = {
     # Example: 'NYY': 'https://www.mlbstatic.com/team-logos/147.svg'
     # Add your actual abbreviation:logo_url mappings here
@@ -51,23 +42,20 @@ def fetch_team_abbreviation(player_id):
     return data_team['teams'][0]['abbreviation']
 
 def get_team_abbreviation_for_df(df):
-    if 'MLB_ID' not in df.columns:
+    if 'id' not in df.columns:
         return [''] * len(df)
     abbs = []
-    for pid in df['MLB_ID']:
+    for pid in df['id']:
         try:
             abbs.append(fetch_team_abbreviation(pid))
         except Exception:
             abbs.append('')
     return abbs
 
-# =============================
-# VALIDATE REQUIRED COLUMNS
-# =============================
 core_cols = ["Name", "Age", "Swing+", "PowerIndex+", "ProjSwing+"]
 extra_cols = ["avg_bat_speed", "swing_length", "attack_angle", "swing_tilt"]
-if "MLB_ID" in df.columns:
-    core_cols = ["MLB_ID"] + core_cols
+if "id" in df.columns:
+    core_cols = ["id"] + core_cols
 required_cols = core_cols + [c for c in extra_cols if c in df.columns]
 
 missing = [c for c in core_cols if c not in df.columns]
@@ -75,19 +63,13 @@ if missing:
     st.error(f"Missing required columns: {missing}")
     st.stop()
 
-# =============================
-# Add Team Column
-# =============================
-if "MLB_ID" in df.columns:
+if "id" in df.columns:
     if "Team" not in df.columns:
         with st.spinner("Fetching team abbreviations..."):
             df["Team"] = get_team_abbreviation_for_df(df)
 else:
     df["Team"] = ""
 
-# =============================
-# SIDEBAR FILTERS
-# =============================
 st.sidebar.header("Filters")
 
 min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
@@ -99,15 +81,9 @@ search_name = st.sidebar.text_input("Search Player by Name")
 if search_name:
     df_filtered = df_filtered[df_filtered["Name"].str.contains(search_name, case=False, na=False)]
 
-# =============================
-# COLOR SCHEMES
-# =============================
 main_cmap = "RdYlBu_r"
 elite_cmap = "Reds"
 
-# =============================
-# PLAYER METRICS TABLE
-# =============================
 st.subheader("📊 Player Metrics Table")
 
 display_cols = [c for c in ["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] + extra_cols if c in df_filtered.columns]
@@ -136,9 +112,6 @@ styled_df = (
 
 st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
-# =============================
-# LEADERBOARDS
-# =============================
 st.subheader("🏆 Top 10 Leaderboards")
 
 col1, col2 = st.columns(2)
@@ -167,9 +140,6 @@ with col2:
         hide_index=True
     )
 
-# =============================
-# PLAYER DETAIL VIEW
-# =============================
 st.subheader("🔍 Player Detail View")
 
 player_select = st.selectbox("Select a Player", sorted(df_filtered["Name"].unique()))
@@ -207,9 +177,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# =============================
-# Optional Swing Mechanics Section
-# =============================
 if set(extra_cols).issubset(df.columns):
     st.markdown("**Swing Mechanics**")
     col1, col2, col3, col4 = st.columns(4)
