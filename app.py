@@ -14,12 +14,12 @@ st.set_page_config(
 
 st.title("⚾ Swing+ & ProjSwing+ Dashboard")
 st.markdown("""
-Explore **Swing+**, **ProjSwing+**, and **PowerIndex+** —  
-a modern approach to evaluating swing efficiency, scalability, and mechanical power.
+Interactive dashboard for **Swing+**, **ProjSwing+**, and **PowerIndex+**.  
+Explore swing efficiency, mechanical power, and batted-ball traits across players.
 """)
 
 # =============================
-# MLB LOGOS
+# MLB LOGO MAPPING
 # =============================
 mlb_teams = [
     {"team": "AZ", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/ari.png"},
@@ -33,7 +33,7 @@ mlb_teams = [
     {"team": "COL", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/col.png"},
     {"team": "DET", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/det.png"},
     {"team": "HOU", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/hou.png"},
-    {"team": "KC", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/kc.png"},
+    {"team": "KC",  "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/kc.png"},
     {"team": "LAA", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/laa.png"},
     {"team": "LAD", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/lad.png"},
     {"team": "MIA", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/mia.png"},
@@ -44,24 +44,24 @@ mlb_teams = [
     {"team": "OAK", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/oak.png"},
     {"team": "PHI", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/phi.png"},
     {"team": "PIT", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/pit.png"},
-    {"team": "SD", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/sd.png"},
-    {"team": "SF", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/sf.png"},
+    {"team": "SD",  "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/sd.png"},
+    {"team": "SF",  "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/sf.png"},
     {"team": "SEA", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/sea.png"},
-    {"team": "STL", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/stl.png"},
-    {"team": "TB", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/tb.png"},
-    {"team": "TEX", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/tex.png"},
-    {"team": "TOR", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/tor.png"},
-    {"team": "WSH", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/wsh.png"}
+    {"team": "STL","logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/stl.png"},
+    {"team": "TB",  "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/tb.png"},
+    {"team": "TEX","logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/tex.png"},
+    {"team": "TOR","logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/tor.png"},
+    {"team": "WSH","logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/wsh.png"}
 ]
 image_dict = {t["team"]: t["logo_url"] for t in mlb_teams}
 TEAM_MAP = {"ARI": "AZ", "CHW": "CWS", "KCR": "KC", "SDP": "SD", "SFG": "SF", "TBR": "TB", "WSN": "WSH"}
 
 # =============================
-# LOAD DATA
+# LOAD CSV
 # =============================
 DATA_PATH = "ProjSwingPlus_Output.csv"
 if not os.path.exists(DATA_PATH):
-    st.error(f"❌ Could not find `{DATA_PATH}` in the app directory.")
+    st.error(f"❌ Missing `{DATA_PATH}` in app directory.")
     st.stop()
 
 @st.cache_data
@@ -69,15 +69,16 @@ def load_data(path):
     return pd.read_csv(path)
 
 df = load_data(DATA_PATH)
+
 if "id" not in df.columns:
-    st.error("❌ Missing `id` column in ProjSwingPlus_Output.csv")
+    st.error("❌ `id` column not found in CSV.")
     st.stop()
 
 # =============================
-# FETCH TEAMS VIA MLB API (persistently cached)
+# PERSISTENT TEAM FETCHING (no spinner / re-fetch)
 # =============================
 @st.cache_data(persist=True, show_spinner=False)
-def fetch_team_data(ids):
+def get_team_data(ids):
     team_map = {}
     for pid in ids:
         try:
@@ -85,14 +86,13 @@ def fetch_team_data(ids):
             r = requests.get(url, timeout=5).json()
             team_link = r["people"][0]["currentTeam"]["link"]
             team_data = requests.get(f"https://statsapi.mlb.com{team_link}", timeout=5).json()
-            raw_abbr = team_data["teams"][0]["abbreviation"]
-            team_map[pid] = TEAM_MAP.get(raw_abbr, raw_abbr)
+            abbr = team_data["teams"][0]["abbreviation"]
+            team_map[pid] = TEAM_MAP.get(abbr, abbr)
         except Exception:
             team_map[pid] = None
     return team_map
 
-# Fetch once and persist
-team_dict = fetch_team_data(df["id"].unique())
+team_dict = get_team_data(df["id"].unique())
 df["Team"] = df["id"].map(team_dict)
 
 # =============================
@@ -108,19 +108,23 @@ if search_name:
     df_filtered = df_filtered[df_filtered["Name"].str.contains(search_name, case=False, na=False)]
 
 # =============================
-# COMPUTE RANKS (BEFORE SELECTION)
+# COMPUTE RANKS
 # =============================
 total_players = len(df)
-for col in ["Swing+", "ProjSwing+", "PowerIndex+"]:
-    df[f"{col}_rank"] = df[col].rank(ascending=False, method="min").astype(int)
+for stat in ["Swing+", "ProjSwing+", "PowerIndex+"]:
+    df[f"{stat}_rank"] = df[stat].rank(ascending=False, method="min").astype(int)
 
 # =============================
-# PLAYER METRICS TABLE (SCROLLABLE + COLOR)
+# PLAYER METRICS TABLE
 # =============================
 st.subheader("📊 Player Metrics Table")
 
+# dynamically include extra stats if present
+extra_stats = [c for c in ["BatSpeed", "AttackAngle", "SweetSpotPct"] if c in df.columns]
+cols = ["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] + extra_stats
+
 styled = (
-    df_filtered[["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"]]
+    df_filtered[cols]
     .sort_values("Swing+", ascending=False)
     .style.background_gradient(subset=["Swing+"], cmap="Reds")
     .background_gradient(subset=["ProjSwing+"], cmap="Oranges")
@@ -135,21 +139,22 @@ st.dataframe(styled, use_container_width=True)
 st.subheader("🏆 Top 10 Leaderboards")
 col1, col2 = st.columns(2)
 
-def leaderboard(df_in, stat):
+def make_leaderboard(df_in, metric):
+    cols_lb = ["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] + extra_stats
     return (
-        df_in.sort_values(stat, ascending=False)
-        .head(10)[["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"]]
-        .style.background_gradient(subset=[stat], cmap="Reds")
+        df_in.sort_values(metric, ascending=False)
+        .head(10)[cols_lb]
+        .style.background_gradient(subset=[metric], cmap="Reds")
         .format(precision=1)
     )
 
 with col1:
     st.markdown("**Top 10 by ProjSwing+**")
-    st.dataframe(leaderboard(df_filtered, "ProjSwing+"), use_container_width=True)
+    st.dataframe(make_leaderboard(df_filtered, "ProjSwing+"), use_container_width=True)
 
 with col2:
     st.markdown("**Top 10 by PowerIndex+**")
-    st.dataframe(leaderboard(df_filtered, "PowerIndex+"), use_container_width=True)
+    st.dataframe(make_leaderboard(df_filtered, "PowerIndex+"), use_container_width=True)
 
 # =============================
 # PLAYER DETAIL VIEW
@@ -178,3 +183,7 @@ colA, colB, colC = st.columns(3)
 colA.metric("Swing+", f"{player_row['Swing+']:.1f}", f"Rank {int(player_row['Swing+_rank'])}/{total_players}")
 colB.metric("ProjSwing+", f"{player_row['ProjSwing+']:.1f}", f"Rank {int(player_row['ProjSwing+_rank'])}/{total_players}")
 colC.metric("PowerIndex+", f"{player_row['PowerIndex+']:.1f}", f"Rank {int(player_row['PowerIndex+_rank'])}/{total_players}")
+
+if extra_stats:
+    st.write("**Additional Metrics:**")
+    st.dataframe(player_row[extra_stats].to_frame().T.style.format(precision=1))
