@@ -4,6 +4,7 @@ import requests
 from PIL import Image
 from io import BytesIO
 import os
+from functools import lru_cache
 
 # =============================
 # PAGE SETUP
@@ -21,7 +22,7 @@ a modern approach to evaluating swing efficiency, scalability, and mechanical po
 """)
 
 # =============================
-# MLB TEAM LOGOS
+# MLB LOGOS DICT
 # =============================
 mlb_teams = [
     {"team": "AZ", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/ari.png"},
@@ -55,13 +56,18 @@ mlb_teams = [
     {"team": "TOR", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/tor.png"},
     {"team": "WSH", "logo_url": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/wsh.png"}
 ]
-image_dict = {team["team"]: team["logo_url"] for team in mlb_teams}
+image_dict = {t["team"]: t["logo_url"] for t in mlb_teams}
+
+# Normalize MLB → ESPN abbreviations
+TEAM_MAP = {
+    "ARI": "AZ", "CHW": "CWS", "KCR": "KC", "SDP": "SD", "SFG": "SF",
+    "TBR": "TB", "WSN": "WSH", "LAA": "LAA", "LAD": "LAD"
+}
 
 # =============================
 # LOAD PLAYER DATA
 # =============================
 DATA_PATH = "ProjSwingPlus_Output.csv"
-
 if not os.path.exists(DATA_PATH):
     st.error(f"❌ Could not find `{DATA_PATH}` in the app directory.")
     st.stop()
@@ -71,19 +77,39 @@ def load_data(path):
     return pd.read_csv(path)
 
 df = load_data(DATA_PATH)
-
-if "Team" not in df.columns:
-    st.error("❌ Missing `Team` column in ProjSwingPlus_Output.csv")
+if "player_id" not in df.columns:
+    st.error("❌ Missing `player_id` column in ProjSwingPlus_Output.csv")
     st.stop()
 
 # =============================
-# FILTERS
+# FETCH TEAMS FROM MLB API
+# =============================
+@st.cache_data(show_spinner=False)
+def get_player_team(pid):
+    """Fetch current team abbrev from MLB API by player_id."""
+    try:
+        url = f"https://statsapi.mlb.com/api/v1/people?personIds={pid}&hydrate=currentTeam"
+        r = requests.get(url, timeout=5).json()
+        team_info = r["people"][0]["currentTeam"]
+        team_url = f"https://statsapi.mlb.com{team_info['link']}"
+        t = requests.get(team_url, timeout=5).json()
+        raw_abbr = t["teams"][0]["abbreviation"]
+        return TEAM_MAP.get(raw_abbr, raw_abbr)
+    except Exception:
+        return None
+
+st.info("Fetching team data from MLB API (cached)… this runs once per player.")
+
+df["Team"] = df["player_id"].apply(get_player_team)
+df["Logo"] = df["Team"].map(image_dict)
+
+# =============================
+# SIDEBAR FILTERS
 # =============================
 st.sidebar.header("Filters")
 
 min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
 age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, 25))
-
 df_filtered = df[(df["Age"] >= age_range[0]) & (df["Age"] <= age_range[1])]
 
 search_name = st.sidebar.text_input("Search Player by Name")
@@ -91,79 +117,56 @@ if search_name:
     df_filtered = df_filtered[df_filtered["Name"].str.contains(search_name, case=False, na=False)]
 
 # =============================
-# TABLE WITH LOGOS
+# PLAYER METRICS TABLE WITH LOGO
 # =============================
 st.subheader("📊 Player Metrics Table")
 
-def logo_html(team):
-    if pd.isna(team) or team not in image_dict:
-        return ""
-    return f'<img src="{image_dict[team]}" width="35">'
+def logo_html(url):
+    return f'<img src="{url}" width="35">' if pd.notna(url) else ""
 
-df_filtered["Logo"] = df_filtered["Team"].apply(logo_html)
+df_filtered["Logo"] = df_filtered["Logo"].apply(logo_html)
 
-styled_html = (
+table_html = (
     df_filtered.sort_values("Swing+", ascending=False)
     [["Logo", "Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"]]
     .to_html(escape=False, index=False)
 )
 
-st.markdown(styled_html, unsafe_allow_html=True)
+st.markdown(table_html, unsafe_allow_html=True)
 
 # =============================
-# PLAYER DETAIL VIEW WITH LOGO
+# PLAYER DETAIL VIEW
 # =============================
 st.subheader("🔍 Player Detail View")
 
 player_select = st.selectbox("Select a Player", sorted(df_filtered["Name"].unique()))
-player_data = df[df["Name"] == player_select].iloc[0]
-team_logo = image_dict.get(player_data["Team"], None)
+p = df[df["Name"] == player_select].iloc[0]
 
-# Header with logo + name
+team_logo = p["Logo"]
+team_name = p["Team"]
+
+# Player header with logo
 if team_logo:
     st.markdown(
         f"""
         <div style="display:flex; align-items:center; gap:10px;">
-            <img src="{team_logo}" width="60">
-            <h2 style="margin:0;">{player_data['Name']}</h2>
+            {team_logo}
+            <h2 style="margin:0;">{p['Name']} ({team_name})</h2>
         </div>
         """,
         unsafe_allow_html=True
     )
 else:
-    st.header(player_data["Name"])
+    st.header(p["Name"])
 
 # =============================
-# RANKS + METRICS
+# RANK METRICS
 # =============================
 total_players = len(df)
-df["Swing+_rank"] = df["Swing+"].rank(ascending=False, method="min").astype(int)
-df["ProjSwing+_rank"] = df["ProjSwing+"].rank(ascending=False, method="min").astype(int)
-df["PowerIndex+_rank"] = df["PowerIndex+"].rank(ascending=False, method="min").astype(int)
+for col in ["Swing+", "ProjSwing+", "PowerIndex+"]:
+    df[f"{col}_rank"] = df[col].rank(ascending=False, method="min").astype(int)
 
-p_swing_rank = df.loc[df["Name"] == player_select, "Swing+_rank"].iloc[0]
-p_proj_rank = df.loc[df["Name"] == player_select, "ProjSwing+_rank"].iloc[0]
-p_power_rank = df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]
-
-st.markdown(
-    f"""
-    <div style="display:flex; justify-content:space-around; margin-top:10px;">
-        <div style="text-align:center;">
-            <h3 style="margin-bottom:0;">Swing+</h3>
-            <h2 style="margin:0;">{round(player_data['Swing+'], 1)}</h2>
-            <p style="color:gray; font-size:12px; margin-top:0;">Rank: {p_swing_rank} / {total_players}</p>
-        </div>
-        <div style="text-align:center;">
-            <h3 style="margin-bottom:0;">ProjSwing+</h3>
-            <h2 style="margin:0;">{round(player_data['ProjSwing+'], 1)}</h2>
-            <p style="color:gray; font-size:12px; margin-top:0;">Rank: {p_proj_rank} / {total_players}</p>
-        </div>
-        <div style="text-align:center;">
-            <h3 style="margin-bottom:0;">PowerIndex+</h3>
-            <h2 style="margin:0;">{round(player_data['PowerIndex+'], 1)}</h2>
-            <p style="color:gray; font-size:12px; margin-top:0;">Rank: {p_power_rank} / {total_players}</p>
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+colA, colB, colC = st.columns(3)
+colA.metric("Swing+", f"{p['Swing+']:.1f}", f"Rank {int(p['Swing+_rank'])}/{total_players}")
+colB.metric("ProjSwing+", f"{p['ProjSwing+']:.1f}", f"Rank {int(p['ProjSwing+_rank'])}/{total_players}")
+colC.metric("PowerIndex+", f"{p['PowerIndex+']:.1f}", f"Rank {int(p['PowerIndex+_rank'])}/{total_players}")
