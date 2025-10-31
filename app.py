@@ -249,10 +249,10 @@ headshot_html = ""
 if "id" in player_row and pd.notnull(player_row["id"]):
     player_id = str(int(player_row["id"]))
     headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
-    headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-right:36px;" alt="headshot"/>'
+    headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-right:46px;" alt="headshot"/>'
 else:
     fallback_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-    headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-right:36px;" alt="headshot"/>'
+    headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-right:46px;" alt="headshot"/>'
 
 logo_html = ""
 if logo_url:
@@ -451,29 +451,32 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 "score": sim_score
             })
 
-        all_cards_html = "<div style='display: flex; flex-direction: column; align-items: center; max-width:920px; margin: 0 auto 10px auto;'>"
-
+        st.markdown(
+            "<div style='display: flex; flex-direction: column; align-items: center; max-width:920px; margin: 0 auto 10px auto;'>",
+            unsafe_allow_html=True
+        )
         for row in range(2):
-            all_cards_html += "<div style='display:flex;gap:18px;margin-bottom:12px;justify-content:center;'>"
-
+            st.markdown(
+                "<div style='display:flex;gap:18px;margin-bottom:12px;justify-content:center;'>",
+                unsafe_allow_html=True
+            )
             for col in range(5):
                 idx = row*5 + col
                 if idx >= len(sim_rows):
                     continue
                 sim = sim_rows[idx]
-                all_cards_html += f"""
+                st.markdown(
+                    f"""
                     <div style="background:#fff;border-radius:14px;box-shadow:0 2px 8px #0001;padding:18px 13px 13px 13px;width:168px;text-align:center;margin-bottom:8px;">
                       <img src="{sim['headshot_url']}" style="height:74px;width:74px;object-fit:cover;border-radius:12px;box-shadow:0 1px 5px #0001;margin-bottom:8px;" alt="headshot"/>
                       <div style="font-size:1.01em;font-weight:700;color:#183153;margin:2px 0 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{sim['name']}</div>
                       <div style="font-size:0.98em;font-weight:600;color:#385684;margin-top:4px;">Similarity: <span style='color:#B71036;'>{sim['score']:.2f}</span></div>
                     </div>
-                """
-
-            all_cards_html += "</div>"
-
-        all_cards_html += "</div>"
-
-        st.markdown(all_cards_html, unsafe_allow_html=True)
+                    """,
+                    unsafe_allow_html=True
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
         with st.expander("Show Heatmap"):
             fig, ax = plt.subplots(figsize=(6, 4.2))
@@ -493,7 +496,6 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
             plt.yticks(fontsize=9)
             plt.tight_layout()
             st.pyplot(fig)
-
         st.markdown(
             f"<div style='text-align:center;margin-top:10px;font-size:1.08em;color:#385684;'>Top {TOP_N} mechanically similar players to <b>{player_select}</b> shown above.</div>",
             unsafe_allow_html=True
@@ -518,7 +520,12 @@ if set(extra_cols).issubset(df.columns):
         """,
         unsafe_allow_html=True
     )
-
+    st.markdown(
+        """
+        <div style="display: flex; justify-content: center; gap: 32px; margin-top: 10px; margin-bottom: 15px;">
+        """,
+        unsafe_allow_html=True
+    )
     mech_metrics = [
         ("Avg Bat Speed", f"{round(player_row['avg_bat_speed'], 1)} mph" if "avg_bat_speed" in player_row else ""),
         ("Swing Length", f"{round(player_row['swing_length'], 2)}" if "swing_length" in player_row else ""),
@@ -526,20 +533,18 @@ if set(extra_cols).issubset(df.columns):
         ("Swing Tilt", f"{round(player_row['swing_tilt'], 1)}" if "swing_tilt" in player_row else ""),
         ("Attack Direction", f"{round(player_row['attack_direction'], 1)}" if "attack_direction" in player_row else "")
     ]
-
-    cards_html = ""
     for label, value in mech_metrics:
-        cards_html += f"""
+        st.markdown(
+            f"""
             <div style="background:#f9fafc;border-radius:12px;box-shadow:0 1px 6px #0001;padding:18px 22px;min-width:110px;text-align:center;">
               <div style="font-size:1.1em;color:#385684;font-weight:600;margin-bottom:2px;">{label}</div>
               <div style="font-size:1.5em;font-weight:700;color:#183153;">{value}</div>
             </div>
-        """
-
+            """,
+            unsafe_allow_html=True
+        )
     st.markdown(
-        f"""
-        <div style="display: flex; justify-content: center; gap: 32px; margin-top: 10px; margin-bottom: 15px; flex-wrap: wrap;">
-            {cards_html}
+        """
         </div>
         """,
         unsafe_allow_html=True
