@@ -451,7 +451,6 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 "score": sim_score
             })
 
-        # Always 2 rows of 5, fill empty slots if fewer than 10
         while len(sim_rows) < 10:
             sim_rows.append({"name": "", "headshot_url": "", "score": ""})
 
