@@ -4,11 +4,19 @@ import os
 from PIL import Image
 import requests
 from io import BytesIO
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics.pairwise import cosine_similarity
+import matplotlib.pyplot as plt
+import seaborn as sns
 import matplotlib
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 
-st.set_page_config(page_title="Swing+ & ProjSwing+ Dashboard", page_icon="⚾", layout="wide")
+st.set_page_config(
+    page_title="Swing+ & ProjSwing+ Dashboard",
+    page_icon="⚾",
+    layout="wide"
+)
 
 st.markdown(
     """
@@ -67,7 +75,10 @@ df_image = pd.DataFrame(mlb_teams)
 image_dict = df_image.set_index('team')['logo_url'].to_dict()
 
 core_cols = ["Name", "Age", "Swing+", "PowerIndex+", "ProjSwing+"]
-extra_cols = ["avg_bat_speed", "swing_length", "attack_angle", "swing_tilt", "attack_direction"]
+extra_cols = [
+    "avg_bat_speed", "swing_length", "attack_angle", "swing_tilt", "attack_direction",
+    "avg_intercept_y_vs_plate", "avg_intercept_y_vs_batter", "avg_batter_y_position", "avg_batter_x_position"
+]
 metric_extras = ["est_woba", "xwOBA_pred"]
 
 if "id" in df.columns:
@@ -126,7 +137,8 @@ display_cols = [
     c for c in [
         "Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+",
         "est_woba", "xwOBA_pred",
-        "avg_bat_speed", "swing_length", "attack_angle", "swing_tilt", "attack_direction"
+        "avg_bat_speed", "swing_length", "attack_angle", "swing_tilt", "attack_direction",
+        "avg_intercept_y_vs_plate", "avg_intercept_y_vs_batter", "avg_batter_y_position", "avg_batter_x_position"
     ] if c in df_filtered.columns
 ]
 
@@ -140,6 +152,10 @@ rename_map = {
     "attack_angle": "Attack Angle (°)",
     "swing_tilt": "Swing Tilt (°)",
     "attack_direction": "Attack Direction",
+    "avg_intercept_y_vs_plate": "Intercept Y vs Plate",
+    "avg_intercept_y_vs_batter": "Intercept Y vs Batter",
+    "avg_batter_y_position": "Batter Y Pos",
+    "avg_batter_x_position": "Batter X Pos",
     "est_woba": "xwOBA",
     "xwOBA_pred": "Predicted xwOBA"
 }
@@ -379,6 +395,72 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+# === Mechanical Similarity Section ===
+st.markdown(
+    """
+    <h3 style="text-align:center; margin-top:2em; font-size:1.22em; color:#183153; letter-spacing:0.01em;">
+        Mechanical Similarity Cluster
+    </h3>
+    """,
+    unsafe_allow_html=True
+)
+
+mechanical_features = [
+    "avg_bat_speed",
+    "swing_tilt",
+    "attack_angle",
+    "attack_direction",
+    "avg_intercept_y_vs_plate",
+    "avg_intercept_y_vs_batter",
+    "avg_batter_y_position",
+    "avg_batter_x_position",
+    "swing_length"
+]
+
+name_col = "Name"
+TOP_N = 10
+
+df_mech = df.dropna(subset=mechanical_features + [name_col]).reset_index(drop=True)
+if player_select in df_mech[name_col].values:
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(df_mech[mechanical_features])
+    similarity_matrix = cosine_similarity(X_scaled)
+    similarity_df = pd.DataFrame(similarity_matrix, index=df_mech[name_col], columns=df_mech[name_col])
+
+    similar_players = (
+        similarity_df.loc[player_select]
+        .sort_values(ascending=False)
+        .iloc[1:TOP_N+1]
+    )
+
+    top_names = [player_select] + list(similar_players.index)
+    heatmap_data = similarity_df.loc[top_names, top_names]
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    sns.heatmap(
+        heatmap_data,
+        annot=True,
+        fmt=".2f",
+        cmap="coolwarm",
+        linewidths=0.5,
+        cbar_kws={"label": "Cosine Similarity"},
+        ax=ax
+    )
+    ax.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=14, weight="bold")
+    plt.xticks(rotation=45, ha='right', fontsize=10)
+    plt.yticks(fontsize=11)
+    plt.tight_layout()
+    st.pyplot(fig)
+    st.markdown(
+        f"<div style='text-align:center;margin-top:10px;font-size:1.08em;color:#385684;'>Top {TOP_N} mechanically similar players to <b>{player_select}</b> shown above.</div>",
+        unsafe_allow_html=True
+    )
+else:
+    st.markdown(
+        "<div style='text-align:center;margin-top:10px;font-size:1.08em;color:#C62828;'>No mechanical similarity data available for this player.</div>",
+        unsafe_allow_html=True
+    )
 
 if set(extra_cols).issubset(df.columns):
     st.markdown(
