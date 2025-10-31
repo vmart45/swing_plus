@@ -358,14 +358,19 @@ st.markdown(
 )
 st.markdown(
     f"""
+    <div id="savantviz-anchor"></div>
     <div style="display: flex; justify-content: center;">
         <iframe src="{viz_url}" width="900" height="480" frameborder="0" style="border-radius:9px; box-shadow:0 2px 12px #0002;" id="savantviz"></iframe>
     </div>
     <script>
-        window.addEventListener('DOMContentLoaded', function() {{
-            setTimeout(function() {{
-                window.scrollTo({{ top: 600, behavior: 'smooth' }});
-            }}, 200);
+        function scrollToViz() {{
+            var anchor = document.getElementById("savantviz-anchor");
+            if(anchor) {{
+                anchor.scrollIntoView({{behavior: "smooth", block: "start"}});
+            }}
+        }}
+        window.addEventListener('load', function() {{
+            setTimeout(scrollToViz, 150);
         }});
     </script>
     """,
