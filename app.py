@@ -245,6 +245,7 @@ if logo_url:
 player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
 
 player_bio = ""
+bat_side = "R"
 if "id" in player_row and pd.notnull(player_row["id"]):
     player_id = str(int(player_row["id"]))
     mlb_bio_url = f"https://statsapi.mlb.com/api/v1/people/{player_id}"
@@ -254,6 +255,8 @@ if "id" in player_row and pd.notnull(player_row["id"]):
             data = resp.json()
             if "people" in data and len(data["people"]) > 0:
                 person = data["people"][0]
+                if "batSide" in person and "code" in person["batSide"]:
+                    bat_side = person["batSide"]["code"]
                 bio_parts = []
                 if "height" in person and "weight" in person:
                     bio_parts.append(f"{person['height']}, {person['weight']} lbs")
@@ -332,6 +335,20 @@ st.markdown(
         <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">PowerIndex+</div>
         <span style="background: #B3E5FC33; color: #01579B; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_power_rank} of {total_players}</span>
       </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# Embed Baseball Savant viz (iframe or link fallback)
+viz_url = f"https://baseballsavant.mlb.com/leaderboard/bat-tracking/swing-path-attack-angle?playerList={player_id}-2025-{bat_side}&selectedIdx=0"
+st.markdown(
+    f"""
+    <h3 style="text-align:center; margin-top:1.3em; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
+        Baseball Savant Swing Path / Attack Angle Visualization
+    </h3>
+    <div style="display: flex; justify-content: center;">
+        <iframe src="{viz_url}" width="900" height="480" frameborder="0" style="border-radius:9px; box-shadow:0 2px 12px #0002;"></iframe>
     </div>
     """,
     unsafe_allow_html=True
