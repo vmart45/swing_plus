@@ -344,14 +344,15 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-viz_url = f"https://baseballsavant.mlb.com/leaderboard/bat-tracking/swing-path-attack-angle?playerList={player_id}-2025-{bat_side}&selectedIdx=0"
+video_url = f"https://builds.mlbstatic.com/baseballsavant.mlb.com/swing-path/splendid-splinter/cut/{player_id}-2025-{bat_side}.mp4"
+
 st.markdown(
     """
     <h3 style="text-align:center; margin-top:1.3em; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
         Baseball Savant Swing Path / Attack Angle Visualization
     </h3>
     <div style="text-align:center; color: #7a7a7a; font-size: 0.99em; margin-bottom:10px">
-        If you select a player and this visualization defaults to Oneil Cruz, there was not enough data to generate a custom visualization for the selected player.
+        If you select a player and the video defaults to Oneil Cruz, there was not enough data to generate a custom visualization for the selected player.
     </div>
     """,
     unsafe_allow_html=True
@@ -360,19 +361,11 @@ st.markdown(
     f"""
     <div id="savantviz-anchor"></div>
     <div style="display: flex; justify-content: center;">
-        <iframe src="{viz_url}" width="900" height="480" frameborder="0" style="border-radius:9px; box-shadow:0 2px 12px #0002;" id="savantviz"></iframe>
+        <video controls autoplay muted width="900" height="480" style="border-radius:9px; box-shadow:0 2px 12px #0002;">
+            <source src="{video_url}" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
     </div>
-    <script>
-        function scrollToViz() {{
-            var anchor = document.getElementById("savantviz-anchor");
-            if(anchor) {{
-                anchor.scrollIntoView({{behavior: "smooth", block: "start"}});
-            }}
-        }}
-        window.addEventListener('load', function() {{
-            setTimeout(scrollToViz, 150);
-        }});
-    </script>
     """,
     unsafe_allow_html=True
 )
