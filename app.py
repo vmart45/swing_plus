@@ -421,46 +421,53 @@ mechanical_features = [
 name_col = "Name"
 TOP_N = 10
 
-df_mech = df.dropna(subset=mechanical_features + [name_col]).reset_index(drop=True)
-if player_select in df_mech[name_col].values:
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(df_mech[mechanical_features])
-    similarity_matrix = cosine_similarity(X_scaled)
-    similarity_df = pd.DataFrame(similarity_matrix, index=df_mech[name_col], columns=df_mech[name_col])
-
-    similar_players = (
-        similarity_df.loc[player_select]
-        .sort_values(ascending=False)
-        .iloc[1:TOP_N+1]
-    )
-
-    top_names = [player_select] + list(similar_players.index)
-    heatmap_data = similarity_df.loc[top_names, top_names]
-
-    fig, ax = plt.subplots(figsize=(8, 6))
-    sns.heatmap(
-        heatmap_data,
-        annot=True,
-        fmt=".2f",
-        cmap="coolwarm",
-        linewidths=0.5,
-        cbar_kws={"label": "Cosine Similarity"},
-        ax=ax
-    )
-    ax.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=14, weight="bold")
-    plt.xticks(rotation=45, ha='right', fontsize=10)
-    plt.yticks(fontsize=11)
-    plt.tight_layout()
-    st.pyplot(fig)
+missing_mech_cols = [c for c in mechanical_features + [name_col] if c not in df.columns]
+if missing_mech_cols:
     st.markdown(
-        f"<div style='text-align:center;margin-top:10px;font-size:1.08em;color:#385684;'>Top {TOP_N} mechanically similar players to <b>{player_select}</b> shown above.</div>",
+        f"<div style='text-align:center;margin-top:10px;font-size:1.08em;color:#C62828;'>No mechanical similarity data available for this player.</div>",
         unsafe_allow_html=True
     )
 else:
-    st.markdown(
-        "<div style='text-align:center;margin-top:10px;font-size:1.08em;color:#C62828;'>No mechanical similarity data available for this player.</div>",
-        unsafe_allow_html=True
-    )
+    df_mech = df.dropna(subset=[c for c in mechanical_features + [name_col] if c in df.columns]).reset_index(drop=True)
+    if player_select in df_mech[name_col].values:
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(df_mech[mechanical_features])
+        similarity_matrix = cosine_similarity(X_scaled)
+        similarity_df = pd.DataFrame(similarity_matrix, index=df_mech[name_col], columns=df_mech[name_col])
+
+        similar_players = (
+            similarity_df.loc[player_select]
+            .sort_values(ascending=False)
+            .iloc[1:TOP_N+1]
+        )
+
+        top_names = [player_select] + list(similar_players.index)
+        heatmap_data = similarity_df.loc[top_names, top_names]
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        sns.heatmap(
+            heatmap_data,
+            annot=True,
+            fmt=".2f",
+            cmap="coolwarm",
+            linewidths=0.5,
+            cbar_kws={"label": "Cosine Similarity"},
+            ax=ax
+        )
+        ax.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=14, weight="bold")
+        plt.xticks(rotation=45, ha='right', fontsize=10)
+        plt.yticks(fontsize=11)
+        plt.tight_layout()
+        st.pyplot(fig)
+        st.markdown(
+            f"<div style='text-align:center;margin-top:10px;font-size:1.08em;color:#385684;'>Top {TOP_N} mechanically similar players to <b>{player_select}</b> shown above.</div>",
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            "<div style='text-align:center;margin-top:10px;font-size:1.08em;color:#C62828;'>No mechanical similarity data available for this player.</div>",
+            unsafe_allow_html=True
+        )
 
 if set(extra_cols).issubset(df.columns):
     st.markdown(
