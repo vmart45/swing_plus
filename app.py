@@ -396,7 +396,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# === Mechanical Similarity Section ===
 st.markdown(
     """
     <h3 style="text-align:center; margin-top:2em; font-size:1.22em; color:#183153; letter-spacing:0.01em;">
@@ -421,7 +420,6 @@ mechanical_features = [
 name_col = "Name"
 TOP_N = 10
 
-# Only use the full dataset (not filtered) for similarity
 mech_features_available = [f for f in mechanical_features if f in df.columns]
 if len(mech_features_available) >= 2 and name_col in df.columns:
     df_mech = df.dropna(subset=mech_features_available + [name_col]).reset_index(drop=True)
@@ -440,7 +438,7 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
         top_names = [player_select] + list(similar_players.index)
         heatmap_data = similarity_df.loc[top_names, top_names]
 
-        fig, ax = plt.subplots(figsize=(8, 6))
+        fig, ax = plt.subplots(figsize=(6, 4.2))  # Smaller size for the heatmap
         sns.heatmap(
             heatmap_data,
             annot=True,
@@ -448,13 +446,22 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
             cmap="coolwarm",
             linewidths=0.5,
             cbar_kws={"label": "Cosine Similarity"},
-            ax=ax
+            ax=ax,
+            annot_kws={"fontsize":8}
         )
-        ax.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=14, weight="bold")
-        plt.xticks(rotation=45, ha='right', fontsize=10)
-        plt.yticks(fontsize=11)
+        ax.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=12, weight="bold")
+        plt.xticks(rotation=45, ha='right', fontsize=8)
+        plt.yticks(fontsize=9)
         plt.tight_layout()
+        st.markdown(
+            "<div style='display:flex;justify-content:center;'><div style='width:900px;'>",
+            unsafe_allow_html=True
+        )
         st.pyplot(fig)
+        st.markdown(
+            "</div></div>",
+            unsafe_allow_html=True
+        )
         st.markdown(
             f"<div style='text-align:center;margin-top:10px;font-size:1.08em;color:#385684;'>Top {TOP_N} mechanically similar players to <b>{player_select}</b> shown above.</div>",
             unsafe_allow_html=True
