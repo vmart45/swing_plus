@@ -452,20 +452,30 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
             })
 
         st.markdown(
-            "<div style='display: flex; flex-wrap: wrap; justify-content: center; gap: 28px 16px; max-width:930px; margin: 0 auto 10px auto;'>",
+            "<div style='display: flex; flex-direction: column; align-items: center; max-width:920px; margin: 0 auto 10px auto;'>",
             unsafe_allow_html=True
         )
-        for idx, sim in enumerate(sim_rows):
+        for row in range(2):
             st.markdown(
-                f"""
-                <div style="background:#fff;border-radius:14px;box-shadow:0 2px 8px #0001;padding:18px 13px 13px 13px;width:168px;text-align:center;margin-bottom:8px;">
-                  <img src="{sim['headshot_url']}" style="height:74px;width:74px;object-fit:cover;border-radius:12px;box-shadow:0 1px 5px #0001;margin-bottom:8px;" alt="headshot"/>
-                  <div style="font-size:1.01em;font-weight:700;color:#183153;margin:2px 0 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{sim['name']}</div>
-                  <div style="font-size:0.98em;font-weight:600;color:#385684;margin-top:4px;">Similarity: <span style='color:#B71036;'>{sim['score']:.2f}</span></div>
-                </div>
-                """,
+                "<div style='display:flex;gap:18px;margin-bottom:12px;justify-content:center;'>",
                 unsafe_allow_html=True
             )
+            for col in range(5):
+                idx = row*5 + col
+                if idx >= len(sim_rows):
+                    continue
+                sim = sim_rows[idx]
+                st.markdown(
+                    f"""
+                    <div style="background:#fff;border-radius:14px;box-shadow:0 2px 8px #0001;padding:18px 13px 13px 13px;width:168px;text-align:center;margin-bottom:8px;">
+                      <img src="{sim['headshot_url']}" style="height:74px;width:74px;object-fit:cover;border-radius:12px;box-shadow:0 1px 5px #0001;margin-bottom:8px;" alt="headshot"/>
+                      <div style="font-size:1.01em;font-weight:700;color:#183153;margin:2px 0 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{sim['name']}</div>
+                      <div style="font-size:0.98em;font-weight:600;color:#385684;margin-top:4px;">Similarity: <span style='color:#B71036;'>{sim['score']:.2f}</span></div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
         with st.expander("Show Heatmap"):
