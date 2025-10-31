@@ -357,18 +357,8 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-st.markdown(
-    f"""
-    <div id="savantviz-anchor"></div>
-    <div style="display: flex; justify-content: center;">
-        <video controls autoplay muted width="900" height="480" style="border-radius:9px; box-shadow:0 2px 12px #0002;">
-            <source src="{video_url}" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+
+st.video(video_url, format="video/mp4", start_time=0)
 
 if set(extra_cols).issubset(df.columns):
     st.markdown(
