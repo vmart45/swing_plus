@@ -344,7 +344,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Baseball Savant Viz Embed
 viz_url = f"https://baseballsavant.mlb.com/leaderboard/bat-tracking/swing-path-attack-angle?playerList={player_id}-2025-{bat_side}&selectedIdx=0"
 st.markdown(
     """
@@ -362,6 +361,13 @@ st.markdown(
     <div style="display: flex; justify-content: center;">
         <iframe src="{viz_url}" width="900" height="480" frameborder="0" style="border-radius:9px; box-shadow:0 2px 12px #0002;" id="savantviz"></iframe>
     </div>
+    <script>
+        window.addEventListener('DOMContentLoaded', function() {{
+            setTimeout(function() {{
+                window.scrollTo({{ top: 600, behavior: 'smooth' }});
+            }}, 200);
+        }});
+    </script>
     """,
     unsafe_allow_html=True
 )
