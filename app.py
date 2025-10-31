@@ -436,32 +436,56 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
         )
 
         top_names = [player_select] + list(similar_players.index)
-        heatmap_data = similarity_df.loc[top_names, top_names]
+        sim_rows = []
+        for sim_name in similar_players.index:
+            sim_row = df_mech[df_mech[name_col] == sim_name]
+            if "id" in sim_row.columns and pd.notnull(sim_row.iloc[0]["id"]):
+                sim_id = str(int(sim_row.iloc[0]["id"]))
+                sim_headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{sim_id}/headshot/silo/current.png"
+            else:
+                sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
+            sim_score = similar_players[sim_name]
+            sim_rows.append({
+                "name": sim_name,
+                "headshot_url": sim_headshot_url,
+                "score": sim_score
+            })
 
-        fig, ax = plt.subplots(figsize=(6, 4.2))  # Smaller size for the heatmap
-        sns.heatmap(
-            heatmap_data,
-            annot=True,
-            fmt=".2f",
-            cmap="coolwarm",
-            linewidths=0.5,
-            cbar_kws={"label": "Cosine Similarity"},
-            ax=ax,
-            annot_kws={"fontsize":8}
-        )
-        ax.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=12, weight="bold")
-        plt.xticks(rotation=45, ha='right', fontsize=8)
-        plt.yticks(fontsize=9)
-        plt.tight_layout()
         st.markdown(
-            "<div style='display:flex;justify-content:center;'><div style='width:900px;'>",
+            "<div style='display: flex; flex-wrap: wrap; justify-content: center; gap: 28px 16px; max-width:930px; margin: 0 auto 10px auto;'>",
             unsafe_allow_html=True
         )
-        st.pyplot(fig)
-        st.markdown(
-            "</div></div>",
-            unsafe_allow_html=True
-        )
+        for idx, sim in enumerate(sim_rows):
+            st.markdown(
+                f"""
+                <div style="background:#fff;border-radius:14px;box-shadow:0 2px 8px #0001;padding:18px 13px 13px 13px;width:168px;text-align:center;margin-bottom:8px;">
+                  <img src="{sim['headshot_url']}" style="height:74px;width:74px;object-fit:cover;border-radius:12px;box-shadow:0 1px 5px #0001;margin-bottom:8px;" alt="headshot"/>
+                  <div style="font-size:1.01em;font-weight:700;color:#183153;margin:2px 0 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{sim['name']}</div>
+                  <div style="font-size:0.98em;font-weight:600;color:#385684;margin-top:4px;">Similarity: <span style='color:#B71036;'>{sim['score']:.2f}</span></div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        with st.expander("Show Heatmap"):
+            fig, ax = plt.subplots(figsize=(6, 4.2))
+            heatmap_data = similarity_df.loc[top_names, top_names]
+            sns.heatmap(
+                heatmap_data,
+                annot=True,
+                fmt=".2f",
+                cmap="coolwarm",
+                linewidths=0.5,
+                cbar_kws={"label": "Cosine Similarity"},
+                ax=ax,
+                annot_kws={"fontsize":8}
+            )
+            ax.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=12, weight="bold")
+            plt.xticks(rotation=45, ha='right', fontsize=8)
+            plt.yticks(fontsize=9)
+            plt.tight_layout()
+            st.pyplot(fig)
         st.markdown(
             f"<div style='text-align:center;margin-top:10px;font-size:1.08em;color:#385684;'>Top {TOP_N} mechanically similar players to <b>{player_select}</b> shown above.</div>",
             unsafe_allow_html=True
