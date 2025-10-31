@@ -220,18 +220,16 @@ st.markdown(
 player_select = st.selectbox("Select a Player", sorted(df_filtered["Name"].unique()))
 player_row = df[df["Name"] == player_select].iloc[0]
 
-headshot_size = 52
-logo_size = 40
+headshot_size = 68
+logo_size = 54
 
 team_abb = player_row["Team"] if "Team" in player_row and pd.notnull(player_row["Team"]) else ""
 logo_url = image_dict.get(team_abb, "")
 
-# Create an HTML row with headshot, name, and logo, all centered and on the same line
 headshot_html = ""
 if "id" in player_row and pd.notnull(player_row["id"]):
     player_id = str(int(player_row["id"]))
     headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
-    # Use the raw image URL and let the browser scale for best quality
     headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:8px;vertical-align:middle;box-shadow:0 1px 6px #0001;" alt="headshot"/>'
 else:
     fallback_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
@@ -241,7 +239,46 @@ logo_html = ""
 if logo_url:
     logo_html = f'<img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;border-radius:7px;background:#eee;margin-left:10px;" alt="logo"/>'
 
-player_name_html = f'<span style="font-size:1.7em;font-weight:700;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin-left:18px;margin-right:8px;">{player_select}</span>'
+player_name_html = f'<span style="font-size:2em;font-weight:700;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin-left:18px;margin-right:8px;">{player_select}</span>'
+
+# Fetch MLB stats API player bio
+player_bio = ""
+mlb_bio_url = ""
+if "id" in player_row and pd.notnull(player_row["id"]):
+    player_id = str(int(player_row["id"]))
+    mlb_bio_url = f"https://statsapi.mlb.com/api/v1/people/{player_id}"
+    try:
+        resp = requests.get(mlb_bio_url, timeout=4)
+        if resp.status_code == 200:
+            data = resp.json()
+            if "people" in data and len(data["people"]) > 0:
+                person = data["people"][0]
+                bio_list = []
+                if "fullName" in person:
+                    bio_list.append(f"<strong>Name:</strong> {person['fullName']}")
+                if "primaryPosition" in person and "abbreviation" in person["primaryPosition"]:
+                    bio_list.append(f"<strong>Position:</strong> {person['primaryPosition']['abbreviation']}")
+                if "batSide" in person and "description" in person["batSide"]:
+                    bio_list.append(f"<strong>Bats:</strong> {person['batSide']['description']}")
+                if "pitchHand" in person and "description" in person["pitchHand"]:
+                    bio_list.append(f"<strong>Throws:</strong> {person['pitchHand']['description']}")
+                if "birthDate" in person:
+                    bio_list.append(f"<strong>Born:</strong> {person['birthDate']}")
+                if "height" in person:
+                    bio_list.append(f"<strong>Height:</strong> {person['height']}")
+                if "weight" in person:
+                    bio_list.append(f"<strong>Weight:</strong> {person['weight']} lbs")
+                if "mlbDebutDate" in person:
+                    bio_list.append(f"<strong>MLB Debut:</strong> {person['mlbDebutDate']}")
+                if "nickName" in person and person["nickName"]:
+                    bio_list.append(f"<strong>Nickname:</strong> {person['nickName']}")
+                if "boxscoreName" in person and person["boxscoreName"]:
+                    bio_list.append(f"<strong>Boxscore Name:</strong> {person['boxscoreName']}")
+                if "draftYear" in person:
+                    bio_list.append(f"<strong>Draft Year:</strong> {person['draftYear']}")
+                player_bio = "<br>".join(bio_list)
+    except Exception:
+        player_bio = ""
 
 st.markdown(
     f"""
@@ -253,6 +290,16 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+if player_bio:
+    st.markdown(
+        f"""
+        <div style="text-align:center; color:#234; margin-bottom:18px; font-size:1.07em;">
+            {player_bio}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 total_players = len(df)
 df["Swing+_rank"] = df["Swing+"].rank(ascending=False, method="min").astype(int)
