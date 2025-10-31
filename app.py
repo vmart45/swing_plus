@@ -220,71 +220,35 @@ st.markdown(
 player_select = st.selectbox("Select a Player", sorted(df_filtered["Name"].unique()))
 player_row = df[df["Name"] == player_select].iloc[0]
 
-st.markdown(
-    f"""
-    <div style="display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:10px;">
-        <div style="flex-shrink:0; display:flex; align-items:center;">
-    """,
-    unsafe_allow_html=True
-)
-
-headshot_width = 52
-logo_width = 40
-
-if "id" in player_row and pd.notnull(player_row["id"]):
-    player_id = str(int(player_row["id"]))
-    headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
-    try:
-        response = requests.get(headshot_url, timeout=5)
-        if response.status_code == 200:
-            headshot_img = Image.open(BytesIO(response.content))
-            # Resize the image manually so Streamlit doesn't ignore the width param
-            headshot_img = headshot_img.resize((headshot_width, headshot_width))
-            st.image(headshot_img, width=headshot_width, caption="", use_column_width=False)
-        else:
-            fallback = Image.open(requests.get("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", stream=True).raw)
-            fallback = fallback.resize((headshot_width, headshot_width))
-            st.image(fallback, width=headshot_width, use_column_width=False)
-    except Exception:
-        fallback = Image.open(requests.get("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", stream=True).raw)
-        fallback = fallback.resize((headshot_width, headshot_width))
-        st.image(fallback, width=headshot_width, use_column_width=False)
-else:
-    fallback = Image.open(requests.get("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", stream=True).raw)
-    fallback = fallback.resize((headshot_width, headshot_width))
-    st.image(fallback, width=headshot_width, use_column_width=False)
-
-st.markdown(
-    f"""
-        </div>
-        <div style="flex-shrink:0;">
-    """,
-    unsafe_allow_html=True
-)
+headshot_size = 52
+logo_size = 40
 
 team_abb = player_row["Team"] if "Team" in player_row and pd.notnull(player_row["Team"]) else ""
 logo_url = image_dict.get(team_abb, "")
-if logo_url:
-    st.markdown(
-        f"""
-        <div style="display:flex; align-items:center; gap:10px;">
-            <span style="font-size:1.7em; font-weight:700; color:#183153; letter-spacing:0.01em;">{player_select}</span>
-            <img src="{logo_url}" style="height:{logo_width}px; vertical-align:middle; border-radius:7px; background:#eee;"/>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+
+# Create an HTML row with headshot, name, and logo, all centered and on the same line
+headshot_html = ""
+if "id" in player_row and pd.notnull(player_row["id"]):
+    player_id = str(int(player_row["id"]))
+    headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
+    # Use the raw image URL and let the browser scale for best quality
+    headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:8px;vertical-align:middle;box-shadow:0 1px 6px #0001;" alt="headshot"/>'
 else:
-    st.markdown(
-        f"""
-        <div style="font-size:1.7em; font-weight:700; color:#183153; letter-spacing:0.01em;">{player_select}</div>
-        """,
-        unsafe_allow_html=True
-    )
+    fallback_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
+    headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:8px;vertical-align:middle;box-shadow:0 1px 6px #0001;" alt="headshot"/>'
+
+logo_html = ""
+if logo_url:
+    logo_html = f'<img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;border-radius:7px;background:#eee;margin-left:10px;" alt="logo"/>'
+
+player_name_html = f'<span style="font-size:1.7em;font-weight:700;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin-left:18px;margin-right:8px;">{player_select}</span>'
 
 st.markdown(
-    """
-        </div>
+    f"""
+    <div style="display:flex;justify-content:center;align-items:center;margin-bottom:14px;margin-top:8px;">
+        {headshot_html}
+        {player_name_html}
+        {logo_html}
     </div>
     """,
     unsafe_allow_html=True
