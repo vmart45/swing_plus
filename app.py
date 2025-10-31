@@ -240,7 +240,7 @@ else:
 
 logo_html = ""
 if logo_url:
-    logo_html = f'<img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;margin-left:46px;background:transparent;border-radius:14px;" alt="logo"/>'
+    logo_html = f'<img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;margin-left:46px;background:transparent;border-radius:0;" alt="logo"/>'
 
 player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
 
@@ -285,7 +285,7 @@ st.markdown(
         {headshot_html}
         <div style="display:flex;flex-direction:column;align-items:center;">
             {player_name_html}
-            {"<span style='font-size:1.05em;color:#495366;margin-top:7px;margin-bottom:0;font-weight:500;letter-spacing:0.02em;opacity:0.82;'>" + player_bio + "</span>" if player_bio else ""}
+            {"<span style='font-size:0.98em;color:#495366;margin-top:7px;margin-bottom:0;font-weight:500;letter-spacing:0.02em;opacity:0.82;'>" + player_bio + "</span>" if player_bio else ""}
         </div>
         {logo_html}
     </div>
@@ -293,8 +293,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Add more space below the bio and before the plus stats
-st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height:26px;'></div>", unsafe_allow_html=True)
 
 total_players = len(df)
 df["Swing+_rank"] = df["Swing+"].rank(ascending=False, method="min").astype(int)
@@ -305,7 +304,6 @@ p_swing_rank = df.loc[df["Name"] == player_select, "Swing+_rank"].iloc[0]
 p_proj_rank = df.loc[df["Name"] == player_select, "ProjSwing+_rank"].iloc[0]
 p_power_rank = df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]
 
-# Color mapping for plus stats (red = high, blue = low)
 def plus_color(val, vmin=663, vmax=1400, cmap="RdYlBu_r"):
     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
     rgb = cm.get_cmap(cmap)(norm(val))[:3]
