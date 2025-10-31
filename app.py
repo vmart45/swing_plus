@@ -8,11 +8,7 @@ import matplotlib
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 
-st.set_page_config(
-    page_title="Swing+ & ProjSwing+ Dashboard",
-    page_icon="⚾",
-    layout="wide"
-)
+st.set_page_config(page_title="Swing+ & ProjSwing+ Dashboard", page_icon="⚾", layout="wide")
 
 st.markdown(
     """
@@ -346,11 +342,13 @@ st.markdown(
 
 video_url = f"https://builds.mlbstatic.com/baseballsavant.mlb.com/swing-path/splendid-splinter/cut/{player_id}-2025-{bat_side}.mp4"
 
-oneil_cruz_ids = ['665833-2025-L', '665833-2025-R', '665833-2025-S']
+DEFAULT_ONEIL_CRUZ_IDS = ['665833-2025-L', '665833-2025-R', '665833-2025-S']
+default_name = "Oneil Cruz"
+showing_default = f'{player_id}-2025-{bat_side}' in DEFAULT_ONEIL_CRUZ_IDS
 
-if f'{player_id}-2025-{bat_side}' in oneil_cruz_ids:
+if showing_default:
     video_note = (
-        "No custom video data available for this player&mdash;showing a default example (Oneil Cruz)."
+        f"No custom video data available for this player — showing a default example ({default_name})."
     )
 else:
     video_note = (
@@ -373,20 +371,11 @@ st.markdown(
     f"""
     <div id="savantviz-anchor"></div>
     <div style="display: flex; justify-content: center;">
-        <video id="player-savant-video" width="900" height="480" style="border-radius:9px; box-shadow:0 2px 12px #0002;" autoplay muted playsinline>
+        <video id="player-savant-video" width="900" height="480" style="border-radius:9px; box-shadow:0 2px 12px #0002;" autoplay muted playsinline key="{player_id}-{bat_side}">
             <source src="{video_url}" type="video/mp4">
             Your browser does not support the video tag.
         </video>
     </div>
-    <script>
-    var vid = document.getElementById("player-savant-video");
-    if (vid) {{
-        vid.autoplay = true;
-        vid.muted = true;
-        vid.load();
-        vid.play();
-    }}
-    </script>
     """,
     unsafe_allow_html=True
 )
