@@ -222,14 +222,14 @@ player_row = df[df["Name"] == player_select].iloc[0]
 
 st.markdown(
     f"""
-    <div style="display:flex; align-items:center; justify-content:center; gap:28px; margin-bottom:12px;">
+    <div style="display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:10px;">
         <div style="flex-shrink:0; display:flex; align-items:center;">
     """,
     unsafe_allow_html=True
 )
 
-headshot_width = 52  # px, just slightly larger than the logo
-logo_width = 40      # logo size for reference
+headshot_width = 52
+logo_width = 40
 
 if "id" in player_row and pd.notnull(player_row["id"]):
     player_id = str(int(player_row["id"]))
@@ -238,13 +238,21 @@ if "id" in player_row and pd.notnull(player_row["id"]):
         response = requests.get(headshot_url, timeout=5)
         if response.status_code == 200:
             headshot_img = Image.open(BytesIO(response.content))
+            # Resize the image manually so Streamlit doesn't ignore the width param
+            headshot_img = headshot_img.resize((headshot_width, headshot_width))
             st.image(headshot_img, width=headshot_width, caption="", use_column_width=False)
         else:
-            st.image("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", width=headshot_width, use_column_width=False)
+            fallback = Image.open(requests.get("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", stream=True).raw)
+            fallback = fallback.resize((headshot_width, headshot_width))
+            st.image(fallback, width=headshot_width, use_column_width=False)
     except Exception:
-        st.image("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", width=headshot_width, use_column_width=False)
+        fallback = Image.open(requests.get("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", stream=True).raw)
+        fallback = fallback.resize((headshot_width, headshot_width))
+        st.image(fallback, width=headshot_width, use_column_width=False)
 else:
-    st.image("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", width=headshot_width, use_column_width=False)
+    fallback = Image.open(requests.get("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", stream=True).raw)
+    fallback = fallback.resize((headshot_width, headshot_width))
+    st.image(fallback, width=headshot_width, use_column_width=False)
 
 st.markdown(
     f"""
@@ -259,7 +267,7 @@ logo_url = image_dict.get(team_abb, "")
 if logo_url:
     st.markdown(
         f"""
-        <div style="display:flex; align-items:center; gap:14px;">
+        <div style="display:flex; align-items:center; gap:10px;">
             <span style="font-size:1.7em; font-weight:700; color:#183153; letter-spacing:0.01em;">{player_select}</span>
             <img src="{logo_url}" style="height:{logo_width}px; vertical-align:middle; border-radius:7px; background:#eee;"/>
         </div>
