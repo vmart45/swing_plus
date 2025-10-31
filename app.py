@@ -520,12 +520,7 @@ if set(extra_cols).issubset(df.columns):
         """,
         unsafe_allow_html=True
     )
-    st.markdown(
-        """
-        <div style="display: flex; justify-content: center; gap: 32px; margin-top: 10px; margin-bottom: 15px;">
-        """,
-        unsafe_allow_html=True
-    )
+    
     mech_metrics = [
         ("Avg Bat Speed", f"{round(player_row['avg_bat_speed'], 1)} mph" if "avg_bat_speed" in player_row else ""),
         ("Swing Length", f"{round(player_row['swing_length'], 2)}" if "swing_length" in player_row else ""),
@@ -533,18 +528,20 @@ if set(extra_cols).issubset(df.columns):
         ("Swing Tilt", f"{round(player_row['swing_tilt'], 1)}" if "swing_tilt" in player_row else ""),
         ("Attack Direction", f"{round(player_row['attack_direction'], 1)}" if "attack_direction" in player_row else "")
     ]
+    
+    cards_html = ""
     for label, value in mech_metrics:
-        st.markdown(
-            f"""
+        cards_html += f"""
             <div style="background:#f9fafc;border-radius:12px;box-shadow:0 1px 6px #0001;padding:18px 22px;min-width:110px;text-align:center;">
               <div style="font-size:1.1em;color:#385684;font-weight:600;margin-bottom:2px;">{label}</div>
               <div style="font-size:1.5em;font-weight:700;color:#183153;">{value}</div>
             </div>
-            """,
-            unsafe_allow_html=True
-        )
-    st.markdown(
         """
+    
+    st.markdown(
+        f"""
+        <div style="display: flex; justify-content: center; gap: 32px; margin-top: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+            {cards_html}
         </div>
         """,
         unsafe_allow_html=True
