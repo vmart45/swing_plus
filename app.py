@@ -468,6 +468,7 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 """
             grid_html += "</div>"
         grid_html += "</div>"
+
         st.markdown(grid_html, unsafe_allow_html=True)
 
         with st.expander("Show Heatmap"):
