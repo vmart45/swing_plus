@@ -451,32 +451,65 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 "score": sim_score
             })
 
-        st.markdown(
-            "<div style='display: flex; flex-direction: column; align-items: center; max-width:920px; margin: 0 auto 10px auto;'>",
-            unsafe_allow_html=True
-        )
+        # Build ALL the HTML in one string
+        all_cards_html = "<div style='display: flex; flex-direction: column; align-items: center; max-width:920px; margin: 0 auto 10px auto;'>"
+
         for row in range(2):
-            st.markdown(
-                "<div style='display:flex;gap:18px;margin-bottom:12px;justify-content:center;'>",
-                unsafe_allow_html=True
-            )
+            all_cards_html += "<div style='display:flex;gap:18px;margin-bottom:12px;justify-content:center;'>"
+            
             for col in range(5):
                 idx = row*5 + col
                 if idx >= len(sim_rows):
                     continue
                 sim = sim_rows[idx]
-                st.markdown(
-                    f"""
+                all_cards_html += f"""
                     <div style="background:#fff;border-radius:14px;box-shadow:0 2px 8px #0001;padding:18px 13px 13px 13px;width:168px;text-align:center;margin-bottom:8px;">
                       <img src="{sim['headshot_url']}" style="height:74px;width:74px;object-fit:cover;border-radius:12px;box-shadow:0 1px 5px #0001;margin-bottom:8px;" alt="headshot"/>
                       <div style="font-size:1.01em;font-weight:700;color:#183153;margin:2px 0 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{sim['name']}</div>
                       <div style="font-size:0.98em;font-weight:600;color:#385684;margin-top:4px;">Similarity: <span style='color:#B71036;'>{sim['score']:.2f}</span></div>
                     </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-            st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+                """
+            
+            all_cards_html += "</div>"
+
+        all_cards_html += "</div>"
+
+        # Render everything in ONE st.markdown call
+        st.markdown(all_cards_html, unsafe_allow_html=True)
+
+        with st.expander("Show Heatmap"):
+            fig, ax = plt.subplots(figsize=(6, 4.2))
+            heatmap_data = similarity_df.loc[top_names, top_names]
+            sns.heatmap(
+                heatmap_data,
+                annot=True,
+                fmt=".2f",
+                cmap="coolwarm",
+                linewidths=0.5,
+                cbar_kws={"label": "Cosine Similarity"},
+                ax=ax,
+                annot_kws={"fontsize":8}
+            )
+            ax.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=12, weight="bold")
+            plt.xticks(rotation=45, ha='right', fontsize=8)
+            plt.yticks(fontsize=9)
+            plt.tight_layout()
+            st.pyplot(fig)
+        
+        st.markdown(
+            f"<div style='text-align:center;margin-top:10px;font-size:1.08em;color:#385684;'>Top {TOP_N} mechanically similar players to <b>{player_select}</b> shown above.</div>",
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            "<div style='text-align:center;margin-top:10px;font-size:1.08em;color:#C62828;'>No mechanical similarity data available for this player.</div>",
+            unsafe_allow_html=True
+        )
+else:
+    st.markdown(
+        "<div style='text-align:center;margin-top:10px;font-size:1.08em;color:#C62828;'>No mechanical similarity data available for this player.</div>",
+        unsafe_allow_html=True
+    )
 
         with st.expander("Show Heatmap"):
             fig, ax = plt.subplots(figsize=(6, 4.2))
