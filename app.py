@@ -223,10 +223,13 @@ player_row = df[df["Name"] == player_select].iloc[0]
 st.markdown(
     f"""
     <div style="display:flex; align-items:center; justify-content:center; gap:28px; margin-bottom:12px;">
-        <div style="flex-shrink:0;">
+        <div style="flex-shrink:0; display:flex; align-items:center;">
     """,
     unsafe_allow_html=True
 )
+
+headshot_width = 50  # in pixels, slightly larger than logo (logo default 40px)
+logo_width = 40      # for reference in the HTML below
 
 if "id" in player_row and pd.notnull(player_row["id"]):
     player_id = str(int(player_row["id"]))
@@ -235,13 +238,13 @@ if "id" in player_row and pd.notnull(player_row["id"]):
         response = requests.get(headshot_url, timeout=5)
         if response.status_code == 200:
             headshot_img = Image.open(BytesIO(response.content))
-            st.image(headshot_img, width=120, caption="", use_column_width=False)
+            st.image(headshot_img, width=headshot_width, caption="", use_column_width=False)
         else:
-            st.image("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", width=120, use_column_width=False)
+            st.image("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", width=headshot_width, use_column_width=False)
     except Exception:
-        st.image("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", width=120, use_column_width=False)
+        st.image("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", width=headshot_width, use_column_width=False)
 else:
-    st.image("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", width=120, use_column_width=False)
+    st.image("https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png", width=headshot_width, use_column_width=False)
 
 st.markdown(
     f"""
@@ -258,7 +261,7 @@ if logo_url:
         f"""
         <div style="display:flex; align-items:center; gap:14px;">
             <span style="font-size:1.7em; font-weight:700; color:#183153; letter-spacing:0.01em;">{player_select}</span>
-            <img src="{logo_url}" style="height:40px; vertical-align:middle; border-radius:7px; background:#eee;"/>
+            <img src="{logo_url}" style="height:{logo_width}px; vertical-align:middle; border-radius:7px; background:#eee;"/>
         </div>
         """,
         unsafe_allow_html=True
