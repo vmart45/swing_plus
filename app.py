@@ -228,8 +228,8 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-headshot_width = 50  # in pixels, slightly larger than logo (logo default 40px)
-logo_width = 40      # for reference in the HTML below
+headshot_width = 52  # px, just slightly larger than the logo
+logo_width = 40      # logo size for reference
 
 if "id" in player_row and pd.notnull(player_row["id"]):
     player_id = str(int(player_row["id"]))
