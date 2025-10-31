@@ -220,8 +220,8 @@ st.markdown(
 player_select = st.selectbox("Select a Player", sorted(df_filtered["Name"].unique()))
 player_row = df[df["Name"] == player_select].iloc[0]
 
-headshot_size = 68
-logo_size = 54
+headshot_size = 84
+logo_size = 68
 
 team_abb = player_row["Team"] if "Team" in player_row and pd.notnull(player_row["Team"]) else ""
 logo_url = image_dict.get(team_abb, "")
@@ -230,20 +230,19 @@ headshot_html = ""
 if "id" in player_row and pd.notnull(player_row["id"]):
     player_id = str(int(player_row["id"]))
     headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
-    headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:8px;vertical-align:middle;box-shadow:0 1px 6px #0001;" alt="headshot"/>'
+    headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:8px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-right:32px;" alt="headshot"/>'
 else:
     fallback_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-    headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:8px;vertical-align:middle;box-shadow:0 1px 6px #0001;" alt="headshot"/>'
+    headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:8px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-right:32px;" alt="headshot"/>'
 
 logo_html = ""
 if logo_url:
-    logo_html = f'<img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;border-radius:7px;background:#eee;margin-left:10px;" alt="logo"/>'
+    logo_html = f'<img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;border-radius:7px;background:#eee;margin-left:32px;" alt="logo"/>'
 
-player_name_html = f'<span style="font-size:2em;font-weight:700;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin-left:18px;margin-right:8px;">{player_select}</span>'
+player_name_html = f'<span style="font-size:2.1em;font-weight:700;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
 
-# Fetch MLB stats API player bio
+# MLB stats API player bio
 player_bio = ""
-mlb_bio_url = ""
 if "id" in player_row and pd.notnull(player_row["id"]):
     player_id = str(int(player_row["id"]))
     mlb_bio_url = f"https://statsapi.mlb.com/api/v1/people/{player_id}"
@@ -253,36 +252,35 @@ if "id" in player_row and pd.notnull(player_row["id"]):
             data = resp.json()
             if "people" in data and len(data["people"]) > 0:
                 person = data["people"][0]
-                bio_list = []
-                if "fullName" in person:
-                    bio_list.append(f"<strong>Name:</strong> {person['fullName']}")
-                if "primaryPosition" in person and "abbreviation" in person["primaryPosition"]:
-                    bio_list.append(f"<strong>Position:</strong> {person['primaryPosition']['abbreviation']}")
-                if "batSide" in person and "description" in person["batSide"]:
-                    bio_list.append(f"<strong>Bats:</strong> {person['batSide']['description']}")
-                if "pitchHand" in person and "description" in person["pitchHand"]:
-                    bio_list.append(f"<strong>Throws:</strong> {person['pitchHand']['description']}")
-                if "birthDate" in person:
-                    bio_list.append(f"<strong>Born:</strong> {person['birthDate']}")
-                if "height" in person:
-                    bio_list.append(f"<strong>Height:</strong> {person['height']}")
-                if "weight" in person:
-                    bio_list.append(f"<strong>Weight:</strong> {person['weight']} lbs")
-                if "mlbDebutDate" in person:
-                    bio_list.append(f"<strong>MLB Debut:</strong> {person['mlbDebutDate']}")
-                if "nickName" in person and person["nickName"]:
-                    bio_list.append(f"<strong>Nickname:</strong> {person['nickName']}")
-                if "boxscoreName" in person and person["boxscoreName"]:
-                    bio_list.append(f"<strong>Boxscore Name:</strong> {person['boxscoreName']}")
-                if "draftYear" in person:
-                    bio_list.append(f"<strong>Draft Year:</strong> {person['draftYear']}")
-                player_bio = "<br>".join(bio_list)
+                # Format: Ht/Wt, B/T:, Age, birthCity, birthStateProvince, birthCountry
+                bio_parts = []
+                if "height" in person and "weight" in person:
+                    bio_parts.append(f"{person['height']}, {person['weight']} lbs")
+                bt = []
+                if "batSide" in person and "code" in person["batSide"]:
+                    bt.append(person["batSide"]["code"])
+                if "pitchHand" in person and "code" in person["pitchHand"]:
+                    bt.append(person["pitchHand"]["code"])
+                if bt:
+                    bio_parts.append(f"B/T: {'/'.join(bt)}")
+                if "currentAge" in person:
+                    bio_parts.append(f"Age: {person['currentAge']}")
+                location = []
+                if "birthCity" in person:
+                    location.append(person["birthCity"])
+                if "birthStateProvince" in person and person["birthStateProvince"]:
+                    location.append(person["birthStateProvince"])
+                if "birthCountry" in person:
+                    location.append(person["birthCountry"])
+                if location:
+                    bio_parts.append(", ".join(location))
+                player_bio = " &nbsp; | &nbsp; ".join(bio_parts)
     except Exception:
         player_bio = ""
 
 st.markdown(
     f"""
-    <div style="display:flex;justify-content:center;align-items:center;margin-bottom:14px;margin-top:8px;">
+    <div style="display:flex;justify-content:center;align-items:center;margin-bottom:10px;margin-top:8px;">
         {headshot_html}
         {player_name_html}
         {logo_html}
@@ -294,7 +292,7 @@ st.markdown(
 if player_bio:
     st.markdown(
         f"""
-        <div style="text-align:center; color:#234; margin-bottom:18px; font-size:1.07em;">
+        <div style="text-align:center; color:#234; margin-bottom:22px; font-size:0.97em; opacity:0.82;">
             {player_bio}
         </div>
         """,
