@@ -346,19 +346,50 @@ st.markdown(
 
 video_url = f"https://builds.mlbstatic.com/baseballsavant.mlb.com/swing-path/splendid-splinter/cut/{player_id}-2025-{bat_side}.mp4"
 
+oneil_cruz_ids = ['665833-2025-L', '665833-2025-R', '665833-2025-S']
+
+if f'{player_id}-2025-{bat_side}' in oneil_cruz_ids:
+    video_note = (
+        "No custom video data available for this player&mdash;showing a default example (Oneil Cruz)."
+    )
+else:
+    video_note = (
+        "Below is the Baseball Savant Swing Path / Attack Angle visualization for this player."
+    )
+
 st.markdown(
-    """
+    f"""
     <h3 style="text-align:center; margin-top:1.3em; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
         Baseball Savant Swing Path / Attack Angle Visualization
     </h3>
     <div style="text-align:center; color: #7a7a7a; font-size: 0.99em; margin-bottom:10px">
-        If you select a player and the video defaults to Oneil Cruz, there was not enough data to generate a custom visualization for the selected player.
+        {video_note}
     </div>
     """,
     unsafe_allow_html=True
 )
 
-st.video(video_url, format="video/mp4", start_time=0)
+st.markdown(
+    f"""
+    <div id="savantviz-anchor"></div>
+    <div style="display: flex; justify-content: center;">
+        <video id="player-savant-video" width="900" height="480" style="border-radius:9px; box-shadow:0 2px 12px #0002;" autoplay muted playsinline>
+            <source src="{video_url}" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
+    <script>
+    var vid = document.getElementById("player-savant-video");
+    if (vid) {{
+        vid.autoplay = true;
+        vid.muted = true;
+        vid.load();
+        vid.play();
+    }}
+    </script>
+    """,
+    unsafe_allow_html=True
+)
 
 if set(extra_cols).issubset(df.columns):
     st.markdown(
