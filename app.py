@@ -220,7 +220,11 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-player_select = st.selectbox("Select a Player", sorted(df_filtered["Name"].unique()))
+player_select = st.selectbox(
+    "Select a Player",
+    sorted(df_filtered["Name"].unique()),
+    key="player_select"
+)
 player_row = df[df["Name"] == player_select].iloc[0]
 
 headshot_size = 96
@@ -340,15 +344,23 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Embed Baseball Savant viz (iframe or link fallback)
+# Baseball Savant Viz Embed
 viz_url = f"https://baseballsavant.mlb.com/leaderboard/bat-tracking/swing-path-attack-angle?playerList={player_id}-2025-{bat_side}&selectedIdx=0"
 st.markdown(
-    f"""
+    """
     <h3 style="text-align:center; margin-top:1.3em; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
         Baseball Savant Swing Path / Attack Angle Visualization
     </h3>
+    <div style="text-align:center; color: #7a7a7a; font-size: 0.99em; margin-bottom:10px">
+        If you select a player and this visualization defaults to Oneil Cruz, there was not enough data to generate a custom visualization for the selected player.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+st.markdown(
+    f"""
     <div style="display: flex; justify-content: center;">
-        <iframe src="{viz_url}" width="900" height="480" frameborder="0" style="border-radius:9px; box-shadow:0 2px 12px #0002;"></iframe>
+        <iframe src="{viz_url}" width="900" height="480" frameborder="0" style="border-radius:9px; box-shadow:0 2px 12px #0002;" id="savantviz"></iframe>
     </div>
     """,
     unsafe_allow_html=True
