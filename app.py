@@ -4,6 +4,9 @@ import os
 from PIL import Image
 import requests
 from io import BytesIO
+import matplotlib
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 
 st.set_page_config(
     page_title="Swing+ & ProjSwing+ Dashboard",
@@ -241,7 +244,6 @@ if logo_url:
 
 player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
 
-# MLB stats API player bio
 player_bio = ""
 if "id" in player_row and pd.notnull(player_row["id"]):
     player_id = str(int(player_row["id"]))
@@ -283,13 +285,16 @@ st.markdown(
         {headshot_html}
         <div style="display:flex;flex-direction:column;align-items:center;">
             {player_name_html}
-            {"<span style='font-size:1.07em;color:#495366;margin-top:7px;margin-bottom:0;font-weight:500;letter-spacing:0.02em;opacity:0.82;'>" + player_bio + "</span>" if player_bio else ""}
+            {"<span style='font-size:1.05em;color:#495366;margin-top:7px;margin-bottom:0;font-weight:500;letter-spacing:0.02em;opacity:0.82;'>" + player_bio + "</span>" if player_bio else ""}
         </div>
         {logo_html}
     </div>
     """,
     unsafe_allow_html=True
 )
+
+# Add more space below the bio and before the plus stats
+st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
 
 total_players = len(df)
 df["Swing+_rank"] = df["Swing+"].rank(ascending=False, method="min").astype(int)
@@ -300,21 +305,32 @@ p_swing_rank = df.loc[df["Name"] == player_select, "Swing+_rank"].iloc[0]
 p_proj_rank = df.loc[df["Name"] == player_select, "ProjSwing+_rank"].iloc[0]
 p_power_rank = df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]
 
+# Color mapping for plus stats (red = high, blue = low)
+def plus_color(val, vmin=663, vmax=1400, cmap="RdYlBu_r"):
+    norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+    rgb = cm.get_cmap(cmap)(norm(val))[:3]
+    hex_color = '#{:02x}{:02x}{:02x}'.format(int(rgb[0]*255), int(rgb[1]*255), int(rgb[2]*255))
+    return hex_color
+
+swing_color = plus_color(player_row['Swing+'])
+proj_color = plus_color(player_row['ProjSwing+'])
+power_color = plus_color(player_row['PowerIndex+'])
+
 st.markdown(
     f"""
-    <div style="display: flex; justify-content: center; gap: 32px; margin-top: 20px; margin-bottom: 28px;">
+    <div style="display: flex; justify-content: center; gap: 32px; margin-top: 0px; margin-bottom: 28px;">
       <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
-        <div style="font-size: 2.2em; font-weight: 700; color: #C62828;">{player_row['Swing+']:.1f}</div>
+        <div style="font-size: 2.2em; font-weight: 700; color: {swing_color};">{player_row['Swing+']:.1f}</div>
         <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">Swing+</div>
         <span style="background: #FFC10733; color: #B71C1C; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_swing_rank} of {total_players}</span>
       </div>
       <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
-        <div style="font-size: 2.2em; font-weight: 700; color: #2E7D32;">{player_row['ProjSwing+']:.1f}</div>
+        <div style="font-size: 2.2em; font-weight: 700; color: {proj_color};">{player_row['ProjSwing+']:.1f}</div>
         <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">ProjSwing+</div>
         <span style="background: #C8E6C933; color: #1B5E20; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_proj_rank} of {total_players}</span>
       </div>
       <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
-        <div style="font-size: 2.2em; font-weight: 700; color: #1565C0;">{player_row['PowerIndex+']:.1f}</div>
+        <div style="font-size: 2.2em; font-weight: 700; color: {power_color};">{player_row['PowerIndex+']:.1f}</div>
         <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">PowerIndex+</div>
         <span style="background: #B3E5FC33; color: #01579B; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_power_rank} of {total_players}</span>
       </div>
