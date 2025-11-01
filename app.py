@@ -17,7 +17,7 @@ import joblib
 import shap
 
 st.set_page_config(
-    page_title="Swing+ Dashboard",
+    page_title="Swing+ & ProjSwing+ Dashboard",
     page_icon="⚾",
     layout="wide"
 )
@@ -25,7 +25,7 @@ st.set_page_config(
 st.markdown(
     """
     <h1 style="text-align:center; margin-bottom:0.8em; font-size:2.4em; letter-spacing:0.02em; color:#183153;">
-        Swing+ Dashboard
+        Swing+ & ProjSwing+ Dashboard
     </h1>
     """,
     unsafe_allow_html=True
@@ -188,6 +188,55 @@ st.dataframe(styled_df, use_container_width=True, hide_index=True)
 st.markdown(
     """
     <h2 style="text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; letter-spacing:0.01em; color:#2a3757;">
+        Top 10 Leaderboards
+    </h2>
+    """,
+    unsafe_allow_html=True
+)
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.markdown(
+        """
+        <div style="text-align:center; font-size:1.15em; font-weight:600; margin-bottom:0.6em; color:#385684;">
+            Top 10 by Swing+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    top_swing = df_filtered.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
+    leaderboard_cols = [c for c in ["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] if c in top_swing.columns]
+    st.dataframe(
+        top_swing[leaderboard_cols]
+        .style.background_gradient(subset=["Swing+"], cmap=elite_cmap)
+        .format(precision=1),
+        use_container_width=True,
+        hide_index=True
+    )
+
+with col2:
+    st.markdown(
+        """
+        <div style="text-align:center; font-size:1.15em; font-weight:600; margin-bottom:0.6em; color:#385684;">
+            Top 10 by ProjSwing+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    top_proj = df_filtered.sort_values("ProjSwing+", ascending=False).head(10).reset_index(drop=True)
+    leaderboard_cols = [c for c in ["Name", "Team", "Age", "ProjSwing+", "Swing+", "PowerIndex+"] if c in top_proj.columns]
+    st.dataframe(
+        top_proj[leaderboard_cols]
+        .style.background_gradient(subset=["ProjSwing+"], cmap=elite_cmap)
+        .format(precision=1),
+        use_container_width=True,
+        hide_index=True
+    )
+
+st.markdown(
+    """
+    <h2 style="text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; letter-spacing:0.01em; color:#2a3757;">
         Player Detail
     </h2>
     """,
@@ -201,8 +250,8 @@ player_select = st.selectbox(
 )
 player_row = df[df["Name"] == player_select].iloc[0]
 
-headshot_size = 88
-logo_size = 72
+headshot_size = 96
+logo_size = 80
 
 team_abb = player_row["Team"] if "Team" in player_row and pd.notnull(player_row["Team"]) else ""
 logo_url = image_dict.get(team_abb, "")
@@ -211,16 +260,55 @@ headshot_html = ""
 if "id" in player_row and pd.notnull(player_row["id"]):
     player_id = str(int(player_row["id"]))
     headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
-    headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:12px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-right:14px;" alt="headshot" />'
+    headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-right:20px;" alt="headshot" />'
 else:
     fallback_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-    headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:12px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-right:14px;" alt="headshot" />'
+    headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-right:20px;" alt="headshot" />'
 
 logo_html = ""
 if logo_url:
-    logo_html = f'<img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;margin-left:18px;background:transparent;border-radius:0;" alt="logo"/>'
+    logo_html = f'<img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;margin-left:46px;background:transparent;border-radius:0;" alt="logo"/>'
 
-player_name_html = f'<span style="font-size:1.8em;font-weight:800;color:#183153;vertical-align:middle;margin:0 12px;">{player_select}</span>'
+# Restore MLB bio lookup exactly as before
+player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
+
+player_bio = ""
+bat_side = "R"
+if "id" in player_row and pd.notnull(player_row["id"]):
+    player_id = str(int(player_row["id"]))
+    mlb_bio_url = f"https://statsapi.mlb.com/api/v1/people/{player_id}"
+    try:
+        resp = requests.get(mlb_bio_url, timeout=4)
+        if resp.status_code == 200:
+            data = resp.json()
+            if "people" in data and len(data["people"]) > 0:
+                person = data["people"][0]
+                if "batSide" in person and "code" in person["batSide"]:
+                    bat_side = person["batSide"]["code"]
+                bio_parts = []
+                if "height" in person and "weight" in person:
+                    bio_parts.append(f"{person['height']}, {person['weight']} lbs")
+                bt = []
+                if "batSide" in person and "code" in person["batSide"]:
+                    bt.append(person["batSide"]["code"])
+                if "pitchHand" in person and "code" in person["pitchHand"]:
+                    bt.append(person["pitchHand"]["code"])
+                if bt:
+                    bio_parts.append(f"B/T: {'/'.join(bt)}")
+                if "currentAge" in person:
+                    bio_parts.append(f"Age: {person['currentAge']}")
+                location = []
+                if "birthCity" in person:
+                    location.append(person["birthCity"])
+                if "birthStateProvince" in person and person["birthStateProvince"]:
+                    location.append(person["birthStateProvince"])
+                if "birthCountry" in person:
+                    location.append(person["birthCountry"])
+                if location:
+                    bio_parts.append(", ".join(location))
+                player_bio = " &nbsp; | &nbsp; ".join(bio_parts)
+    except Exception:
+        player_bio = ""
 
 st.markdown(
     f"""
@@ -228,6 +316,7 @@ st.markdown(
         {headshot_html}
         <div style="display:flex;flex-direction:column;align-items:center;">
             {player_name_html}
+            {"<span style='font-size:0.98em;color:#495366;margin-top:7px;margin-bottom:0;font-weight:500;letter-spacing:0.02em;opacity:0.82;'>" + player_bio + "</span>" if player_bio else ""}
         </div>
         {logo_html}
     </div>
@@ -235,11 +324,16 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
 total_players = len(df)
 df["Swing+_rank"] = df["Swing+"].rank(ascending=False, method="min").astype(int)
+df["ProjSwing+_rank"] = df["ProjSwing+"].rank(ascending=False, method="min").astype(int)
+df["PowerIndex+_rank"] = df["PowerIndex+"].rank(ascending=False, method="min").astype(int)
+
 p_swing_rank = df.loc[df["Name"] == player_select, "Swing+_rank"].iloc[0]
+p_proj_rank = df.loc[df["Name"] == player_select, "ProjSwing+_rank"].iloc[0]
+p_power_rank = df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]
 
 def plus_color(val, vmin=663, vmax=1400, cmap="RdYlBu_r"):
     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
@@ -248,15 +342,67 @@ def plus_color(val, vmin=663, vmax=1400, cmap="RdYlBu_r"):
     return hex_color
 
 swing_color = plus_color(player_row['Swing+'])
+proj_color = plus_color(player_row['ProjSwing+'])
+power_color = plus_color(player_row['PowerIndex+'])
 
 st.markdown(
     f"""
-    <div style="display: flex; justify-content: center; gap: 20px; margin-top: 0px; margin-bottom: 20px;">
-      <div style="background: #fff; border-radius: 12px; box-shadow: 0 2px 8px #0001; padding: 16px 22px; text-align: center; min-width: 220px;">
-        <div style="font-size: 1.9em; font-weight: 700; color: {swing_color};">{player_row['Swing+']:.1f}</div>
-        <div style="font-size: 0.95em; color: #666; font-weight: 600; margin-bottom: 6px;">Swing+</div>
-        <div style="font-size:0.86em;color:#374151;background:#F8F9FB;padding:6px 10px;border-radius:8px;display:inline-block;">Rank {p_swing_rank} of {total_players}</div>
+    <div style="display: flex; justify-content: center; gap: 32px; margin-top: 0px; margin-bottom: 28px;">
+      <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
+        <div style="font-size: 2.2em; font-weight: 700; color: {swing_color};">{player_row['Swing+']:.1f}</div>
+        <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">Swing+</div>
+        <span style="background: #FFC10733; color: #B71C1C; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_swing_rank} of {total_players}</span>
       </div>
+      <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
+        <div style="font-size: 2.2em; font-weight: 700; color: {proj_color};">{player_row['ProjSwing+']:.1f}</div>
+        <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">ProjSwing+</div>
+        <span style="background: #C8E6C933; color: #1B5E20; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_proj_rank} of {total_players}</span>
+      </div>
+      <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
+        <div style="font-size: 2.2em; font-weight: 700; color: {power_color};">{player_row['PowerIndex+']:.1f}</div>
+        <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">PowerIndex+</div>
+        <span style="background: #B3E5FC33; color: #01579B; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_power_rank} of {total_players}</span>
+      </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+video_url = f"https://builds.mlbstatic.com/baseballsavant.mlb.com/swing-path/splendid-splinter/cut/{player_id}-2025-{bat_side}.mp4"
+
+DEFAULT_ONEIL_CRUZ_IDS = ['665833-2025-L', '665833-2025-R', '665833-2025-S']
+default_name = "Oneil Cruz"
+showing_default = f'{player_id}-2025-{bat_side}' in DEFAULT_ONEIL_CRUZ_IDS
+
+if showing_default:
+    video_note = (
+        f"No custom video data available for this player — showing a default example ({default_name})."
+    )
+else:
+    video_note = (
+        "Below is the Baseball Savant Swing Path / Attack Angle visualization for this player."
+    )
+
+st.markdown(
+    f"""
+    <h3 style="text-align:center; margin-top:1.3em; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
+        Baseball Savant Swing Path / Attack Angle Visualization
+    </h3>
+    <div style="text-align:center; color: #7a7a7a; font-size: 0.99em; margin-bottom:10px">
+        {video_note}
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    f"""
+    <div id="savantviz-anchor"></div>
+    <div style="display: flex; justify-content: center;">
+        <video id="player-savant-video" width="900" height="480" style="border-radius:9px; box-shadow:0 2px 12px #0002;" autoplay muted playsinline key="{player_id}-{bat_side}">
+            <source src="{video_url}" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
     </div>
     """,
     unsafe_allow_html=True
@@ -349,7 +495,7 @@ def prepare_model_input_for_player(player_row, feature_list_fallback, model_obj,
                 X_raw[c] = X_raw[c].fillna(0.0)
     return X_raw
 
-# Compute SHAP values for the selected player
+# Compute SHAP values for the selected player (Swing+ only)
 shap_df = None
 shap_base = None
 shap_pred = None
