@@ -451,98 +451,97 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 "score": sim_score
             })
 
-        # Add styles for the similarity bar visualization
+        # CSS for compact inline chips (minimal-space, good-looking)
         st.markdown(
             """
             <style>
-            .sim-card {
-                background:#fff;border-radius:14px;box-shadow:0 2px 8px #0001;padding:18px 13px 13px 13px;width:168px;text-align:center;margin-bottom:8px;
-            }
-            .sim-head {
-                height:74px;width:74px;object-fit:cover;border-radius:12px;box-shadow:0 1px 5px #0001;margin-bottom:8px;
-            }
-            .sim-name {
-                font-size:1.01em;font-weight:700;color:#183153;margin:2px 0 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-            }
-            .sim-score {
-                font-size:0.98em;font-weight:600;color:#385684;margin-top:8px;margin-bottom:6px;
-            }
-            .sim-bar-outer {
-                background: #eef2f7;
-                border-radius: 999px;
-                height: 10px;
-                width: 120px;
-                margin: 6px auto 0 auto;
-                overflow: hidden;
-                box-shadow: inset 0 1px 2px #00000010;
-            }
-            .sim-bar-inner {
-                height: 100%;
-                border-radius: 999px;
-                transition: width 0.6s ease;
-            }
-            .sim-score-value {
-                font-weight:700;color:#B71036;margin-left:6px;
-            }
-            /* New layout: horizontal flow with wrapping so cards sit side-by-side */
-            .sim-container {
-                display: flex;
-                flex-direction: row;
-                flex-wrap: wrap;
-                gap: 18px;
-                align-items: flex-start;
-                justify-content: flex-start;
-                width: auto;
-                max-width: 720px; /* adjust how many fit per row before wrapping */
-            }
-            /* Outer wrapper keeps the overall page centered but allows cards to be positioned on the right within the centered column */
-            .sim-outer {
+            .chips-row {
                 display:flex;
-                justify-content:center; /* keep main content centered */
+                gap:10px;
+                align-items:center;
+                justify-content:center;
+                flex-wrap:wrap;
+                margin-top:8px;
+                margin-bottom:12px;
             }
-            .sim-outer-inner {
-                width: 100%;
-                max-width: 1100px; /* keep same max content width as other sections */
-                display: flex;
-                justify-content: flex-end; /* push sim cards to the right edge within the content area */
-                padding-right: 40px; /* spacing from right edge */
-                box-sizing: border-box;
-                margin-top: -8px; /* slight nudge up so cards appear near top area */
+            .chip {
+                display:flex;
+                align-items:center;
+                gap:8px;
+                background:#ffffff;
+                border-radius:999px;
+                padding:6px 10px;
+                box-shadow: 0 1px 6px #00000014;
+                font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+                color:#183153;
+                font-weight:600;
+                font-size:0.95em;
+                min-height:40px;
+            }
+            .chip-img {
+                height:34px;
+                width:34px;
+                border-radius:8px;
+                object-fit:cover;
+                box-shadow:0 1px 4px #00000012;
+                background:#fff;
+            }
+            .chip-text {
+                display:flex;
+                flex-direction:column;
+                line-height:1;
+            }
+            .chip-name {
+                font-size:0.95em;
+                font-weight:700;
+                color:#183153;
+                white-space:nowrap;
+            }
+            .chip-score {
+                font-size:0.85em;
+                font-weight:700;
+                color:#B71036;
+            }
+            .chip-bar {
+                height:6px;
+                width:90px;
+                background:#eef2f7;
+                border-radius:999px;
+                overflow:hidden;
+                margin-left:8px;
+            }
+            .chip-bar-inner {
+                height:100%;
+                border-radius:999px;
             }
             </style>
             """,
             unsafe_allow_html=True
         )
 
-        # Outer wrapper keeps page centered; inner wrapper pushes cards to right within that center column
-        st.markdown(
-            "<div class='sim-outer'><div class='sim-outer-inner'>",
-            unsafe_allow_html=True
-        )
-
-        # Render the similarity cards horizontally in a container that can wrap to next line
-        st.markdown("<div class='sim-container'>", unsafe_allow_html=True)
-        for idx, sim in enumerate(sim_rows[:TOP_N]):
+        # Render compact chips centered under the header (minimal space)
+        chips_html = '<div class="chips-row">'
+        for sim in sim_rows[:TOP_N]:
             pct = max(0, min(1.0, float(sim['score'])))
             width_pct = int(round(pct * 100))
             cmap = cm.get_cmap("RdYlGn_r")
             color_rgb = cmap(pct)[:3]
             color_hex = '#{:02x}{:02x}{:02x}'.format(int(color_rgb[0]*255), int(color_rgb[1]*255), int(color_rgb[2]*255))
-            st.markdown(
-                f"""
-                <div class="sim-card" role="group" aria-label="similar-player-{idx}">
-                  <img src="{sim['headshot_url']}" class="sim-head" alt="headshot"/>
-                  <div class="sim-name">{sim['name']}</div>
-                  <div class="sim-score">Similarity: <span class="sim-score-value">{sim['score']:.2f}</span></div>
-                  <div class="sim-bar-outer" aria-hidden="true">
-                    <div class="sim-bar-inner" style="width:{width_pct}%; background: linear-gradient(90deg, {color_hex}, #FFD54F);"></div>
-                  </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-        st.markdown("</div>", unsafe_allow_html=True)  # close sim-container
-        st.markdown("</div></div>", unsafe_allow_html=True)  # close sim-outer-inner and sim-outer
+            chips_html += f'''
+            <div class="chip" title="{sim['name']} — {sim['score']:.2f}">
+              <img src="{sim['headshot_url']}" class="chip-img" alt="headshot"/>
+              <div class="chip-text">
+                <div class="chip-name">{sim['name']}</div>
+                <div class="chip-score">{sim['score']:.2f}</div>
+              </div>
+              <div class="chip-bar" aria-hidden="true">
+                <div class="chip-bar-inner" style="width:{width_pct}%; background: linear-gradient(90deg, {color_hex}, #FFD54F);"></div>
+              </div>
+            </div>
+            '''
+        chips_html += '</div>'
+
+        st.markdown(chips_html, unsafe_allow_html=True)
 
         with st.expander("Show Heatmap"):
             fig, ax = plt.subplots(figsize=(6, 4.2))
