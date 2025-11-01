@@ -451,38 +451,62 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 "score": sim_score
             })
 
-        # Add styles for the similarity bar visualization
+        # Add styles for the similarity visualization with connector and circular badge
         st.markdown(
             """
             <style>
             .sim-card {
-                background:#fff;border-radius:14px;box-shadow:0 2px 8px #0001;padding:18px 13px 13px 13px;width:168px;text-align:center;margin-bottom:8px;
+                background:#fff;border-radius:14px;box-shadow:0 2px 8px #0001;padding:18px 13px 13px 13px;width:220px;text-align:left;margin-bottom:8px;position:relative;overflow:visible;
             }
             .sim-head {
-                height:74px;width:74px;object-fit:cover;border-radius:12px;box-shadow:0 1px 5px #0001;margin-bottom:8px;
+                height:74px;width:74px;object-fit:cover;border-radius:12px;box-shadow:0 1px 5px #0001;margin-bottom:8px;float:left;margin-right:12px;
             }
             .sim-name {
-                font-size:1.01em;font-weight:700;color:#183153;margin:2px 0 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+                font-size:1.01em;font-weight:700;color:#183153;margin:6px 0 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
             }
             .sim-score {
-                font-size:0.98em;font-weight:600;color:#385684;margin-top:8px;margin-bottom:6px;
+                font-size:0.98em;font-weight:600;color:#385684;margin-top:4px;margin-bottom:6px;padding-left:0.5px;
             }
-            .sim-bar-outer {
-                background: #eef2f7;
-                border-radius: 999px;
-                height: 10px;
-                width: 120px;
-                margin: 6px auto 0 auto;
-                overflow: hidden;
-                box-shadow: inset 0 1px 2px #00000010;
+            /* connector line that protrudes to the right */
+            .sim-connector {
+                position:absolute;
+                right:-160px; /* pushes connector out to the right of the card */
+                top:34px;
+                width:260px;
+                height:4px;
+                background: linear-gradient(90deg, rgba(255,215,64,0.0) 0%, rgba(255,215,64,0.0) 6%, #FFD54F 20%, #FF6B6B 80%, rgba(255,215,64,0.0) 100%);
+                border-radius:4px;
+                transform-origin: left center;
+                box-shadow:0 1px 6px rgba(0,0,0,0.06);
             }
-            .sim-bar-inner {
-                height: 100%;
-                border-radius: 999px;
-                transition: width 0.6s ease;
+            /* circle badge at the far right */
+            .sim-badge {
+                position:absolute;
+                right:-70px;
+                top: -8px;
+                width:96px;
+                height:96px;
+                border-radius:50%;
+                background: radial-gradient(circle at 30% 30%, #fff 0%, #fff 40%, rgba(255,255,255,0.85) 60%), linear-gradient(180deg,#fff,#fff);
+                border:4px solid #FDD835;
+                box-shadow:0 8px 30px rgba(0,0,0,0.08), inset 0 -6px 14px rgba(0,0,0,0.03);
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                font-weight:800;
+                color:#B71C1C;
+                font-size:1.22em;
             }
-            .sim-score-value {
-                font-weight:700;color:#B71036;margin-left:6px;
+            /* numeric inside badge (smaller for very small cards) */
+            .sim-badge .val {
+                display:block;
+                font-size:1.12em;
+                color:#B71C1C;
+            }
+            /* ensure layout around floated image */
+            .sim-content {
+                overflow:hidden;
+                padding-right:20px;
             }
             </style>
             """,
@@ -490,12 +514,12 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
         )
 
         st.markdown(
-            "<div style='display: flex; flex-direction: column; align-items: center; max-width:920px; margin: 0 auto 10px auto;'>",
+            "<div style='display: flex; flex-direction: column; align-items: center; max-width:960px; margin: 0 auto 10px auto;'>",
             unsafe_allow_html=True
         )
         for row in range(2):
             st.markdown(
-                "<div style='display:flex;gap:18px;margin-bottom:12px;justify-content:center;'>",
+                "<div style='display:flex;gap:18px;margin-bottom:18px;justify-content:center;align-items:flex-start;'>",
                 unsafe_allow_html=True
             )
             for col in range(5):
@@ -503,23 +527,24 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 if idx >= len(sim_rows):
                     continue
                 sim = sim_rows[idx]
-                # compute percentage width for the bar
                 pct = max(0, min(1.0, float(sim['score'])))
-                width_pct = int(round(pct * 100))
-                # compute a color gradient from green (high) to red (low)
-                # use matplotlib colormap to pick color
+                # color for left-to-right gradient on connector (green -> orange -> red)
                 cmap = cm.get_cmap("RdYlGn_r")
                 color_rgb = cmap(pct)[:3]
                 color_hex = '#{:02x}{:02x}{:02x}'.format(int(color_rgb[0]*255), int(color_rgb[1]*255), int(color_rgb[2]*255))
+                # place card with connector and circular badge
                 st.markdown(
                     f"""
                     <div class="sim-card">
-                      <img src="{sim['headshot_url']}" class="sim-head" alt="headshot"/>
-                      <div class="sim-name">{sim['name']}</div>
-                      <div class="sim-score">Similarity: <span class="sim-score-value">{sim['score']:.2f}</span></div>
-                      <div class="sim-bar-outer" aria-hidden="true">
-                        <div class="sim-bar-inner" style="width:{width_pct}%; background: linear-gradient(90deg, {color_hex}, #FFD54F);"></div>
+                      <div class="sim-content">
+                        <img src="{sim['headshot_url']}" class="sim-head" alt="headshot"/>
+                        <div style="margin-left:0px;">
+                          <div class="sim-name">{sim['name']}</div>
+                          <div class="sim-score">Similarity: <span style="font-weight:800;color:#B71036;">{sim['score']:.2f}</span></div>
+                        </div>
                       </div>
+                      <div class="sim-connector" style="background: linear-gradient(90deg, rgba(255,255,255,0.0) 0%, rgba(255,255,255,0.0) 6%, {color_hex} 22%, #FFD54F 60%, rgba(255,255,255,0.0) 100%); width:{int(180 + pct*120)}px;"></div>
+                      <div class="sim-badge"><span class="val">{sim['score']:.2f}</span></div>
                     </div>
                     """,
                     unsafe_allow_html=True
