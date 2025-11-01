@@ -455,6 +455,7 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
         st.markdown(
             """
             <style>
+            /* Keep card styles as before but ensure they display well when placed on the right/top */
             .sim-card {
                 background:#fff;border-radius:14px;box-shadow:0 2px 8px #0001;padding:18px 13px 13px 13px;width:168px;text-align:center;margin-bottom:8px;
             }
@@ -484,48 +485,70 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
             .sim-score-value {
                 font-weight:700;color:#B71036;margin-left:6px;
             }
+            /* Container to place similarity cards in the top-right area while keeping the page centered */
+            .sim-container {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                align-items: flex-start;
+                /* limit width so it doesn't stretch full page and allow right placement */
+                width: 220px;
+            }
+            .sim-row {
+                display:flex;
+                gap:18px;
+                justify-content:flex-start;
+            }
+            /* outer wrapper positions the sim-container to the top-right of the main content area */
+            .sim-outer {
+                display:flex;
+                justify-content:center; /* keep main content centered */
+            }
+            .sim-outer-inner {
+                width: 100%;
+                max-width: 1100px; /* keep same max content width as other sections */
+                display: flex;
+                justify-content: flex-end; /* push sim cards to the right edge within the content area */
+                padding-right: 40px; /* spacing from right edge */
+                box-sizing: border-box;
+                margin-top: -8px; /* slight nudge up so cards appear near top area */
+            }
             </style>
             """,
             unsafe_allow_html=True
         )
 
+        # Outer wrapper keeps page centered; inner wrapper pushes cards to right within that center column
         st.markdown(
-            "<div style='display: flex; flex-direction: column; align-items: center; max-width:920px; margin: 0 auto 10px auto;'>",
+            "<div class='sim-outer'><div class='sim-outer-inner'>",
             unsafe_allow_html=True
         )
-        for row in range(2):
+
+        # Render the similarity cards stacked vertically in a narrow column on the right
+        # Use the sim-container class to control width and alignment; each card remains the original design
+        st.markdown("<div class='sim-container'>", unsafe_allow_html=True)
+        # render up to TOP_N similar cards
+        for idx, sim in enumerate(sim_rows[:TOP_N]):
+            pct = max(0, min(1.0, float(sim['score'])))
+            width_pct = int(round(pct * 100))
+            cmap = cm.get_cmap("RdYlGn_r")
+            color_rgb = cmap(pct)[:3]
+            color_hex = '#{:02x}{:02x}{:02x}'.format(int(color_rgb[0]*255), int(color_rgb[1]*255), int(color_rgb[2]*255))
             st.markdown(
-                "<div style='display:flex;gap:18px;margin-bottom:12px;justify-content:center;'>",
+                f"""
+                <div class="sim-card" role="group" aria-label="similar-player-{idx}">
+                  <img src="{sim['headshot_url']}" class="sim-head" alt="headshot"/>
+                  <div class="sim-name">{sim['name']}</div>
+                  <div class="sim-score">Similarity: <span class="sim-score-value">{sim['score']:.2f}</span></div>
+                  <div class="sim-bar-outer" aria-hidden="true">
+                    <div class="sim-bar-inner" style="width:{width_pct}%; background: linear-gradient(90deg, {color_hex}, #FFD54F);"></div>
+                  </div>
+                </div>
+                """,
                 unsafe_allow_html=True
             )
-            for col in range(5):
-                idx = row*5 + col
-                if idx >= len(sim_rows):
-                    continue
-                sim = sim_rows[idx]
-                # compute percentage width for the bar
-                pct = max(0, min(1.0, float(sim['score'])))
-                width_pct = int(round(pct * 100))
-                # compute a color gradient from green (high) to red (low)
-                # use matplotlib colormap to pick color
-                cmap = cm.get_cmap("RdYlGn_r")
-                color_rgb = cmap(pct)[:3]
-                color_hex = '#{:02x}{:02x}{:02x}'.format(int(color_rgb[0]*255), int(color_rgb[1]*255), int(color_rgb[2]*255))
-                st.markdown(
-                    f"""
-                    <div class="sim-card">
-                      <img src="{sim['headshot_url']}" class="sim-head" alt="headshot"/>
-                      <div class="sim-name">{sim['name']}</div>
-                      <div class="sim-score">Similarity: <span class="sim-score-value">{sim['score']:.2f}</span></div>
-                      <div class="sim-bar-outer" aria-hidden="true">
-                        <div class="sim-bar-inner" style="width:{width_pct}%; background: linear-gradient(90deg, {color_hex}, #FFD54F);"></div>
-                      </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-            st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)  # close sim-container
+        st.markdown("</div></div>", unsafe_allow_html=True)  # close sim-outer-inner and sim-outer
 
         with st.expander("Show Heatmap"):
             fig, ax = plt.subplots(figsize=(6, 4.2))
