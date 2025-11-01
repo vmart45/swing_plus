@@ -249,10 +249,10 @@ headshot_html = ""
 if "id" in player_row and pd.notnull(player_row["id"]):
     player_id = str(int(player_row["id"]))
     headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
-    headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-right:46px;" alt="headshot"/>'
+    headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-righ:20px;" alt="headshot"/>'
 else:
     fallback_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-    headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-right:46px;" alt="headshot"/>'
+    headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-righ:20px;" alt="headshot"/>'
 
 logo_html = ""
 if logo_url:
@@ -451,6 +451,44 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 "score": sim_score
             })
 
+        # Add styles for the similarity bar visualization
+        st.markdown(
+            """
+            <style>
+            .sim-card {
+                background:#fff;border-radius:14px;box-shadow:0 2px 8px #0001;padding:18px 13px 13px 13px;width:168px;text-align:center;margin-bottom:8px;
+            }
+            .sim-head {
+                height:74px;width:74px;object-fit:cover;border-radius:12px;box-shadow:0 1px 5px #0001;margin-bottom:8px;
+            }
+            .sim-name {
+                font-size:1.01em;font-weight:700;color:#183153;margin:2px 0 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+            }
+            .sim-score {
+                font-size:0.98em;font-weight:600;color:#385684;margin-top:8px;margin-bottom:6px;
+            }
+            .sim-bar-outer {
+                background: #eef2f7;
+                border-radius: 999px;
+                height: 10px;
+                width: 120px;
+                margin: 6px auto 0 auto;
+                overflow: hidden;
+                box-shadow: inset 0 1px 2px #00000010;
+            }
+            .sim-bar-inner {
+                height: 100%;
+                border-radius: 999px;
+                transition: width 0.6s ease;
+            }
+            .sim-score-value {
+                font-weight:700;color:#B71036;margin-left:6px;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
         st.markdown(
             "<div style='display: flex; flex-direction: column; align-items: center; max-width:920px; margin: 0 auto 10px auto;'>",
             unsafe_allow_html=True
@@ -465,12 +503,23 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 if idx >= len(sim_rows):
                     continue
                 sim = sim_rows[idx]
+                # compute percentage width for the bar
+                pct = max(0, min(1.0, float(sim['score'])))
+                width_pct = int(round(pct * 100))
+                # compute a color gradient from green (high) to red (low)
+                # use matplotlib colormap to pick color
+                cmap = cm.get_cmap("RdYlGn_r")
+                color_rgb = cmap(pct)[:3]
+                color_hex = '#{:02x}{:02x}{:02x}'.format(int(color_rgb[0]*255), int(color_rgb[1]*255), int(color_rgb[2]*255))
                 st.markdown(
                     f"""
-                    <div style="background:#fff;border-radius:14px;box-shadow:0 2px 8px #0001;padding:18px 13px 13px 13px;width:168px;text-align:center;margin-bottom:8px;">
-                      <img src="{sim['headshot_url']}" style="height:74px;width:74px;object-fit:cover;border-radius:12px;box-shadow:0 1px 5px #0001;margin-bottom:8px;" alt="headshot"/>
-                      <div style="font-size:1.01em;font-weight:700;color:#183153;margin:2px 0 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{sim['name']}</div>
-                      <div style="font-size:0.98em;font-weight:600;color:#385684;margin-top:4px;">Similarity: <span style='color:#B71036;'>{sim['score']:.2f}</span></div>
+                    <div class="sim-card">
+                      <img src="{sim['headshot_url']}" class="sim-head" alt="headshot"/>
+                      <div class="sim-name">{sim['name']}</div>
+                      <div class="sim-score">Similarity: <span class="sim-score-value">{sim['score']:.2f}</span></div>
+                      <div class="sim-bar-outer" aria-hidden="true">
+                        <div class="sim-bar-inner" style="width:{width_pct}%; background: linear-gradient(90deg, {color_hex}, #FFD54F);"></div>
+                      </div>
                     </div>
                     """,
                     unsafe_allow_html=True
