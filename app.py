@@ -68,7 +68,7 @@ mlb_teams = [
     {"team": "STL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/stl.png&h=500&w=500"},
     {"team": "TB", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/tb.png&h=500&w=500"},
     {"team": "TEX", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/tex.png&h=500&w=500"},
-    {"team": "TOR", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/tor.png&h=500&w=500"},
+    {"team": "TOR", "logologo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/tor.png&h=500&w=500"},
     {"team": "WSH", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/wsh.png&h=500&w=500"}
 ]
 df_image = pd.DataFrame(mlb_teams)
@@ -451,80 +451,90 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 "score": sim_score
             })
 
-        # Render header (no gray bar) and compact list below the Mechanical Similarity heading.
+        # Render header (no gray bar) and a centered, elongated compact list below the Mechanical Similarity heading.
         st.markdown(
             """
             <style>
+            /* Container centered and stretched so the list aligns under the main heading */
             .sim-container {
                 width: 100%;
-                max-width: 1100px;
-                margin: 10px auto 6px auto;
+                max-width: 1160px; /* make it wider/elongated */
+                margin: 12px auto 10px auto;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
             }
             .sim-header {
                 text-align: center;
                 color: #183153;
                 font-size: 1.05em;
-                margin-bottom: 8px;
+                margin-bottom: 12px;
                 font-weight: 400;
             }
             .sim-list {
+                width: 100%;
                 display: flex;
                 flex-direction: column;
-                gap: 8px;
+                gap: 10px;
                 align-items: center;
             }
+            /* Each item spans the full available width of the container for a long, centered look */
             .sim-item {
                 display: flex;
                 align-items: center;
                 background: #ffffff;
-                border-radius: 10px;
-                padding: 8px 12px;
-                gap: 12px;
+                border-radius: 12px;
+                padding: 12px 18px;
+                gap: 16px;
                 width: 100%;
-                max-width: 980px;
-                border: 1px solid #f0f4f8;
-                box-shadow: 0 2px 8px rgba(15,23,42,0.04);
+                border: 1px solid #eef4f8;
+                box-shadow: 0 6px 18px rgba(15,23,42,0.04);
             }
             .sim-rank {
-                font-size: 1.0em;
+                font-size: 1.05em;
                 font-weight: 700;
                 color: #183153;
-                min-width: 28px;
+                min-width: 36px;
                 text-align: center;
             }
             .sim-headshot-compact {
-                height: 48px;
-                width: 48px;
-                border-radius: 8px;
+                height: 56px;
+                width: 56px;
+                border-radius: 10px;
                 object-fit: cover;
-                box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+                box-shadow: 0 1px 6px rgba(0,0,0,0.06);
             }
             .sim-name-compact {
                 flex: 1;
-                font-size: 1.02em;
+                font-size: 1.05em;
                 font-weight: 400;
                 color: #183153;
             }
             .sim-score-compact {
-                font-size: 0.95em;
+                font-size: 1.0em;
                 font-weight: 700;
                 color: #333;
-                margin-right: 10px;
-                min-width: 64px;
+                margin-right: 16px;
+                min-width: 80px;
                 text-align: right;
             }
             .sim-bar-mini {
-                width: 160px;
-                height: 10px;
-                background: #f1f5f9;
+                width: 260px;
+                height: 12px;
+                background: #f4f7fa;
                 border-radius: 999px;
                 overflow: hidden;
-                margin-left: 8px;
+                margin-left: 12px;
             }
             .sim-bar-fill {
                 height: 100%;
                 border-radius: 999px;
                 transition: width 0.5s ease;
+            }
+            @media (max-width: 1100px) {
+                .sim-container { max-width: 92%; }
+                .sim-bar-mini { width: 180px; height: 10px; }
+                .sim-headshot-compact { height: 48px; width: 48px; }
             }
             </style>
             """,
