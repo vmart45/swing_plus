@@ -256,8 +256,7 @@ else:
 
 logo_html = ""
 if logo_url:
-    # reduce logo left margin slightly so spacing feels balanced with headshot moved left
-    logo_html = f'<img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;margin-left:28px;background:transparent;border-radius:0;" alt="logo"/>'
+    logo_html = f'<img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;margin-left:46px;background:transparent;border-radius:0;" alt="logo"/>'
 
 player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
 
@@ -301,9 +300,9 @@ if "id" in player_row and pd.notnull(player_row["id"]):
 
 st.markdown(
     f"""
-    <div style="display:flex;justify-content:flex-start;align-items:center;margin-bottom:0px;margin-top:8px;padding-left:120px;">
+    <div style="display:flex;justify-content:center;align-items:center;margin-bottom:0px;margin-top:8px;">
         {headshot_html}
-        <div style="display:flex;flex-direction:column;align-items:flex-start;">
+        <div style="display:flex;flex-direction:column;align-items:center;">
             {player_name_html}
             {"<span style='font-size:0.98em;color:#495366;margin-top:7px;margin-bottom:0;font-weight:500;letter-spacing:0.02em;opacity:0.82;'>" + player_bio + "</span>" if player_bio else ""}
         </div>
@@ -349,7 +348,7 @@ st.markdown(
       </div>
       <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
         <div style="font-size: 2.2em; font-weight: 700; color: {power_color};">{player_row['PowerIndex+']:.1f}</div>
-        <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">PowerIndex+</div>
+        <div style="font-size:1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">PowerIndex+</div>
         <span style="background: #B3E5FC33; color: #01579B; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_power_rank} of {total_players}</span>
       </div>
     </div>
