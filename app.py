@@ -11,8 +11,6 @@ import seaborn as sns
 import matplotlib
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
-import json
-import uuid
 
 st.set_page_config(
     page_title="Swing+ & ProjSwing+ Dashboard",
@@ -453,152 +451,80 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 "score": sim_score
             })
 
+        # Add styles for the similarity bar visualization
         st.markdown(
             """
             <style>
-            .sim-list-wrap {
-                max-width: 960px;
-                margin: 0 auto 16px auto;
-                padding-left: 18px;
-            }
-            .sim-row {
-                display:flex;
-                flex-direction:column;
-                gap:18px;
-            }
             .sim-card {
-                background:#fff;
-                border-radius:14px;
-                box-shadow:0 8px 26px rgba(22,28,45,0.06);
-                padding:18px 18px 18px 18px;
-                width:420px;
-                text-align:left;
-                position:relative;
-                overflow:visible;
-                margin-bottom:18px;
+                background:#fff;border-radius:14px;box-shadow:0 2px 8px #0001;padding:18px 13px 13px 13px;width:168px;text-align:center;margin-bottom:8px;
             }
             .sim-head {
-                height:74px;
-                width:74px;
-                object-fit:cover;
-                border-radius:12px;
-                box-shadow:0 1px 5px #0001;
-                float:left;
-                margin-right:14px;
+                height:74px;width:74px;object-fit:cover;border-radius:12px;box-shadow:0 1px 5px #0001;margin-bottom:8px;
             }
             .sim-name {
-                font-size:1.05em;
-                font-weight:700;
-                color:#183153;
-                margin:6px 0 2px 0;
-                white-space:nowrap;
-                overflow:hidden;
-                text-overflow:ellipsis;
+                font-size:1.01em;font-weight:700;color:#183153;margin:2px 0 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
             }
             .sim-score {
-                font-size:0.98em;
-                font-weight:600;
-                color:#385684;
-                margin-top:6px;
-                margin-bottom:6px;
+                font-size:0.98em;font-weight:600;color:#385684;margin-top:8px;margin-bottom:6px;
             }
-            .sim-left {
-                display:block;
-                padding-left:6px;
+            .sim-bar-outer {
+                background: #eef2f7;
+                border-radius: 999px;
+                height: 10px;
+                width: 120px;
+                margin: 6px auto 0 auto;
+                overflow: hidden;
+                box-shadow: inset 0 1px 2px #00000010;
             }
-            .sim-connector {
-                position:absolute;
-                right:-220px;
-                top:22px;
-                height:6px;
-                width:360px;
-                border-radius:6px;
-                box-shadow:0 6px 20px rgba(245, 166, 35, 0.06);
-                overflow:visible;
+            .sim-bar-inner {
+                height: 100%;
+                border-radius: 999px;
+                transition: width 0.6s ease;
             }
-            .sim-connector::before {
-                content: "";
-                position:absolute;
-                left:0;
-                top:0;
-                bottom:0;
-                right:0;
-                border-radius:6px;
-                background: linear-gradient(90deg, rgba(255,255,255,0.0) 0%, rgba(255,255,255,0.0) 6%, #FFD54F 20%, #FF7043 60%, rgba(255,255,255,0.0) 100%);
-                filter: blur(0.0px);
-                opacity:1;
-            }
-            .sim-badge {
-                position:absolute;
-                right:-100px;
-                top:-16px;
-                width:92px;
-                height:92px;
-                border-radius:50%;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                font-weight:800;
-                color:#B71C1C;
-                font-size:1.22em;
-                background: linear-gradient(180deg, #ffffff 0%, #fffdfa 100%);
-                border:5px solid #FDD835;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.08), inset 0 -6px 14px rgba(0,0,0,0.03);
-            }
-            .sim-badge .val {
-                display:block;
-                font-size:1.12em;
-                color:#B71C1C;
-            }
-            /* small helper for spacing when floats are used */
-            .sim-content {
-                overflow:hidden;
-                padding-right:18px;
-            }
-            @media (max-width: 1100px) {
-                .sim-card { width: 360px; }
-                .sim-connector { right:-180px; width:300px; }
-                .sim-badge { right:-82px; width:78px; height:78px; top:-12px; border-width:4px; font-size:1.02em; }
+            .sim-score-value {
+                font-weight:700;color:#B71036;margin-left:6px;
             }
             </style>
             """,
             unsafe_allow_html=True
         )
 
-        st.markdown("<div class='sim-list-wrap'>", unsafe_allow_html=True)
-
-        # present as vertical list similar to the user's reference
-        for idx, sim in enumerate(sim_rows):
-            pct = max(0, min(1.0, float(sim['score'])))
-            # choose a color for the connector based on pct (green high, red low)
-            cmap = cm.get_cmap("RdYlGn_r")
-            color_rgb = cmap(pct)[:3]
-            color_hex = '#{:02x}{:02x}{:02x}'.format(int(color_rgb[0]*255), int(color_rgb[1]*255), int(color_rgb[2]*255))
-            # compute connector width to visually vary length (min 160 to max 360)
-            conn_width = int(180 + pct * 180)
-            # badge value rounded to 2 decimals
-            badge_text = f"{sim['score']:.2f}"
+        st.markdown(
+            "<div style='display: flex; flex-direction: column; align-items: center; max-width:920px; margin: 0 auto 10px auto;'>",
+            unsafe_allow_html=True
+        )
+        for row in range(2):
             st.markdown(
-                f"""
-                <div style="display:flex;align-items:flex-start;margin-bottom:6px;">
-                  <div class="sim-card" role="article" aria-label="similar-player-{idx}">
-                    <div class="sim-content">
-                      <img src="{sim['headshot_url']}" class="sim-head" alt="headshot"/>
-                      <div class="sim-left">
-                        <div class="sim-name">{sim['name']}</div>
-                        <div class="sim-score">Similarity: <span style="font-weight:800;color:#B71036;">{sim['score']:.2f}</span></div>
-                      </div>
-                    </div>
-                    <div class="sim-connector" style="width:{conn_width}px;">
-                      <div style="height:100%; width:100%; border-radius:6px; background: linear-gradient(90deg, rgba(255,255,255,0.0) 0%, rgba(255,255,255,0.0) 6%, {color_hex} 22%, #FFD54F 60%, rgba(255,255,255,0.0) 100%);"></div>
-                    </div>
-                    <div class="sim-badge"><span class="val">{badge_text}</span></div>
-                  </div>
-                </div>
-                """,
+                "<div style='display:flex;gap:18px;margin-bottom:12px;justify-content:center;'>",
                 unsafe_allow_html=True
             )
-
+            for col in range(5):
+                idx = row*5 + col
+                if idx >= len(sim_rows):
+                    continue
+                sim = sim_rows[idx]
+                # compute percentage width for the bar
+                pct = max(0, min(1.0, float(sim['score'])))
+                width_pct = int(round(pct * 100))
+                # compute a color gradient from green (high) to red (low)
+                # use matplotlib colormap to pick color
+                cmap = cm.get_cmap("RdYlGn_r")
+                color_rgb = cmap(pct)[:3]
+                color_hex = '#{:02x}{:02x}{:02x}'.format(int(color_rgb[0]*255), int(color_rgb[1]*255), int(color_rgb[2]*255))
+                st.markdown(
+                    f"""
+                    <div class="sim-card">
+                      <img src="{sim['headshot_url']}" class="sim-head" alt="headshot"/>
+                      <div class="sim-name">{sim['name']}</div>
+                      <div class="sim-score">Similarity: <span class="sim-score-value">{sim['score']:.2f}</span></div>
+                      <div class="sim-bar-outer" aria-hidden="true">
+                        <div class="sim-bar-inner" style="width:{width_pct}%; background: linear-gradient(90deg, {color_hex}, #FFD54F);"></div>
+                      </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
         with st.expander("Show Heatmap"):
