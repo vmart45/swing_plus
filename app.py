@@ -298,7 +298,6 @@ if "id" in player_row and pd.notnull(player_row["id"]):
     except Exception:
         player_bio = ""
 
-# Replace prior spacer with a clear label that will be visually under the Mechanical Similarity cluster
 st.markdown(
     f"""
     <div style="display:flex;justify-content:center;align-items:center;margin-bottom:6px;margin-top:8px;">
@@ -452,38 +451,55 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 "score": sim_score
             })
 
-        # Compact horizontal list design with improved aesthetics
+        # Compact horizontal list design placed inside a light gray rounded "bar" under the cluster heading.
         st.markdown(
             """
             <style>
+            .sim-bar {
+                background: #f5f7fa;
+                border-radius: 14px;
+                padding: 10px 16px;
+                max-width: 1100px;
+                margin: 12px auto 8px auto;
+                box-shadow: 0 6px 24px rgba(15,23,42,0.04);
+                border: 1px solid #e6edf3;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            .sim-row {
+                width: 100%;
+                display: flex;
+                gap: 12px;
+                align-items: center;
+                justify-content: center;
+            }
             .sim-container {
-                background: #ffffff;
-                border-radius: 12px;
-                padding: 12px;
+                background: transparent;
+                width: 100%;
                 max-width: 980px;
-                margin: 8px auto 0 auto;
-                box-shadow: 0 6px 20px rgba(15,23,42,0.06);
-                border: 1px solid #eef2f6;
+                margin: 6px 0 0 0;
             }
             .sim-header {
                 font-size: 1.05em;
-                font-weight: 700;
+                font-weight: 400;
                 color: #183153;
                 text-align: center;
-                margin-bottom: 8px;
+                margin: 2px 0 8px 0;
             }
             .sim-item {
                 display: flex;
                 align-items: center;
-                background: #fbfdff;
+                background: #ffffff;
                 border-radius: 10px;
                 padding: 8px 12px;
                 margin-bottom: 8px;
                 gap: 12px;
                 border: 1px solid #f0f4f8;
+                box-shadow: 0 2px 8px rgba(15,23,42,0.04);
             }
             .sim-rank {
-                font-size: 1.05em;
+                font-size: 1.0em;
                 font-weight: 700;
                 color: #183153;
                 min-width: 28px;
@@ -499,7 +515,7 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
             .sim-name-compact {
                 flex: 1;
                 font-size: 1.02em;
-                font-weight: 600;
+                font-weight: 400;
                 color: #183153;
             }
             .sim-score-compact {
@@ -507,11 +523,11 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 font-weight: 700;
                 color: #333;
                 margin-right: 10px;
-                min-width: 68px;
+                min-width: 64px;
                 text-align: right;
             }
             .sim-bar-mini {
-                width: 140px;
+                width: 160px;
                 height: 10px;
                 background: #f1f5f9;
                 border-radius: 999px;
@@ -528,20 +544,20 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
             unsafe_allow_html=True
         )
 
+        # Render the light-gray bar with the header text and the compact list inside it
+        st.markdown('<div class="sim-bar">', unsafe_allow_html=True)
+        # header: unbold "Top N mechanically similar players to" and only bold the player name
+        header_html = f'<div class="sim-header">Top {TOP_N} mechanically similar players to <span style="font-weight:700;">{player_select}</span></div>'
+        st.markdown(header_html, unsafe_allow_html=True)
         st.markdown('<div class="sim-container">', unsafe_allow_html=True)
-        st.markdown(f'<div class="sim-header">Top {TOP_N} mechanically similar players to <b>{player_select}</b></div>', unsafe_allow_html=True)
-        
+
         for idx, sim in enumerate(sim_rows, 1):
-            # Treat similarity as a value between 0 and 1, clamp accordingly
             pct = max(0.0, min(1.0, float(sim['score'])))
             width_pct = int(round(pct * 100))
 
-            # Gradient color: red (high similarity) -> yellow (lower similarity) is inverted visually,
-            # but the user requested red to yellow on the bar. We'll use red for the fill and gradient to yellow.
-            start_color = "#D32F2F"  # red
-            end_color = "#FFEB3B"    # yellow
+            start_color = "#D32F2F"
+            end_color = "#FFEB3B"
 
-            # Show similarity as percentage for readability
             sim_pct_text = f"{pct:.1%}"
 
             st.markdown(
@@ -558,7 +574,8 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 """,
                 unsafe_allow_html=True
             )
-        
+
+        st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
         with st.expander("Show Detailed Heatmap"):
