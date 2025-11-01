@@ -451,105 +451,152 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 "score": sim_score
             })
 
-        # Add styles for the similarity visualization with connector and circular badge
         st.markdown(
             """
             <style>
+            .sim-list-wrap {
+                max-width: 960px;
+                margin: 0 auto 16px auto;
+                padding-left: 18px;
+            }
+            .sim-row {
+                display:flex;
+                flex-direction:column;
+                gap:18px;
+            }
             .sim-card {
-                background:#fff;border-radius:14px;box-shadow:0 2px 8px #0001;padding:18px 13px 13px 13px;width:220px;text-align:left;margin-bottom:8px;position:relative;overflow:visible;
+                background:#fff;
+                border-radius:14px;
+                box-shadow:0 8px 26px rgba(22,28,45,0.06);
+                padding:18px 18px 18px 18px;
+                width:420px;
+                text-align:left;
+                position:relative;
+                overflow:visible;
+                margin-bottom:18px;
             }
             .sim-head {
-                height:74px;width:74px;object-fit:cover;border-radius:12px;box-shadow:0 1px 5px #0001;margin-bottom:8px;float:left;margin-right:12px;
+                height:74px;
+                width:74px;
+                object-fit:cover;
+                border-radius:12px;
+                box-shadow:0 1px 5px #0001;
+                float:left;
+                margin-right:14px;
             }
             .sim-name {
-                font-size:1.01em;font-weight:700;color:#183153;margin:6px 0 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+                font-size:1.05em;
+                font-weight:700;
+                color:#183153;
+                margin:6px 0 2px 0;
+                white-space:nowrap;
+                overflow:hidden;
+                text-overflow:ellipsis;
             }
             .sim-score {
-                font-size:0.98em;font-weight:600;color:#385684;margin-top:4px;margin-bottom:6px;padding-left:0.5px;
+                font-size:0.98em;
+                font-weight:600;
+                color:#385684;
+                margin-top:6px;
+                margin-bottom:6px;
             }
-            /* connector line that protrudes to the right */
+            .sim-left {
+                display:block;
+                padding-left:6px;
+            }
             .sim-connector {
                 position:absolute;
-                right:-160px; /* pushes connector out to the right of the card */
-                top:34px;
-                width:260px;
-                height:4px;
-                background: linear-gradient(90deg, rgba(255,215,64,0.0) 0%, rgba(255,215,64,0.0) 6%, #FFD54F 20%, #FF6B6B 80%, rgba(255,215,64,0.0) 100%);
-                border-radius:4px;
-                transform-origin: left center;
-                box-shadow:0 1px 6px rgba(0,0,0,0.06);
+                right:-220px;
+                top:22px;
+                height:6px;
+                width:360px;
+                border-radius:6px;
+                box-shadow:0 6px 20px rgba(245, 166, 35, 0.06);
+                overflow:visible;
             }
-            /* circle badge at the far right */
+            .sim-connector::before {
+                content: "";
+                position:absolute;
+                left:0;
+                top:0;
+                bottom:0;
+                right:0;
+                border-radius:6px;
+                background: linear-gradient(90deg, rgba(255,255,255,0.0) 0%, rgba(255,255,255,0.0) 6%, #FFD54F 20%, #FF7043 60%, rgba(255,255,255,0.0) 100%);
+                filter: blur(0.0px);
+                opacity:1;
+            }
             .sim-badge {
                 position:absolute;
-                right:-70px;
-                top: -8px;
-                width:96px;
-                height:96px;
+                right:-100px;
+                top:-16px;
+                width:92px;
+                height:92px;
                 border-radius:50%;
-                background: radial-gradient(circle at 30% 30%, #fff 0%, #fff 40%, rgba(255,255,255,0.85) 60%), linear-gradient(180deg,#fff,#fff);
-                border:4px solid #FDD835;
-                box-shadow:0 8px 30px rgba(0,0,0,0.08), inset 0 -6px 14px rgba(0,0,0,0.03);
                 display:flex;
                 align-items:center;
                 justify-content:center;
                 font-weight:800;
                 color:#B71C1C;
                 font-size:1.22em;
+                background: linear-gradient(180deg, #ffffff 0%, #fffdfa 100%);
+                border:5px solid #FDD835;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.08), inset 0 -6px 14px rgba(0,0,0,0.03);
             }
-            /* numeric inside badge (smaller for very small cards) */
             .sim-badge .val {
                 display:block;
                 font-size:1.12em;
                 color:#B71C1C;
             }
-            /* ensure layout around floated image */
+            /* small helper for spacing when floats are used */
             .sim-content {
                 overflow:hidden;
-                padding-right:20px;
+                padding-right:18px;
+            }
+            @media (max-width: 1100px) {
+                .sim-card { width: 360px; }
+                .sim-connector { right:-180px; width:300px; }
+                .sim-badge { right:-82px; width:78px; height:78px; top:-12px; border-width:4px; font-size:1.02em; }
             }
             </style>
             """,
             unsafe_allow_html=True
         )
 
-        st.markdown(
-            "<div style='display: flex; flex-direction: column; align-items: center; max-width:960px; margin: 0 auto 10px auto;'>",
-            unsafe_allow_html=True
-        )
-        for row in range(2):
+        st.markdown("<div class='sim-list-wrap'>", unsafe_allow_html=True)
+
+        # present as vertical list similar to the user's reference
+        for idx, sim in enumerate(sim_rows):
+            pct = max(0, min(1.0, float(sim['score'])))
+            # choose a color for the connector based on pct (green high, red low)
+            cmap = cm.get_cmap("RdYlGn_r")
+            color_rgb = cmap(pct)[:3]
+            color_hex = '#{:02x}{:02x}{:02x}'.format(int(color_rgb[0]*255), int(color_rgb[1]*255), int(color_rgb[2]*255))
+            # compute connector width to visually vary length (min 160 to max 360)
+            conn_width = int(180 + pct * 180)
+            # badge value rounded to 2 decimals
+            badge_text = f"{sim['score']:.2f}"
             st.markdown(
-                "<div style='display:flex;gap:18px;margin-bottom:18px;justify-content:center;align-items:flex-start;'>",
+                f"""
+                <div style="display:flex;align-items:flex-start;margin-bottom:6px;">
+                  <div class="sim-card" role="article" aria-label="similar-player-{idx}">
+                    <div class="sim-content">
+                      <img src="{sim['headshot_url']}" class="sim-head" alt="headshot"/>
+                      <div class="sim-left">
+                        <div class="sim-name">{sim['name']}</div>
+                        <div class="sim-score">Similarity: <span style="font-weight:800;color:#B71036;">{sim['score']:.2f}</span></div>
+                      </div>
+                    </div>
+                    <div class="sim-connector" style="width:{conn_width}px;">
+                      <div style="height:100%; width:100%; border-radius:6px; background: linear-gradient(90deg, rgba(255,255,255,0.0) 0%, rgba(255,255,255,0.0) 6%, {color_hex} 22%, #FFD54F 60%, rgba(255,255,255,0.0) 100%);"></div>
+                    </div>
+                    <div class="sim-badge"><span class="val">{badge_text}</span></div>
+                  </div>
+                </div>
+                """,
                 unsafe_allow_html=True
             )
-            for col in range(5):
-                idx = row*5 + col
-                if idx >= len(sim_rows):
-                    continue
-                sim = sim_rows[idx]
-                pct = max(0, min(1.0, float(sim['score'])))
-                # color for left-to-right gradient on connector (green -> orange -> red)
-                cmap = cm.get_cmap("RdYlGn_r")
-                color_rgb = cmap(pct)[:3]
-                color_hex = '#{:02x}{:02x}{:02x}'.format(int(color_rgb[0]*255), int(color_rgb[1]*255), int(color_rgb[2]*255))
-                # place card with connector and circular badge
-                st.markdown(
-                    f"""
-                    <div class="sim-card">
-                      <div class="sim-content">
-                        <img src="{sim['headshot_url']}" class="sim-head" alt="headshot"/>
-                        <div style="margin-left:0px;">
-                          <div class="sim-name">{sim['name']}</div>
-                          <div class="sim-score">Similarity: <span style="font-weight:800;color:#B71036;">{sim['score']:.2f}</span></div>
-                        </div>
-                      </div>
-                      <div class="sim-connector" style="background: linear-gradient(90deg, rgba(255,255,255,0.0) 0%, rgba(255,255,255,0.0) 6%, {color_hex} 22%, #FFD54F 60%, rgba(255,255,255,0.0) 100%); width:{int(180 + pct*120)}px;"></div>
-                      <div class="sim-badge"><span class="val">{sim['score']:.2f}</span></div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-            st.markdown("</div>", unsafe_allow_html=True)
+
         st.markdown("</div>", unsafe_allow_html=True)
 
         with st.expander("Show Heatmap"):
