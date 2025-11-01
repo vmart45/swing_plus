@@ -5,7 +5,6 @@ from PIL import Image
 import requests
 from io import BytesIO
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import Ridge
 from sklearn.metrics.pairwise import cosine_similarity
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -13,6 +12,9 @@ import matplotlib
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 import numpy as np
+import pickle
+import joblib
+import shap
 
 st.set_page_config(
     page_title="Swing+ & ProjSwing+ Dashboard",
@@ -30,6 +32,7 @@ st.markdown(
 )
 
 DATA_PATH = "ProjSwingPlus_Output_with_team.csv"
+MODEL_PATH = "swingplus_model.pkl"
 
 if not os.path.exists(DATA_PATH):
     st.error(f"Could not find `{DATA_PATH}` in the app directory.")
@@ -419,211 +422,313 @@ mechanical_features = [
     "swing_length"
 ]
 
-# Filter mechanical features to those present in the dataframe
+# ------------------- Load Swing+ model and create SHAP explainer -------------------
+model = None
+explainer = None
+model_loaded = False
+model_error = None
+
+if os.path.exists(MODEL_PATH):
+    try:
+        # Try joblib first, then pickle
+        try:
+            model = joblib.load(MODEL_PATH)
+        except Exception:
+            with open(MODEL_PATH, "rb") as f:
+                model = pickle.load(f)
+
+        # If the model is a pipeline, we need the preprocessing step for shap inputs.
+        # We'll handle both: if it's a sklearn pipeline with preprocessors, use pipeline directly.
+        # Create a small wrapper to produce the model input X and a shap explainer.
+        # For tree-based models, TreeExplainer is preferred.
+        model_loaded = True
+
+        # Try to create a TreeExplainer first (fast for trees)
+        try:
+            explainer = shap.TreeExplainer(model)
+        except Exception:
+            try:
+                # fall back to general explainer
+                explainer = shap.Explainer(model)
+            except Exception as e:
+                explainer = None
+                model_error = str(e)
+    except Exception as e:
+        model_loaded = False
+        model_error = str(e)
+else:
+    model_loaded = False
+    model_error = f"Model file not found at {MODEL_PATH}"
+
+# Helper: prepare model input for SHAP using the same feature set
+def prepare_model_input_for_player(player_row, feature_list, model_obj):
+    # Create a single-row DataFrame with features in the expected order
+    X_raw = pd.DataFrame([ {f: (player_row.get(f, np.nan) if pd.notna(player_row.get(f, np.nan)) else np.nan) for f in feature_list } ])
+    # If model is a Pipeline with preprocessing, we pass raw X into explainer/model (explainer should handle pipeline)
+    return X_raw
+
+# Compute SHAP values for the selected player
+shap_df = None
+shap_base = None
+shap_pred = None
+shap_values_arr = None
+
 mech_features_available = [f for f in mechanical_features if f in df.columns]
 
-# ------------------ Feature importance modeling ------------------
-# We'll train ridge models on standardized mechanical features to predict Swing+ and ProjSwing+
-@st.cache_data
-def fit_feature_models(df_input, features):
-    df_local = df_input.dropna(subset=features + ["Swing+", "ProjSwing+"]).copy()
-    X = df_local[features].astype(float).values
-    y_swing = df_local["Swing+"].values
-    y_proj = df_local["ProjSwing+"].values
+if model_loaded and explainer is not None and len(mech_features_available) >= 2:
+    try:
+        X_player = prepare_model_input_for_player(player_row, mech_features_available, model)
+        # Some models / pipelines require columns to match training order exactly.
+        # If the model is a pipeline with a named_steps preprocessor that expects more columns,
+        # the pipeline should handle the alignment; otherwise we trust the mech_features_available order.
+        # Compute prediction and shap values
+        try:
+            # If model has predict method
+            shap_pred = float(model.predict(X_player)[0])
+        except Exception:
+            # If pipeline or model expects numpy
+            shap_pred = float(model.predict(X_player.values.reshape(1, -1))[0])
 
-    scaler = StandardScaler()
-    Xs = scaler.fit_transform(X)
+        # Use explainer on the raw X_player
+        try:
+            shap_values = explainer(X_player)
+        except Exception:
+            shap_values = explainer(X_player.values)
 
-    ridge_swing = Ridge(alpha=1.0)
-    ridge_proj = Ridge(alpha=1.0)
-    ridge_swing.fit(Xs, y_swing)
-    ridge_proj.fit(Xs, y_proj)
+        # shap_values may be an Explanation object
+        if hasattr(shap_values, "values"):
+            shap_values_arr = np.array(shap_values.values).flatten()
+            shap_base = float(shap_values.base_values) if np.size(shap_values.base_values) == 1 else float(shap_values.base_values.flatten()[0])
+        else:
+            # shap_values may be plain array
+            shap_values_arr = np.array(shap_values).flatten()
+            shap_base = None
 
-    model_info = {
-        "scaler": scaler,
-        "features": features,
-        "ridge_swing": ridge_swing,
-        "ridge_proj": ridge_proj,
-        "train_index": df_local.index
-    }
-    return model_info
+        # Build DataFrame of shap contributions
+        shap_df = pd.DataFrame({
+            "feature": mech_features_available,
+            "raw": [float(X_player.iloc[0][f]) if pd.notna(X_player.iloc[0][f]) else np.nan for f in mech_features_available],
+            "shap_value": shap_values_arr
+        })
+        shap_df["abs_shap"] = np.abs(shap_df["shap_value"])
+        total_abs = shap_df["abs_shap"].sum() if shap_df["abs_shap"].sum() != 0 else 1.0
+        shap_df["pct_of_abs"] = shap_df["abs_shap"] / total_abs
+        shap_df = shap_df.sort_values("shap_value", ascending=False).reset_index(drop=True)
 
-model_info = None
-if len(mech_features_available) >= 2:
-    model_info = fit_feature_models(df, mech_features_available)
+    except Exception as e:
+        shap_df = None
+        model_error = str(e)
 
-def compute_player_contributions(player_row, model_info):
+# ------------------ PowerIndex analytic contributions (deterministic) ------------------
+# Use the same weights from your pipeline / script. If those weights change, update here.
+power_weights = {
+    "avg_bat_speed": 0.5,
+    "swing_length": 0.2,
+    "attack_angle": 0.15,
+    "swing_tilt": 0.1,
+    "attack_direction": 0.05
+}
+power_features = [f for f in power_weights.keys() if f in df.columns]
+
+# Compute scaler over df for power features to match script
+power_scaler = None
+power_scaler_means = None
+power_scaler_stds = None
+power_contrib_df = None
+
+if len(power_features) > 0:
+    try:
+        power_scaler = StandardScaler()
+        power_X = df[power_features].astype(float).values
+        power_Xs = power_scaler.fit_transform(power_X)
+        power_scaler_means = power_scaler.mean_
+        power_scaler_stds = np.sqrt(power_scaler.var_)
+
+        # Compute PowerIndex for the selected player deterministically
+        raw_vals = {f: (player_row.get(f, np.nan) if pd.notna(player_row.get(f, np.nan)) else np.nan) for f in power_features}
+        # If any raw is missing, substitute the dataset mean
+        for i, f in enumerate(power_features):
+            if pd.isna(raw_vals[f]):
+                raw_vals[f] = float(power_scaler_means[i])
+
+        scaled_vals = []
+        for i, f in enumerate(power_features):
+            scaled = (raw_vals[f] - power_scaler_means[i]) / (power_scaler_stds[i] if power_scaler_stds[i] != 0 else 1.0)
+            scaled_vals.append(scaled)
+
+        # per-feature contribution to PowerIndex (before +100 scaling)
+        contribs = []
+        for i, f in enumerate(power_features):
+            contrib = scaled_vals[i] * power_weights[f]
+            contribs.append((f, raw_vals[f], contrib))
+
+        power_contrib_df = pd.DataFrame(contribs, columns=["feature", "raw", "powerindex_contrib"])
+        power_contrib_df["abs_contrib"] = np.abs(power_contrib_df["powerindex_contrib"])
+        total_abs_pi = power_contrib_df["abs_contrib"].sum() if power_contrib_df["abs_contrib"].sum() != 0 else 1.0
+        power_contrib_df["pct_of_abs"] = power_contrib_df["abs_contrib"] / total_abs_pi
+
+        # Convert PowerIndex to PowerIndex+ units like your script: PowerIndex+ = 100 + ((PowerIndex - mean)/std)*10
+        # We'll compute dataset PowerIndex to get mean/std used in transformation
+        pi_all = np.zeros(len(df))
+        # build scaled_df for all rows
+        scaled_all = (power_X - power_scaler_means) / (power_scaler_stds + 1e-12)
+        for i, f in enumerate(power_features):
+            pi_all += scaled_all[:, i] * power_weights[f]
+        pi_mean = np.mean(pi_all)
+        pi_std = np.std(pi_all) if np.std(pi_all) != 0 else 1.0
+
+        # player powerindex raw
+        player_pi_raw = sum(power_contrib_df["powerindex_contrib"].values)
+        player_powerindex_plus = 100 + ((player_pi_raw - pi_mean) / pi_std) * 10
+
+        # For combining later, we'll convert per-feature powerindex_contrib to PowerIndex+ scale contribution:
+        # A feature's contribution to PowerIndex+ = (feature_contrib_raw - 0) scaled by 10/pi_std
+        factor = 10.0 / pi_std
+        power_contrib_df["powerindex_plus_contrib"] = power_contrib_df["powerindex_contrib"] * factor
+
+    except Exception:
+        power_contrib_df = None
+
+# ------------------ Display SHAP Swing+ panel and PowerIndex panel ------------------
+st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+st.markdown(
     """
-    For a single player row, compute per-feature contributions to Swing+ and ProjSwing+.
-    Contribution = (standardized feature value) * coef. We'll also show sign and percent share.
+    <h3 style="text-align:center; margin-top:6px; font-size:1.12em; color:#183153; letter-spacing:0.01em;">
+        Feature Contributions (per-player)
+    </h3>
+    <div style="text-align:center; color:#6b7280; margin-bottom:8px; font-size:0.98em;">
+        Estimated contribution of each mechanical feature to the player's Swing+ (SHAP) and to PowerIndex (analytic).
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+col_shap, col_pi = st.columns([1, 1])
+
+with col_shap:
+    st.markdown(f"<div style='text-align:center;font-weight:600;color:#183153;'>Swing+ contributions (model pred: {shap_pred:.2f if shap_pred is not None else 'N/A'} | actual: {player_row['Swing+']:.2f})</div>", unsafe_allow_html=True)
+    if not model_loaded or explainer is None or shap_df is None:
+        st.info("Swing+ model or SHAP explainer not available. Ensure swingplus_model.pkl is a supported model/pipeline.")
+        if model_error:
+            st.caption(f"Model load error: {model_error}")
+    else:
+        # Prepare top features for display
+        TOP_SHOW = min(6, len(shap_df))
+        df_plot_top = shap_df.reindex(shap_df["abs_shap"].sort_values(ascending=False).index).head(TOP_SHOW)
+
+        fig, ax = plt.subplots(figsize=(6, 3.0))
+        y = df_plot_top["feature"]
+        x = df_plot_top["shap_value"].astype(float)
+        colors = ["#D32F2F" if float(v) > 0 else "#1976D2" for v in x]
+        ax.barh(y, x, color=colors, edgecolor="#ffffff")
+        ax.axvline(0, color="#444444", linewidth=0.7)
+        ax.set_xlabel("SHAP contribution to Swing+ (signed)")
+        ax.set_ylabel("")
+        ax.invert_yaxis()
+        max_abs = np.nanmax(np.abs(df_plot_top["shap_value"].astype(float).values)) if df_plot_top.shape[0] > 0 else 1.0
+        for i, row in df_plot_top.reset_index(drop=True).iterrows():
+            val_f = 0.0 if pd.isna(row["shap_value"]) else float(row["shap_value"])
+            pct_f = 0.0 if pd.isna(row["pct_of_abs"]) else float(row["pct_of_abs"])
+            offset = (np.sign(val_f) * 0.002 * max(1, max_abs))
+            ax.text(val_f + offset, row["feature"], f"{val_f:.3f} ({pct_f:.0%})", va="center", fontsize=8, color="#0b1320")
+        plt.tight_layout()
+        st.pyplot(fig)
+
+        st.markdown("<div style='margin-top:6px; font-size:0.92em; color:#374151;'>Top feature contributions for Swing+</div>", unsafe_allow_html=True)
+        display_df = df_plot_top[["feature", "raw", "shap_value", "pct_of_abs"]].rename(columns={"raw": "raw_value", "shap_value": "signed_contrib", "pct_of_abs": "pct_of_total_abs"})
+        display_df["pct_of_total_abs"] = display_df["pct_of_total_abs"].apply(lambda v: f"{v:.0%}" if pd.notna(v) else "0%")
+        display_df["signed_contrib"] = display_df["signed_contrib"].apply(lambda v: f"{v:.3f}" if pd.notna(v) else "0.000")
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+with col_pi:
+    st.markdown(f"<div style='text-align:center;font-weight:600;color:#183153;'>PowerIndex contributions (analytic) (PowerIndex+ ≈ {player_powerindex_plus:.2f if power_contrib_df is not None else 'N/A'})</div>", unsafe_allow_html=True)
+    if power_contrib_df is None:
+        st.info("PowerIndex could not be computed (missing mechanical features).")
+    else:
+        # Show analytic bar chart
+        df_pi_plot = power_contrib_df.sort_values("powerindex_plus_contrib", ascending=False).head(len(power_contrib_df))
+        fig2, ax2 = plt.subplots(figsize=(6, 3.0))
+        y2 = df_pi_plot["feature"]
+        x2 = df_pi_plot["powerindex_plus_contrib"].astype(float)
+        colors2 = ["#D32F2F" if float(v) > 0 else "#1976D2" for v in x2]
+        ax2.barh(y2, x2, color=colors2, edgecolor="#ffffff")
+        ax2.axvline(0, color="#444444", linewidth=0.7)
+        ax2.set_xlabel("Contribution to PowerIndex+ (signed)")
+        ax2.set_ylabel("")
+        ax2.invert_yaxis()
+        max_abs2 = np.nanmax(np.abs(df_pi_plot["powerindex_plus_contrib"].astype(float).values)) if df_pi_plot.shape[0] > 0 else 1.0
+        for i, row in df_pi_plot.reset_index(drop=True).iterrows():
+            val_f = 0.0 if pd.isna(row["powerindex_plus_contrib"]) else float(row["powerindex_plus_contrib"])
+            pct_f = 0.0 if pd.isna(row["pct_of_abs"]) else float(row["pct_of_abs"])
+            offset = (np.sign(val_f) * 0.002 * max(1, max_abs2))
+            ax2.text(val_f + offset, row["feature"], f"{val_f:.3f} ({pct_f:.0%})", va="center", fontsize=8, color="#0b1320")
+        plt.tight_layout()
+        st.pyplot(fig2)
+
+        st.markdown("<div style='margin-top:6px; font-size:0.92em; color:#374151;'>Per-feature contributions to PowerIndex+</div>", unsafe_allow_html=True)
+        display_df2 = df_pi_plot[["feature", "raw", "powerindex_plus_contrib", "pct_of_abs"]].rename(columns={"raw": "raw_value", "powerindex_plus_contrib": "signed_contrib", "pct_of_abs": "pct_of_total_abs"})
+        display_df2["pct_of_total_abs"] = display_df2["pct_of_total_abs"].apply(lambda v: f"{v:.0%}" if pd.notna(v) else "0%")
+        display_df2["signed_contrib"] = display_df2["signed_contrib"].apply(lambda v: f"{v:.3f}" if pd.notna(v) else "0.000")
+        st.dataframe(display_df2, use_container_width=True, hide_index=True)
+
+# ------------------ Combined ProjSwing+ decomposition (0.7 * Swing+ + 0.3 * PowerIndex+) ------------------
+st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+st.markdown(
     """
-    features = model_info["features"]
-    scaler = model_info["scaler"]
-    ridge_swing = model_info["ridge_swing"]
-    ridge_proj = model_info["ridge_proj"]
+    <div style="text-align:center; font-size:1.02em; color:#183153; font-weight:600; margin-bottom:6px;">
+        ProjSwing+ decomposition (0.7 * Swing+ + 0.3 * PowerIndex+)
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
-    x_raw = []
-    for i, f in enumerate(features):
-        val = player_row.get(f, np.nan)
-        if pd.isna(val):
-            val = scaler.mean_[i] if hasattr(scaler, "mean_") else 0.0
-        x_raw.append(float(val))
-    x_raw = np.array(x_raw).reshape(1, -1)
-    x_scaled = scaler.transform(x_raw).flatten()
-
-    coef_swing = ridge_swing.coef_
-    coef_proj = ridge_proj.coef_
-    intercept_swing = ridge_swing.intercept_
-    intercept_proj = ridge_proj.intercept_
-
-    contrib_swing = x_scaled * coef_swing
-    contrib_proj = x_scaled * coef_proj
-
-    pred_swing = intercept_swing + contrib_swing.sum()
-    pred_proj = intercept_proj + contrib_proj.sum()
-
-    abs_contrib_swing = np.abs(contrib_swing)
-    abs_contrib_proj = np.abs(contrib_proj)
-
-    total_abs_swing = abs_contrib_swing.sum() if abs_contrib_swing.sum() != 0 else 1.0
-    total_abs_proj = abs_contrib_proj.sum() if abs_contrib_proj.sum() != 0 else 1.0
-
-    pct_contrib_swing = abs_contrib_swing / total_abs_swing
-    pct_contrib_proj = abs_contrib_proj / total_abs_proj
-
-    df_swing = pd.DataFrame({
-        "feature": features,
-        "value_raw": x_raw.flatten(),
-        "value_scaled": x_scaled,
-        "coef": coef_swing,
-        "contribution": contrib_swing,
-        "abs_contribution": abs_contrib_swing,
-        "pct_of_abs": pct_contrib_swing
-    }).sort_values("contribution", ascending=False).reset_index(drop=True)
-
-    df_proj = pd.DataFrame({
-        "feature": features,
-        "value_raw": x_raw.flatten(),
-        "value_scaled": x_scaled,
-        "coef": coef_proj,
-        "contribution": contrib_proj,
-        "abs_contribution": abs_contrib_proj,
-        "pct_of_abs": pct_contrib_proj
-    }).sort_values("contribution", ascending=False).reset_index(drop=True)
-
-    out = {
-        "df_swing": df_swing,
-        "df_proj": df_proj,
-        "pred_swing": float(pred_swing),
-        "pred_proj": float(pred_proj)
-    }
-    return out
-
-# Display a feature importance / contributions panel under the Player Detail
-if model_info is None:
-    st.info("Not enough mechanical features available to compute feature importance.")
+if shap_df is None or power_contrib_df is None:
+    st.info("Combined ProjSwing+ decomposition not available because Swing+ SHAP or PowerIndex computations failed.")
 else:
-    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
-    st.markdown(
-        """
-        <h3 style="text-align:center; margin-top:6px; font-size:1.12em; color:#183153; letter-spacing:0.01em;">
-            Feature Contributions (per-player)
-        </h3>
-        <div style="text-align:center; color:#6b7280; margin-bottom:8px; font-size:0.98em;">
-            Estimated contribution of each mechanical feature to the player's Swing+ and ProjSwing+ (model-based).
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    # Align feature sets: use union of features from shap_df and power_contrib_df
+    combined_features = list(dict.fromkeys(list(shap_df["feature"]) + list(power_contrib_df["feature"])))
+    combined_rows = []
+    for f in combined_features:
+        shap_val = float(shap_df.loc[shap_df["feature"] == f, "shap_value"].iloc[0]) if f in list(shap_df["feature"]) else 0.0
+        pi_val = float(power_contrib_df.loc[power_contrib_df["feature"] == f, "powerindex_plus_contrib"].iloc[0]) if f in list(power_contrib_df["feature"]) else 0.0
+        combined_contrib = 0.7 * shap_val + 0.3 * pi_val
+        raw_val = float(player_row[f]) if f in player_row and pd.notna(player_row[f]) else (float(power_contrib_df.loc[power_contrib_df["feature"] == f, "raw"].iloc[0]) if f in list(power_contrib_df["feature"]) else np.nan)
+        combined_rows.append((f, raw_val, shap_val, pi_val, combined_contrib))
 
-    contributions = compute_player_contributions(player_row, model_info)
-    df_swing_imp = contributions["df_swing"]
-    df_proj_imp = contributions["df_proj"]
+    combined_df = pd.DataFrame(combined_rows, columns=["feature", "raw", "swing_shap", "pi_contrib", "proj_contrib"])
+    combined_df["abs_proj_contrib"] = np.abs(combined_df["proj_contrib"])
+    total_abs_proj = combined_df["abs_proj_contrib"].sum() if combined_df["abs_proj_contrib"].sum() != 0 else 1.0
+    combined_df["pct_of_abs"] = combined_df["abs_proj_contrib"] / total_abs_proj
+    combined_df = combined_df.sort_values("proj_contrib", ascending=False).reset_index(drop=True)
 
-    TOP_SHOW = min(6, len(df_swing_imp))
+    TOP_SHOW_C = min(8, len(combined_df))
+    df_plot_c = combined_df.reindex(combined_df["abs_proj_contrib"].sort_values(ascending=False).index).head(TOP_SHOW_C)
 
-    col_a, col_b = st.columns([1, 1])
-    with col_a:
-        st.markdown(f"<div style='text-align:center;font-weight:600;color:#183153;'>Swing+ contributions (model pred: {contributions['pred_swing']:.2f} | actual: {player_row['Swing+']:.2f})</div>", unsafe_allow_html=True)
+    figc, axc = plt.subplots(figsize=(9, 3.2))
+    y_c = df_plot_c["feature"]
+    x_c = df_plot_c["proj_contrib"].astype(float)
+    colors_c = ["#D32F2F" if float(v) > 0 else "#1976D2" for v in x_c]
+    axc.barh(y_c, x_c, color=colors_c, edgecolor="#ffffff")
+    axc.axvline(0, color="#444444", linewidth=0.7)
+    axc.set_xlabel("Contribution to ProjSwing+ (signed)")
+    axc.set_ylabel("")
+    axc.invert_yaxis()
+    max_abs_c = np.nanmax(np.abs(df_plot_c["proj_contrib"].astype(float).values)) if df_plot_c.shape[0] > 0 else 1.0
+    for i, row in df_plot_c.reset_index(drop=True).iterrows():
+        val_f = 0.0 if pd.isna(row["proj_contrib"]) else float(row["proj_contrib"])
+        pct_f = 0.0 if pd.isna(row["pct_of_abs"]) else float(row["pct_of_abs"])
+        offset = (np.sign(val_f) * 0.002 * max(1, max_abs_c))
+        axc.text(val_f + offset, row["feature"], f"{val_f:.3f} ({pct_f:.0%})", va="center", fontsize=8, color="#0b1320")
+    plt.tight_layout()
+    st.pyplot(figc)
 
-        # Plot horizontal bar chart: show top positive and top negative contributions
-        if df_swing_imp.shape[0] == 0:
-            st.write("No Swing+ contribution data available.")
-        else:
-            fig, ax = plt.subplots(figsize=(6, 3.0))
-            df_plot = df_swing_imp.copy()
-            df_plot["contrib_signed"] = df_plot["contribution"]
-            df_plot_top = df_plot.reindex(df_plot["abs_contribution"].sort_values(ascending=False).index).head(TOP_SHOW)
-            if df_plot_top.shape[0] == 0:
-                st.write("No Swing+ contribution data to plot.")
-            else:
-                y = df_plot_top["feature"]
-                x = df_plot_top["contrib_signed"].astype(float)
-                colors = ["#D32F2F" if float(v) > 0 else "#1976D2" for v in x]
-                ax.barh(y, x, color=colors, edgecolor="#ffffff")
-                ax.axvline(0, color="#444444", linewidth=0.7)
-                ax.set_xlabel("Contribution to Swing+ (signed)")
-                ax.set_ylabel("")
-                ax.invert_yaxis()
-                max_abs = np.nanmax(np.abs(df_plot_top["contribution"].astype(float).values)) if df_plot_top.shape[0] > 0 else 1.0
-                if max_abs == 0 or np.isnan(max_abs):
-                    max_abs = 1.0
-                for i, row in df_plot_top.reset_index(drop=True).iterrows():
-                    val = row["contribution"]
-                    pct = row["pct_of_abs"]
-                    val_f = 0.0 if pd.isna(val) else float(val)
-                    pct_f = 0.0 if pd.isna(pct) else float(pct)
-                    offset = (np.sign(val_f) * 0.002 * max(1, max_abs))
-                    ax.text(val_f + offset, row["feature"], f"{val_f:.2f} ({pct_f:.0%})", va="center", fontsize=8, color="#0b1320")
-                plt.tight_layout()
-                st.pyplot(fig)
-
-                st.markdown("<div style='margin-top:6px; font-size:0.92em; color:#374151;'>Top feature contributions for Swing+</div>", unsafe_allow_html=True)
-                display_df = df_plot_top[["feature", "value_raw", "contribution", "pct_of_abs"]].rename(columns={"value_raw": "raw", "contribution": "signed_contrib", "pct_of_abs": "pct_of_total_abs"})
-                # format pct_of_total_abs and signed_contrib safely
-                display_df["pct_of_total_abs"] = display_df["pct_of_total_abs"].apply(lambda v: f"{v:.0%}" if pd.notna(v) else "0%")
-                display_df["signed_contrib"] = display_df["signed_contrib"].apply(lambda v: f"{v:.3f}" if pd.notna(v) else "0.000")
-                st.dataframe(display_df, use_container_width=True, hide_index=True)
-
-    with col_b:
-        st.markdown(f"<div style='text-align:center;font-weight:600;color:#183153;'>ProjSwing+ contributions (model pred: {contributions['pred_proj']:.2f} | actual: {player_row['ProjSwing+']:.2f})</div>", unsafe_allow_html=True)
-
-        if df_proj_imp.shape[0] == 0:
-            st.write("No ProjSwing+ contribution data available.")
-        else:
-            fig2, ax2 = plt.subplots(figsize=(6, 3.0))
-            df_plot2 = df_proj_imp.copy()
-            df_plot2["contrib_signed"] = df_plot2["contribution"]
-            df_plot2_top = df_plot2.reindex(df_plot2["abs_contribution"].sort_values(ascending=False).index).head(TOP_SHOW)
-            if df_plot2_top.shape[0] == 0:
-                st.write("No ProjSwing+ contribution data to plot.")
-            else:
-                y2 = df_plot2_top["feature"]
-                x2 = df_plot2_top["contrib_signed"].astype(float)
-                colors2 = ["#D32F2F" if float(v) > 0 else "#1976D2" for v in x2]
-                ax2.barh(y2, x2, color=colors2, edgecolor="#ffffff")
-                ax2.axvline(0, color="#444444", linewidth=0.7)
-                ax2.set_xlabel("Contribution to ProjSwing+ (signed)")
-                ax2.set_ylabel("")
-                ax2.invert_yaxis()
-                max_abs2 = np.nanmax(np.abs(df_plot2_top["contribution"].astype(float).values)) if df_plot2_top.shape[0] > 0 else 1.0
-                if max_abs2 == 0 or np.isnan(max_abs2):
-                    max_abs2 = 1.0
-                for i, row in df_plot2_top.reset_index(drop=True).iterrows():
-                    val = row["contribution"]
-                    pct = row["pct_of_abs"]
-                    val_f = 0.0 if pd.isna(val) else float(val)
-                    pct_f = 0.0 if pd.isna(pct) else float(pct)
-                    offset = (np.sign(val_f) * 0.002 * max(1, max_abs2))
-                    ax2.text(val_f + offset, row["feature"], f"{val_f:.2f} ({pct_f:.0%})", va="center", fontsize=8, color="#0b1320")
-                plt.tight_layout()
-                st.pyplot(fig2)
-
-                st.markdown("<div style='margin-top:6px; font-size:0.92em; color:#374151;'>Top feature contributions for ProjSwing+</div>", unsafe_allow_html=True)
-                display_df2 = df_plot2_top[["feature", "value_raw", "contribution", "pct_of_abs"]].rename(columns={"value_raw": "raw", "contribution": "signed_contrib", "pct_of_abs": "pct_of_total_abs"})
-                display_df2["pct_of_total_abs"] = display_df2["pct_of_total_abs"].apply(lambda v: f"{v:.0%}" if pd.notna(v) else "0%")
-                display_df2["signed_contrib"] = display_df2["signed_contrib"].apply(lambda v: f"{v:.3f}" if pd.notna(v) else "0.000")
-                st.dataframe(display_df2, use_container_width=True, hide_index=True)
+    st.markdown("<div style='margin-top:6px; font-size:0.92em; color:#374151;'>Top combined feature contributions for ProjSwing+</div>", unsafe_allow_html=True)
+    display_df_c = df_plot_c[["feature", "raw", "swing_shap", "pi_contrib", "proj_contrib", "pct_of_abs"]].rename(columns={"raw": "raw_value", "proj_contrib": "signed_contrib", "pct_of_abs": "pct_of_total_abs"})
+    display_df_c["pct_of_total_abs"] = display_df_c["pct_of_total_abs"].apply(lambda v: f"{v:.0%}" if pd.notna(v) else "0%")
+    display_df_c["signed_contrib"] = display_df_c["signed_contrib"].apply(lambda v: f"{v:.3f}" if pd.notna(v) else "0.000")
+    display_df_c["swing_shap"] = display_df_c["swing_shap"].apply(lambda v: f"{v:.3f}" if pd.notna(v) else "0.000")
+    display_df_c["pi_contrib"] = display_df_c["pi_contrib"].apply(lambda v: f"{v:.3f}" if pd.notna(v) else "0.000")
+    st.dataframe(display_df_c, use_container_width=True, hide_index=True)
 
 # ------------------ Mechanical similarity cluster (unchanged) ------------------
 name_col = "Name"
