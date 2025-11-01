@@ -544,9 +544,7 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
             unsafe_allow_html=True
         )
 
-        # Render the light-gray bar with the header text and the compact list inside it
         st.markdown('<div class="sim-bar">', unsafe_allow_html=True)
-        # header: unbold "Top N mechanically similar players to" and only bold the player name
         header_html = f'<div class="sim-header">Top {TOP_N} mechanically similar players to <span style="font-weight:700;">{player_select}</span></div>'
         st.markdown(header_html, unsafe_allow_html=True)
         st.markdown('<div class="sim-container">', unsafe_allow_html=True)
