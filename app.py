@@ -123,7 +123,7 @@ if search_name:
 if "swings_competitive" in df.columns:
     swings_min = int(df["swings_competitive"].min())
     swings_max = int(df["swings_competitive"].max())
-    swings_range = st.sidebar.slider("Swings Competitive", swings_min, swings_max, (swings_min, swings_max))
+    swings_range = st.sidebar.slider("Competitive Swings", swings_min, swings_max, (swings_min, swings_max))
     df_filtered = df_filtered[
         (df_filtered["swings_competitive"] >= swings_range[0]) &
         (df_filtered["swings_competitive"] <= swings_range[1])
@@ -176,7 +176,9 @@ rename_map = {
     "Team": "Team",
     "Swing+": "Swing+",
     "ProjSwing+": "ProjSwing+",
-    "PowerIndex+": "PowerIndex+"
+    "PowerIndex+": "PowerIndex+",
+    "est_woba": "xwOBA",
+    "xwOBA_pred": "Predicted xwOBA"
 }
 # extend rename_map with friendly names
 for k, v in FEATURE_LABELS.items():
@@ -189,7 +191,7 @@ styled_df = (
     .sort_values("Swing+", ascending=False)
     .reset_index(drop=True)
     .style.background_gradient(
-        subset=[c for c in ["Swing+", "ProjSwing+", "PowerIndex+"] if c in df_filtered.columns],
+        subset=[c for c in ["Swing+", "ProjSwing+", "PowerIndex+", "xwOBA", "Predicted xwOBA"] if c in rename_map.values()],
         cmap=main_cmap
     )
     .format(precision=2)
