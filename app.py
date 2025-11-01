@@ -249,10 +249,10 @@ headshot_html = ""
 if "id" in player_row and pd.notnull(player_row["id"]):
     player_id = str(int(player_row["id"]))
     headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
-    headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-righ:20px;" alt="headshot"/>'
+    headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-right:20px;" alt="headshot" />'
 else:
     fallback_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-    headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-righ:20px;" alt="headshot"/>'
+    headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-right:20px;" alt="headshot" />'
 
 logo_html = ""
 if logo_url:
@@ -298,9 +298,10 @@ if "id" in player_row and pd.notnull(player_row["id"]):
     except Exception:
         player_bio = ""
 
+# Replace prior spacer with a clear label that will be visually under the Mechanical Similarity cluster
 st.markdown(
     f"""
-    <div style="display:flex;justify-content:center;align-items:center;margin-bottom:0px;margin-top:8px;">
+    <div style="display:flex;justify-content:center;align-items:center;margin-bottom:6px;margin-top:8px;">
         {headshot_html}
         <div style="display:flex;flex-direction:column;align-items:center;">
             {player_name_html}
@@ -312,7 +313,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.markdown("<div style='height:26px;'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
 total_players = len(df)
 df["Swing+_rank"] = df["Swing+"].rank(ascending=False, method="min").astype(int)
@@ -451,58 +452,71 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 "score": sim_score
             })
 
-        # Compact horizontal list design
+        # Compact horizontal list design with improved aesthetics
         st.markdown(
             """
             <style>
             .sim-container {
-                background: #f8f9fb;
+                background: #ffffff;
                 border-radius: 12px;
-                padding: 16px;
-                max-width: 1000px;
-                margin: 0 auto 16px auto;
+                padding: 12px;
+                max-width: 980px;
+                margin: 8px auto 0 auto;
+                box-shadow: 0 6px 20px rgba(15,23,42,0.06);
+                border: 1px solid #eef2f6;
+            }
+            .sim-header {
+                font-size: 1.05em;
+                font-weight: 700;
+                color: #183153;
+                text-align: center;
+                margin-bottom: 8px;
             }
             .sim-item {
                 display: flex;
                 align-items: center;
-                background: white;
+                background: #fbfdff;
                 border-radius: 10px;
-                padding: 10px 14px;
+                padding: 8px 12px;
                 margin-bottom: 8px;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.08);
                 gap: 12px;
+                border: 1px solid #f0f4f8;
             }
             .sim-rank {
-                font-size: 1.1em;
+                font-size: 1.05em;
                 font-weight: 700;
                 color: #183153;
-                min-width: 24px;
+                min-width: 28px;
+                text-align: center;
             }
             .sim-headshot-compact {
                 height: 48px;
                 width: 48px;
                 border-radius: 8px;
                 object-fit: cover;
-                box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+                box-shadow: 0 1px 4px rgba(0,0,0,0.06);
             }
             .sim-name-compact {
                 flex: 1;
-                font-size: 1.05em;
+                font-size: 1.02em;
                 font-weight: 600;
                 color: #183153;
             }
             .sim-score-compact {
                 font-size: 0.95em;
-                font-weight: 600;
-                color: #666;
-                margin-right: 8px;
+                font-weight: 700;
+                color: #333;
+                margin-right: 10px;
+                min-width: 68px;
+                text-align: right;
             }
             .sim-bar-mini {
-                width: 80px;
-                height: 8px;
-                background: #e8ecf1;
+                width: 140px;
+                height: 10px;
+                background: #f1f5f9;
                 border-radius: 999px;
                 overflow: hidden;
+                margin-left: 8px;
             }
             .sim-bar-fill {
                 height: 100%;
@@ -515,25 +529,30 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
         )
 
         st.markdown('<div class="sim-container">', unsafe_allow_html=True)
+        st.markdown(f'<div class="sim-header">Top {TOP_N} mechanically similar players to <b>{player_select}</b></div>', unsafe_allow_html=True)
         
         for idx, sim in enumerate(sim_rows, 1):
-            pct = max(0, min(1.0, float(sim['score'])))
+            # Treat similarity as a value between 0 and 1, clamp accordingly
+            pct = max(0.0, min(1.0, float(sim['score'])))
             width_pct = int(round(pct * 100))
-            
-            # Color gradient from green (high similarity) to orange (lower similarity)
-            cmap = cm.get_cmap("RdYlGn")
-            color_rgb = cmap(pct)[:3]
-            color_hex = '#{:02x}{:02x}{:02x}'.format(int(color_rgb[0]*255), int(color_rgb[1]*255), int(color_rgb[2]*255))
-            
+
+            # Gradient color: red (high similarity) -> yellow (lower similarity) is inverted visually,
+            # but the user requested red to yellow on the bar. We'll use red for the fill and gradient to yellow.
+            start_color = "#D32F2F"  # red
+            end_color = "#FFEB3B"    # yellow
+
+            # Show similarity as percentage for readability
+            sim_pct_text = f"{pct:.1%}"
+
             st.markdown(
                 f"""
                 <div class="sim-item">
                     <div class="sim-rank">{idx}</div>
                     <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
                     <div class="sim-name-compact">{sim['name']}</div>
-                    <div class="sim-score-compact">{sim['score']:.3f}</div>
-                    <div class="sim-bar-mini">
-                        <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {color_hex}, #FFB74D);"></div>
+                    <div class="sim-score-compact">{sim_pct_text}</div>
+                    <div class="sim-bar-mini" aria-hidden="true">
+                        <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
                     </div>
                 </div>
                 """,
@@ -560,8 +579,3 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
             plt.yticks(fontsize=9)
             plt.tight_layout()
             st.pyplot(fig)
-        
-        st.markdown(
-            f"<div style='text-align:center;margin-top:12px;font-size:1em;color:#666;'>Top {TOP_N} mechanically similar players to <b>{player_select}</b></div>",
-            unsafe_allow_html=True
-        )
