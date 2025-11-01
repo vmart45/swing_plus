@@ -451,41 +451,27 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 "score": sim_score
             })
 
-        # Compact horizontal list design placed inside a light gray rounded "bar" under the cluster heading.
+        # Render header (no gray bar) and compact list below the Mechanical Similarity heading.
         st.markdown(
             """
             <style>
-            .sim-bar {
-                background: #f5f7fa;
-                border-radius: 14px;
-                padding: 10px 16px;
-                max-width: 1100px;
-                margin: 12px auto 8px auto;
-                box-shadow: 0 6px 24px rgba(15,23,42,0.04);
-                border: 1px solid #e6edf3;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-            }
-            .sim-row {
-                width: 100%;
-                display: flex;
-                gap: 12px;
-                align-items: center;
-                justify-content: center;
-            }
             .sim-container {
-                background: transparent;
                 width: 100%;
-                max-width: 980px;
-                margin: 6px 0 0 0;
+                max-width: 1100px;
+                margin: 10px auto 6px auto;
             }
             .sim-header {
-                font-size: 1.05em;
-                font-weight: 400;
-                color: #183153;
                 text-align: center;
-                margin: 2px 0 8px 0;
+                color: #183153;
+                font-size: 1.05em;
+                margin-bottom: 8px;
+                font-weight: 400;
+            }
+            .sim-list {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                align-items: center;
             }
             .sim-item {
                 display: flex;
@@ -493,8 +479,9 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 background: #ffffff;
                 border-radius: 10px;
                 padding: 8px 12px;
-                margin-bottom: 8px;
                 gap: 12px;
+                width: 100%;
+                max-width: 980px;
                 border: 1px solid #f0f4f8;
                 box-shadow: 0 2px 8px rgba(15,23,42,0.04);
             }
@@ -544,10 +531,9 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
             unsafe_allow_html=True
         )
 
-        st.markdown('<div class="sim-bar">', unsafe_allow_html=True)
-        header_html = f'<div class="sim-header">Top {TOP_N} mechanically similar players to <span style="font-weight:700;">{player_select}</span></div>'
-        st.markdown(header_html, unsafe_allow_html=True)
-        st.markdown('<div class="sim-container">', unsafe_allow_html=True)
+        # Header text: unbold except player name bolded
+        st.markdown(f'<div class="sim-container"><div class="sim-header">Top {TOP_N} mechanically similar players to <span style="font-weight:700;">{player_select}</span></div>', unsafe_allow_html=True)
+        st.markdown('<div class="sim-list">', unsafe_allow_html=True)
 
         for idx, sim in enumerate(sim_rows, 1):
             pct = max(0.0, min(1.0, float(sim['score'])))
@@ -573,8 +559,7 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 unsafe_allow_html=True
             )
 
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div></div>', unsafe_allow_html=True)
 
         with st.expander("Show Detailed Heatmap"):
             fig, ax = plt.subplots(figsize=(6, 4.2))
