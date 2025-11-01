@@ -44,6 +44,18 @@ def load_data(path):
 
 df = load_data(DATA_PATH)
 
+# =====================================================
+# Fix potential renamed column: avg_batter_position -> avg_batter_x_position
+# If the CSV contains avg_batter_position (old name) but code expects avg_batter_x_position,
+# create the expected column so downstream code works without changes.
+# Also handle the inverse if somehow only avg_batter_x_position exists but code expects avg_batter_position.
+# =====================================================
+if "avg_batter_position" in df.columns and "avg_batter_x_position" not in df.columns:
+    df["avg_batter_x_position"] = df["avg_batter_position"]
+elif "avg_batter_x_position" in df.columns and "avg_batter_position" not in df.columns:
+    # keep both for safety
+    df["avg_batter_position"] = df["avg_batter_x_position"]
+
 mlb_teams = [
     {"team": "AZ", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/ari.png&h=500&w=500"},
     {"team": "ATL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/atl.png&h=500&w=500"},
