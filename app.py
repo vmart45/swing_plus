@@ -249,14 +249,15 @@ headshot_html = ""
 if "id" in player_row and pd.notnull(player_row["id"]):
     player_id = str(int(player_row["id"]))
     headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
-    headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-righ:20px;" alt="headshot"/>'
+    headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-right:24px;" alt="headshot"/>'
 else:
     fallback_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-    headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-righ:20px;" alt="headshot"/>'
+    headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-right:24px;" alt="headshot"/>'
 
 logo_html = ""
 if logo_url:
-    logo_html = f'<img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;margin-left:46px;background:transparent;border-radius:0;" alt="logo"/>'
+    # reduce logo left margin slightly so spacing feels balanced with headshot moved left
+    logo_html = f'<img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;margin-left:28px;background:transparent;border-radius:0;" alt="logo"/>'
 
 player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
 
@@ -300,9 +301,9 @@ if "id" in player_row and pd.notnull(player_row["id"]):
 
 st.markdown(
     f"""
-    <div style="display:flex;justify-content:center;align-items:center;margin-bottom:0px;margin-top:8px;">
+    <div style="display:flex;justify-content:flex-start;align-items:center;margin-bottom:0px;margin-top:8px;padding-left:120px;">
         {headshot_html}
-        <div style="display:flex;flex-direction:column;align-items:center;">
+        <div style="display:flex;flex-direction:column;align-items:flex-start;">
             {player_name_html}
             {"<span style='font-size:0.98em;color:#495366;margin-top:7px;margin-bottom:0;font-weight:500;letter-spacing:0.02em;opacity:0.82;'>" + player_bio + "</span>" if player_bio else ""}
         </div>
