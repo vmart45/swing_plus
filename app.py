@@ -455,7 +455,6 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
         st.markdown(
             """
             <style>
-            /* Keep card styles as before but ensure they display well when placed on the right/top */
             .sim-card {
                 background:#fff;border-radius:14px;box-shadow:0 2px 8px #0001;padding:18px 13px 13px 13px;width:168px;text-align:center;margin-bottom:8px;
             }
@@ -485,21 +484,18 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
             .sim-score-value {
                 font-weight:700;color:#B71036;margin-left:6px;
             }
-            /* Container to place similarity cards in the top-right area while keeping the page centered */
+            /* New layout: horizontal flow with wrapping so cards sit side-by-side */
             .sim-container {
                 display: flex;
-                flex-direction: column;
-                gap: 12px;
+                flex-direction: row;
+                flex-wrap: wrap;
+                gap: 18px;
                 align-items: flex-start;
-                /* limit width so it doesn't stretch full page and allow right placement */
-                width: 220px;
+                justify-content: flex-start;
+                width: auto;
+                max-width: 720px; /* adjust how many fit per row before wrapping */
             }
-            .sim-row {
-                display:flex;
-                gap:18px;
-                justify-content:flex-start;
-            }
-            /* outer wrapper positions the sim-container to the top-right of the main content area */
+            /* Outer wrapper keeps the overall page centered but allows cards to be positioned on the right within the centered column */
             .sim-outer {
                 display:flex;
                 justify-content:center; /* keep main content centered */
@@ -524,10 +520,8 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
             unsafe_allow_html=True
         )
 
-        # Render the similarity cards stacked vertically in a narrow column on the right
-        # Use the sim-container class to control width and alignment; each card remains the original design
+        # Render the similarity cards horizontally in a container that can wrap to next line
         st.markdown("<div class='sim-container'>", unsafe_allow_html=True)
-        # render up to TOP_N similar cards
         for idx, sim in enumerate(sim_rows[:TOP_N]):
             pct = max(0, min(1.0, float(sim['score'])))
             width_pct = int(round(pct * 100))
