@@ -679,4 +679,113 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 gap: 10px;
                 align-items: center;
             }
-            /* Each item spans the full available width of the container for a long, centered
+            /* Each item spans the full available width of the container for a long, centered look */
+            .sim-item {
+                display: flex;
+                align-items: center;
+                background: #ffffff;
+                border-radius: 12px;
+                padding: 12px 18px;
+                gap: 16px;
+                width: 100%;
+                border: 1px solid #eef4f8;
+                box-shadow: 0 6px 18px rgba(15,23,42,0.04);
+            }
+            .sim-rank {
+                font-size: 1.05em;
+                font-weight: 700;
+                color: #183153;
+                min-width: 36px;
+                text-align: center;
+            }
+            .sim-headshot-compact {
+                height: 56px;
+                width: 56px;
+                border-radius: 10px;
+                object-fit: cover;
+                box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+            }
+            .sim-name-compact {
+                flex: 1;
+                font-size: 1.05em;
+                font-weight: 400;
+                color: #183153;
+            }
+            .sim-score-compact {
+                font-size: 1.0em;
+                font-weight: 700;
+                color: #333;
+                margin-right: 16px;
+                min-width: 80px;
+                text-align: right;
+            }
+            .sim-bar-mini {
+                width: 260px;
+                height: 12px;
+                background: #f4f7fa;
+                border-radius: 999px;
+                overflow: hidden;
+                margin-left: 12px;
+            }
+            .sim-bar-fill {
+                height: 100%;
+                border-radius: 999px;
+                transition: width 0.5s ease;
+            }
+            @media (max-width: 1100px) {
+                .sim-container { max-width: 92%; }
+                .sim-bar-mini { width: 180px; height: 10px; }
+                .sim-headshot-compact { height: 48px; width: 48px; }
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
+        st.markdown(f'<div class="sim-container"><div class="sim-header">Top {TOP_N} mechanically similar players to <span style="font-weight:700;">{player_select}</span></div>', unsafe_allow_html=True)
+        st.markdown('<div class="sim-list">', unsafe_allow_html=True)
+
+        for idx, sim in enumerate(sim_rows, 1):
+            pct = max(0.0, min(1.0, float(sim['score'])))
+            width_pct = int(round(pct * 100))
+
+            start_color = "#D32F2F"
+            end_color = "#FFEB3B"
+
+            sim_pct_text = f"{pct:.1%}"
+
+            st.markdown(
+                f"""
+                <div class="sim-item">
+                    <div class="sim-rank">{idx}</div>
+                    <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
+                    <div class="sim-name-compact">{sim['name']}</div>
+                    <div class="sim-score-compact">{sim_pct_text}</div>
+                    <div class="sim-bar-mini" aria-hidden="true">
+                        <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+        st.markdown('</div></div>', unsafe_allow_html=True)
+
+        with st.expander("Show Detailed Heatmap"):
+            fig, ax = plt.subplots(figsize=(6, 4.2))
+            heatmap_data = similarity_df.loc[top_names, top_names]
+            sns.heatmap(
+                heatmap_data,
+                annot=True,
+                fmt=".2f",
+                cmap="coolwarm",
+                linewidths=0.5,
+                cbar_kws={"label": "Cosine Similarity"},
+                ax=ax,
+                annot_kws={"fontsize":8}
+            )
+            ax.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=12, weight="bold")
+            plt.xticks(rotation=45, ha='right', fontsize=8)
+            plt.yticks(fontsize=9)
+            plt.tight_layout()
+            st.pyplot(fig)
