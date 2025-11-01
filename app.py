@@ -11,6 +11,7 @@ import seaborn as sns
 import matplotlib
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
+import streamlit.components.v1 as components
 
 st.set_page_config(
     page_title="Swing+ & ProjSwing+ Dashboard",
@@ -541,7 +542,7 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
             '''
         chips_html += '</div>'
 
-        st.markdown(chips_html, unsafe_allow_html=True)
+        components.html(chips_html, height=84, scrolling=False)
 
         with st.expander("Show Heatmap"):
             fig, ax = plt.subplots(figsize=(6, 4.2))
