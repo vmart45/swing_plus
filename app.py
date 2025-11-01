@@ -451,83 +451,98 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 "score": sim_score
             })
 
-        # Add styles for the similarity bar visualization
+        # Compact horizontal list design
         st.markdown(
             """
             <style>
-            .sim-card {
-                background:#fff;border-radius:14px;box-shadow:0 2px 8px #0001;padding:18px 13px 13px 13px;width:168px;text-align:center;margin-bottom:8px;
+            .sim-container {
+                background: #f8f9fb;
+                border-radius: 12px;
+                padding: 16px;
+                max-width: 1000px;
+                margin: 0 auto 16px auto;
             }
-            .sim-head {
-                height:74px;width:74px;object-fit:cover;border-radius:12px;box-shadow:0 1px 5px #0001;margin-bottom:8px;
+            .sim-item {
+                display: flex;
+                align-items: center;
+                background: white;
+                border-radius: 10px;
+                padding: 10px 14px;
+                margin-bottom: 8px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+                gap: 12px;
             }
-            .sim-name {
-                font-size:1.01em;font-weight:700;color:#183153;margin:2px 0 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+            .sim-rank {
+                font-size: 1.1em;
+                font-weight: 700;
+                color: #183153;
+                min-width: 24px;
             }
-            .sim-score {
-                font-size:0.98em;font-weight:600;color:#385684;margin-top:8px;margin-bottom:6px;
+            .sim-headshot-compact {
+                height: 48px;
+                width: 48px;
+                border-radius: 8px;
+                object-fit: cover;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.1);
             }
-            .sim-bar-outer {
-                background: #eef2f7;
+            .sim-name-compact {
+                flex: 1;
+                font-size: 1.05em;
+                font-weight: 600;
+                color: #183153;
+            }
+            .sim-score-compact {
+                font-size: 0.95em;
+                font-weight: 600;
+                color: #666;
+                margin-right: 8px;
+            }
+            .sim-bar-mini {
+                width: 80px;
+                height: 8px;
+                background: #e8ecf1;
                 border-radius: 999px;
-                height: 10px;
-                width: 120px;
-                margin: 6px auto 0 auto;
                 overflow: hidden;
-                box-shadow: inset 0 1px 2px #00000010;
             }
-            .sim-bar-inner {
+            .sim-bar-fill {
                 height: 100%;
                 border-radius: 999px;
-                transition: width 0.6s ease;
-            }
-            .sim-score-value {
-                font-weight:700;color:#B71036;margin-left:6px;
+                transition: width 0.5s ease;
             }
             </style>
             """,
             unsafe_allow_html=True
         )
 
-        st.markdown(
-            "<div style='display: flex; flex-direction: column; align-items: center; max-width:920px; margin: 0 auto 10px auto;'>",
-            unsafe_allow_html=True
-        )
-        for row in range(2):
+        st.markdown('<div class="sim-container">', unsafe_allow_html=True)
+        
+        for idx, sim in enumerate(sim_rows, 1):
+            pct = max(0, min(1.0, float(sim['score'])))
+            width_pct = int(round(pct * 100))
+            
+            # Color gradient from green (high similarity) to orange (lower similarity)
+            cmap = cm.get_cmap("RdYlGn")
+            color_rgb = cmap(pct)[:3]
+            color_hex = '#{:02x}{:02x}{:02x}'.format(int(color_rgb[0]*255), int(color_rgb[1]*255), int(color_rgb[2]*255))
+            
             st.markdown(
-                "<div style='display:flex;gap:18px;margin-bottom:12px;justify-content:center;'>",
+                f"""
+                <div class="sim-item">
+                    <div class="sim-rank">{idx}</div>
+                    <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
+                    <div class="sim-name-compact">{sim['name']}</div>
+                    <div class="sim-score-compact">{sim['score']:.3f}</div>
+                    <div class="sim-bar-mini">
+                        <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {color_hex}, #FFB74D);"></div>
+                    </div>
+                </div>
+                """,
                 unsafe_allow_html=True
             )
-            for col in range(5):
-                idx = row*5 + col
-                if idx >= len(sim_rows):
-                    continue
-                sim = sim_rows[idx]
-                # compute percentage width for the bar
-                pct = max(0, min(1.0, float(sim['score'])))
-                width_pct = int(round(pct * 100))
-                # compute a color gradient from green (high) to red (low)
-                # use matplotlib colormap to pick color
-                cmap = cm.get_cmap("RdYlGn_r")
-                color_rgb = cmap(pct)[:3]
-                color_hex = '#{:02x}{:02x}{:02x}'.format(int(color_rgb[0]*255), int(color_rgb[1]*255), int(color_rgb[2]*255))
-                st.markdown(
-                    f"""
-                    <div class="sim-card">
-                      <img src="{sim['headshot_url']}" class="sim-head" alt="headshot"/>
-                      <div class="sim-name">{sim['name']}</div>
-                      <div class="sim-score">Similarity: <span class="sim-score-value">{sim['score']:.2f}</span></div>
-                      <div class="sim-bar-outer" aria-hidden="true">
-                        <div class="sim-bar-inner" style="width:{width_pct}%; background: linear-gradient(90deg, {color_hex}, #FFD54F);"></div>
-                      </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-            st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        with st.expander("Show Heatmap"):
+        with st.expander("Show Detailed Heatmap"):
             fig, ax = plt.subplots(figsize=(6, 4.2))
             heatmap_data = similarity_df.loc[top_names, top_names]
             sns.heatmap(
@@ -545,56 +560,8 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
             plt.yticks(fontsize=9)
             plt.tight_layout()
             st.pyplot(fig)
+        
         st.markdown(
-            f"<div style='text-align:center;margin-top:10px;font-size:1.08em;color:#385684;'>Top {TOP_N} mechanically similar players to <b>{player_select}</b> shown above.</div>",
+            f"<div style='text-align:center;margin-top:12px;font-size:1em;color:#666;'>Top {TOP_N} mechanically similar players to <b>{player_select}</b></div>",
             unsafe_allow_html=True
         )
-    else:
-        st.markdown(
-            "<div style='text-align:center;margin-top:10px;font-size:1.08em;color:#C62828;'>No mechanical similarity data available for this player.</div>",
-            unsafe_allow_html=True
-        )
-else:
-    st.markdown(
-        "<div style='text-align:center;margin-top:10px;font-size:1.08em;color:#C62828;'>No mechanical similarity data available for this player.</div>",
-        unsafe_allow_html=True
-    )
-
-if set(extra_cols).issubset(df.columns):
-    st.markdown(
-        """
-        <h3 style="text-align:center; margin-top:2em; font-size:1.22em; color:#183153; letter-spacing:0.01em;">
-            Swing Mechanics
-        </h3>
-        """,
-        unsafe_allow_html=True
-    )
-    st.markdown(
-        """
-        <div style="display: flex; justify-content: center; gap: 32px; margin-top: 10px; margin-bottom: 15px;">
-        """,
-        unsafe_allow_html=True
-    )
-    mech_metrics = [
-        ("Avg Bat Speed", f"{round(player_row['avg_bat_speed'], 1)} mph" if "avg_bat_speed" in player_row else ""),
-        ("Swing Length", f"{round(player_row['swing_length'], 2)}" if "swing_length" in player_row else ""),
-        ("Attack Angle", f"{round(player_row['attack_angle'], 1)}" if "attack_angle" in player_row else ""),
-        ("Swing Tilt", f"{round(player_row['swing_tilt'], 1)}" if "swing_tilt" in player_row else ""),
-        ("Attack Direction", f"{round(player_row['attack_direction'], 1)}" if "attack_direction" in player_row else "")
-    ]
-    for label, value in mech_metrics:
-        st.markdown(
-            f"""
-            <div style="background:#f9fafc;border-radius:12px;box-shadow:0 1px 6px #0001;padding:18px 22px;min-width:110px;text-align:center;">
-              <div style="font-size:1.1em;color:#385684;font-weight:600;margin-bottom:2px;">{label}</div>
-              <div style="font-size:1.5em;font-weight:700;color:#183153;">{value}</div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-    st.markdown(
-        """
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
