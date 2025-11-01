@@ -437,10 +437,6 @@ if os.path.exists(MODEL_PATH):
             with open(MODEL_PATH, "rb") as f:
                 model = pickle.load(f)
 
-        # If the model is a pipeline, we need the preprocessing step for shap inputs.
-        # We'll handle both: if it's a sklearn pipeline with preprocessors, use pipeline directly.
-        # Create a small wrapper to produce the model input X and a shap explainer.
-        # For tree-based models, TreeExplainer is preferred.
         model_loaded = True
 
         # Try to create a TreeExplainer first (fast for trees)
@@ -448,7 +444,6 @@ if os.path.exists(MODEL_PATH):
             explainer = shap.TreeExplainer(model)
         except Exception:
             try:
-                # fall back to general explainer
                 explainer = shap.Explainer(model)
             except Exception as e:
                 explainer = None
@@ -460,11 +455,63 @@ else:
     model_loaded = False
     model_error = f"Model file not found at {MODEL_PATH}"
 
-# Helper: prepare model input for SHAP using the same feature set
-def prepare_model_input_for_player(player_row, feature_list, model_obj):
-    # Create a single-row DataFrame with features in the expected order
-    X_raw = pd.DataFrame([ {f: (player_row.get(f, np.nan) if pd.notna(player_row.get(f, np.nan)) else np.nan) for f in feature_list } ])
-    # If model is a Pipeline with preprocessing, we pass raw X into explainer/model (explainer should handle pipeline)
+# Robust helper: prepare model input for SHAP using the model's expected feature names
+def prepare_model_input_for_player(player_row, feature_list_fallback, model_obj, df_reference=None):
+    """
+    Build a single-row DataFrame matching the model's expected features and order.
+    - Uses model.feature_name_ / booster feature names if available.
+    - Falls back to feature_list_fallback otherwise.
+    - For missing features, fill with column mean from df_reference if provided, else 0.0.
+    - Ensures numeric dtype and exact column ordering.
+    """
+    expected = None
+    try:
+        if hasattr(model_obj, "feature_name_") and model_obj.feature_name_ is not None:
+            expected = list(model_obj.feature_name_)
+        elif hasattr(model_obj, "booster_") and hasattr(model_obj.booster_, "feature_name"):
+            expected = list(model_obj.booster_.feature_name())
+        elif hasattr(model_obj, "get_booster") and hasattr(model_obj.get_booster(), "feature_name"):
+            expected = list(model_obj.get_booster().feature_name())
+    except Exception:
+        expected = None
+
+    if expected is None or len(expected) == 0:
+        expected = list(feature_list_fallback)
+
+    # Build single-row dict for expected features
+    row = {}
+    for feat in expected:
+        # prefer exact value from player_row if present
+        if feat in player_row and pd.notna(player_row[feat]):
+            row[feat] = player_row[feat]
+        else:
+            # try some common alternate names
+            alt_found = False
+            for alt in [feat, feat.replace(" ", "_"), feat.lower()]:
+                if alt in player_row and pd.notna(player_row[alt]):
+                    row[feat] = player_row[alt]
+                    alt_found = True
+                    break
+            if not alt_found:
+                # fallback: compute column mean from df_reference if provided
+                if df_reference is not None and feat in df_reference.columns:
+                    try:
+                        row[feat] = float(df_reference[feat].mean())
+                    except Exception:
+                        row[feat] = 0.0
+                else:
+                    row[feat] = 0.0
+
+    X_raw = pd.DataFrame([row], columns=expected)
+    # Ensure numeric dtype for all columns
+    for c in X_raw.columns:
+        X_raw[c] = pd.to_numeric(X_raw[c], errors="coerce").astype(float)
+        if X_raw[c].isna().any():
+            # If coercion to numeric produced NaN, fill with df_reference mean if available, else 0
+            if df_reference is not None and c in df_reference.columns:
+                X_raw[c] = X_raw[c].fillna(float(df_reference[c].mean()))
+            else:
+                X_raw[c] = X_raw[c].fillna(0.0)
     return X_raw
 
 # Compute SHAP values for the selected player
@@ -477,37 +524,45 @@ mech_features_available = [f for f in mechanical_features if f in df.columns]
 
 if model_loaded and explainer is not None and len(mech_features_available) >= 2:
     try:
-        X_player = prepare_model_input_for_player(player_row, mech_features_available, model)
-        # Some models / pipelines require columns to match training order exactly.
-        # If the model is a pipeline with a named_steps preprocessor that expects more columns,
-        # the pipeline should handle the alignment; otherwise we trust the mech_features_available order.
+        X_player = prepare_model_input_for_player(player_row, mech_features_available, model, df_reference=df)
+
+        # Safety check: if model exposes feature names, ensure shape matches
+        try:
+            expected_names = None
+            if hasattr(model, "feature_name_") and model.feature_name_ is not None:
+                expected_names = list(model.feature_name_)
+            elif hasattr(model, "booster_") and hasattr(model.booster_, "feature_name"):
+                expected_names = list(model.booster_.feature_name())
+            elif hasattr(model, "get_booster") and hasattr(model.get_booster(), "feature_name"):
+                expected_names = list(model.get_booster().feature_name())
+            if expected_names is not None and X_player.shape[1] != len(expected_names):
+                model_error = f"Prepared input has {X_player.shape[1]} features but model expects {len(expected_names)} features."
+                raise ValueError(model_error)
+        except Exception:
+            pass
+
         # Compute prediction and shap values
         try:
-            # If model has predict method
             shap_pred = float(model.predict(X_player)[0])
         except Exception:
-            # If pipeline or model expects numpy
             shap_pred = float(model.predict(X_player.values.reshape(1, -1))[0])
 
-        # Use explainer on the raw X_player
         try:
             shap_values = explainer(X_player)
         except Exception:
             shap_values = explainer(X_player.values)
 
-        # shap_values may be an Explanation object
         if hasattr(shap_values, "values"):
             shap_values_arr = np.array(shap_values.values).flatten()
+            # base_values could be scalar or array-like
             shap_base = float(shap_values.base_values) if np.size(shap_values.base_values) == 1 else float(shap_values.base_values.flatten()[0])
         else:
-            # shap_values may be plain array
             shap_values_arr = np.array(shap_values).flatten()
             shap_base = None
 
-        # Build DataFrame of shap contributions
         shap_df = pd.DataFrame({
-            "feature": mech_features_available,
-            "raw": [float(X_player.iloc[0][f]) if pd.notna(X_player.iloc[0][f]) else np.nan for f in mech_features_available],
+            "feature": X_player.columns.tolist(),
+            "raw": [float(X_player.iloc[0][f]) if pd.notna(X_player.iloc[0][f]) else np.nan for f in X_player.columns],
             "shap_value": shap_values_arr
         })
         shap_df["abs_shap"] = np.abs(shap_df["shap_value"])
@@ -520,7 +575,6 @@ if model_loaded and explainer is not None and len(mech_features_available) >= 2:
         model_error = str(e)
 
 # ------------------ PowerIndex analytic contributions (deterministic) ------------------
-# Use the same weights from your pipeline / script. If those weights change, update here.
 power_weights = {
     "avg_bat_speed": 0.5,
     "swing_length": 0.2,
@@ -530,7 +584,6 @@ power_weights = {
 }
 power_features = [f for f in power_weights.keys() if f in df.columns]
 
-# Compute scaler over df for power features to match script
 power_scaler = None
 power_scaler_means = None
 power_scaler_stds = None
@@ -543,12 +596,9 @@ if len(power_features) > 0:
         power_X = df[power_features].astype(float).values
         power_Xs = power_scaler.fit_transform(power_X)
         power_scaler_means = power_scaler.mean_
-        # sklearn's StandardScaler stores variance_ ; compute std safely
         power_scaler_stds = np.sqrt(power_scaler.var_)
 
-        # Compute PowerIndex for the selected player deterministically
         raw_vals = {f: (player_row.get(f, np.nan) if pd.notna(player_row.get(f, np.nan)) else np.nan) for f in power_features}
-        # If any raw is missing, substitute the dataset mean
         for i, f in enumerate(power_features):
             if pd.isna(raw_vals[f]):
                 raw_vals[f] = float(power_scaler_means[i])
@@ -558,7 +608,6 @@ if len(power_features) > 0:
             scaled = (raw_vals[f] - power_scaler_means[i]) / (power_scaler_stds[i] if power_scaler_stds[i] != 0 else 1.0)
             scaled_vals.append(scaled)
 
-        # per-feature contribution to PowerIndex (before +100 scaling)
         contribs = []
         for i, f in enumerate(power_features):
             contrib = scaled_vals[i] * power_weights[f]
@@ -569,22 +618,16 @@ if len(power_features) > 0:
         total_abs_pi = power_contrib_df["abs_contrib"].sum() if power_contrib_df["abs_contrib"].sum() != 0 else 1.0
         power_contrib_df["pct_of_abs"] = power_contrib_df["abs_contrib"] / total_abs_pi
 
-        # Convert PowerIndex to PowerIndex+ units like your script: PowerIndex+ = 100 + ((PowerIndex - mean)/std)*10
-        # We'll compute dataset PowerIndex to get mean/std used in transformation
-        pi_all = np.zeros(len(df))
-        # build scaled_df for all rows
         scaled_all = (power_X - power_scaler_means) / (power_scaler_stds + 1e-12)
+        pi_all = np.zeros(len(df))
         for i, f in enumerate(power_features):
             pi_all += scaled_all[:, i] * power_weights[f]
         pi_mean = np.mean(pi_all)
         pi_std = np.std(pi_all) if np.std(pi_all) != 0 else 1.0
 
-        # player powerindex raw
         player_pi_raw = sum(power_contrib_df["powerindex_contrib"].values)
         player_powerindex_plus = 100 + ((player_pi_raw - pi_mean) / pi_std) * 10
 
-        # For combining later, we'll convert per-feature powerindex_contrib to PowerIndex+ scale contribution:
-        # A feature's contribution to PowerIndex+ = (feature_contrib_raw) * (10 / pi_std)
         factor = 10.0 / pi_std
         power_contrib_df["powerindex_plus_contrib"] = power_contrib_df["powerindex_contrib"] * factor
 
@@ -608,7 +651,6 @@ st.markdown(
 
 col_shap, col_pi = st.columns([1, 1])
 
-# Pre-format labels safely for display to avoid conditional formatting inside f-strings
 shap_pred_label = f"{shap_pred:.2f}" if (shap_pred is not None and not pd.isna(shap_pred)) else "N/A"
 swing_actual_label = f"{player_row['Swing+']:.2f}" if (player_row.get("Swing+") is not None and not pd.isna(player_row.get("Swing+"))) else "N/A"
 pi_label = f"{player_powerindex_plus:.2f}" if (player_powerindex_plus is not None and not pd.isna(player_powerindex_plus)) else "N/A"
@@ -620,7 +662,6 @@ with col_shap:
         if model_error:
             st.caption(f"Model load error: {model_error}")
     else:
-        # Prepare top features for display
         TOP_SHOW = min(6, len(shap_df))
         df_plot_top = shap_df.reindex(shap_df["abs_shap"].sort_values(ascending=False).index).head(TOP_SHOW)
 
@@ -653,7 +694,6 @@ with col_pi:
     if power_contrib_df is None:
         st.info("PowerIndex could not be computed (missing mechanical features).")
     else:
-        # Show analytic bar chart
         df_pi_plot = power_contrib_df.sort_values("powerindex_plus_contrib", ascending=False).head(len(power_contrib_df))
         fig2, ax2 = plt.subplots(figsize=(6, 3.0))
         y2 = df_pi_plot["feature"]
@@ -693,7 +733,6 @@ st.markdown(
 if shap_df is None or power_contrib_df is None:
     st.info("Combined ProjSwing+ decomposition not available because Swing+ SHAP or PowerIndex computations failed.")
 else:
-    # Align feature sets: use union of features from shap_df and power_contrib_df
     combined_features = list(dict.fromkeys(list(shap_df["feature"]) + list(power_contrib_df["feature"])))
     combined_rows = []
     for f in combined_features:
