@@ -535,6 +535,7 @@ power_scaler = None
 power_scaler_means = None
 power_scaler_stds = None
 power_contrib_df = None
+player_powerindex_plus = None
 
 if len(power_features) > 0:
     try:
@@ -542,6 +543,7 @@ if len(power_features) > 0:
         power_X = df[power_features].astype(float).values
         power_Xs = power_scaler.fit_transform(power_X)
         power_scaler_means = power_scaler.mean_
+        # sklearn's StandardScaler stores variance_ ; compute std safely
         power_scaler_stds = np.sqrt(power_scaler.var_)
 
         # Compute PowerIndex for the selected player deterministically
@@ -582,12 +584,13 @@ if len(power_features) > 0:
         player_powerindex_plus = 100 + ((player_pi_raw - pi_mean) / pi_std) * 10
 
         # For combining later, we'll convert per-feature powerindex_contrib to PowerIndex+ scale contribution:
-        # A feature's contribution to PowerIndex+ = (feature_contrib_raw - 0) scaled by 10/pi_std
+        # A feature's contribution to PowerIndex+ = (feature_contrib_raw) * (10 / pi_std)
         factor = 10.0 / pi_std
         power_contrib_df["powerindex_plus_contrib"] = power_contrib_df["powerindex_contrib"] * factor
 
     except Exception:
         power_contrib_df = None
+        player_powerindex_plus = None
 
 # ------------------ Display SHAP Swing+ panel and PowerIndex panel ------------------
 st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
@@ -605,8 +608,13 @@ st.markdown(
 
 col_shap, col_pi = st.columns([1, 1])
 
+# Pre-format labels safely for display to avoid conditional formatting inside f-strings
+shap_pred_label = f"{shap_pred:.2f}" if (shap_pred is not None and not pd.isna(shap_pred)) else "N/A"
+swing_actual_label = f"{player_row['Swing+']:.2f}" if (player_row.get("Swing+") is not None and not pd.isna(player_row.get("Swing+"))) else "N/A"
+pi_label = f"{player_powerindex_plus:.2f}" if (player_powerindex_plus is not None and not pd.isna(player_powerindex_plus)) else "N/A"
+
 with col_shap:
-    st.markdown(f"<div style='text-align:center;font-weight:600;color:#183153;'>Swing+ contributions (model pred: {shap_pred:.2f if shap_pred is not None else 'N/A'} | actual: {player_row['Swing+']:.2f})</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align:center;font-weight:600;color:#183153;'>Swing+ contributions (model pred: {shap_pred_label} | actual: {swing_actual_label})</div>", unsafe_allow_html=True)
     if not model_loaded or explainer is None or shap_df is None:
         st.info("Swing+ model or SHAP explainer not available. Ensure swingplus_model.pkl is a supported model/pipeline.")
         if model_error:
@@ -641,7 +649,7 @@ with col_shap:
         st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 with col_pi:
-    st.markdown(f"<div style='text-align:center;font-weight:600;color:#183153;'>PowerIndex contributions (analytic) (PowerIndex+ ≈ {player_powerindex_plus:.2f if power_contrib_df is not None else 'N/A'})</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align:center;font-weight:600;color:#183153;'>PowerIndex contributions (analytic) (PowerIndex+ ≈ {pi_label})</div>", unsafe_allow_html=True)
     if power_contrib_df is None:
         st.info("PowerIndex could not be computed (missing mechanical features).")
     else:
