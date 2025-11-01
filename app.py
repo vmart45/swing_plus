@@ -1,3 +1,4 @@
+# Full app.py with feature-importance panel (per-player contributions to Swing+ and ProjSwing+)
 import pandas as pd
 import streamlit as st
 import os
@@ -5,12 +6,14 @@ from PIL import Image
 import requests
 from io import BytesIO
 from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Ridge
 from sklearn.metrics.pairwise import cosine_similarity
 import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
+import numpy as np
 
 st.set_page_config(
     page_title="Swing+ & ProjSwing+ Dashboard",
@@ -68,7 +71,7 @@ mlb_teams = [
     {"team": "STL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/stl.png&h=500&w=500"},
     {"team": "TB", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/tb.png&h=500&w=500"},
     {"team": "TEX", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/tex.png&h=500&w=500"},
-    {"team": "TOR", "logologo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/tor.png&h=500&w=500"},
+    {"team": "TOR", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/tor.png&h=500&w=500"},
     {"team": "WSH", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/wsh.png&h=500&w=500"}
 ]
 df_image = pd.DataFrame(mlb_teams)
@@ -417,6 +420,204 @@ mechanical_features = [
     "swing_length"
 ]
 
+# Filter mechanical features to those present in the dataframe
+mech_features_available = [f for f in mechanical_features if f in df.columns]
+
+# ------------------ Feature importance modeling ------------------
+# We'll train ridge models on standardized mechanical features to predict Swing+ and ProjSwing+
+@st.cache_data
+def fit_feature_models(df_input, features):
+    df_local = df_input.dropna(subset=features + ["Swing+", "ProjSwing+"]).copy()
+    X = df_local[features].astype(float).values
+    y_swing = df_local["Swing+"].values
+    y_proj = df_local["ProjSwing+"].values
+
+    scaler = StandardScaler()
+    Xs = scaler.fit_transform(X)
+
+    # Use small alpha for stability; you can expose this as a parameter later
+    ridge_swing = Ridge(alpha=1.0)
+    ridge_proj = Ridge(alpha=1.0)
+    ridge_swing.fit(Xs, y_swing)
+    ridge_proj.fit(Xs, y_proj)
+
+    # Save order mapping
+    model_info = {
+        "scaler": scaler,
+        "features": features,
+        "ridge_swing": ridge_swing,
+        "ridge_proj": ridge_proj,
+        "train_index": df_local.index
+    }
+    return model_info
+
+model_info = None
+if len(mech_features_available) >= 2:
+    model_info = fit_feature_models(df, mech_features_available)
+
+def compute_player_contributions(player_row, model_info):
+    """
+    For a single player row, compute per-feature contributions to Swing+ and ProjSwing+.
+    Contribution = (standardized feature value) * coef. We'll also show sign and percent share.
+    """
+    features = model_info["features"]
+    scaler = model_info["scaler"]
+    ridge_swing = model_info["ridge_swing"]
+    ridge_proj = model_info["ridge_proj"]
+
+    # Extract player's feature vector; if missing, fill with column mean (from scaler mean)
+    x_raw = []
+    for i, f in enumerate(features):
+        val = player_row.get(f, np.nan)
+        if pd.isna(val):
+            # fallback to scaler.mean_ if available
+            val = scaler.mean_[i] if hasattr(scaler, "mean_") else 0.0
+        x_raw.append(float(val))
+    x_raw = np.array(x_raw).reshape(1, -1)
+    x_scaled = scaler.transform(x_raw).flatten()
+
+    # coefficients
+    coef_swing = ridge_swing.coef_
+    coef_proj = ridge_proj.coef_
+    intercept_swing = ridge_swing.intercept_
+    intercept_proj = ridge_proj.intercept_
+
+    # per-feature contribution (signed)
+    contrib_swing = x_scaled * coef_swing
+    contrib_proj = x_scaled * coef_proj
+
+    # model prediction (reconstructed)
+    pred_swing = intercept_swing + contrib_swing.sum()
+    pred_proj = intercept_proj + contrib_proj.sum()
+
+    # absolute and percent contributions
+    abs_contrib_swing = np.abs(contrib_swing)
+    abs_contrib_proj = np.abs(contrib_proj)
+
+    total_abs_swing = abs_contrib_swing.sum() if abs_contrib_swing.sum() != 0 else 1.0
+    total_abs_proj = abs_contrib_proj.sum() if abs_contrib_proj.sum() != 0 else 1.0
+
+    pct_contrib_swing = abs_contrib_swing / total_abs_swing
+    pct_contrib_proj = abs_contrib_proj / total_abs_proj
+
+    df_swing = pd.DataFrame({
+        "feature": features,
+        "value_raw": x_raw.flatten(),
+        "value_scaled": x_scaled,
+        "coef": coef_swing,
+        "contribution": contrib_swing,
+        "abs_contribution": abs_contrib_swing,
+        "pct_of_abs": pct_contrib_swing
+    }).sort_values("contribution", ascending=False).reset_index(drop=True)
+
+    df_proj = pd.DataFrame({
+        "feature": features,
+        "value_raw": x_raw.flatten(),
+        "value_scaled": x_scaled,
+        "coef": coef_proj,
+        "contribution": contrib_proj,
+        "abs_contribution": abs_contrib_proj,
+        "pct_of_abs": pct_contrib_proj
+    }).sort_values("contribution", ascending=False).reset_index(drop=True)
+
+    out = {
+        "df_swing": df_swing,
+        "df_proj": df_proj,
+        "pred_swing": float(pred_swing),
+        "pred_proj": float(pred_proj)
+    }
+    return out
+
+# Display a feature importance / contributions panel under the Player Detail
+if model_info is None:
+    st.info("Not enough mechanical features available to compute feature importance.")
+else:
+    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <h3 style="text-align:center; margin-top:6px; font-size:1.12em; color:#183153; letter-spacing:0.01em;">
+            Feature Contributions (per-player)
+        </h3>
+        <div style="text-align:center; color:#6b7280; margin-bottom:8px; font-size:0.98em;">
+            Estimated contribution of each mechanical feature to the player's Swing+ and ProjSwing+ (model-based).
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    contributions = compute_player_contributions(player_row, model_info)
+    df_swing_imp = contributions["df_swing"]
+    df_proj_imp = contributions["df_proj"]
+
+    # Select top features to show
+    TOP_SHOW = min(6, len(df_swing_imp))
+
+    col_a, col_b = st.columns([1, 1])
+    with col_a:
+        st.markdown(f"<div style='text-align:center;font-weight:600;color:#183153;'>Swing+ contributions (model pred: {contributions['pred_swing']:.2f} | actual: {player_row['Swing+']:.2f})</div>", unsafe_allow_html=True)
+
+        # Plot horizontal bar chart: show top positive and top negative contributions
+        fig, ax = plt.subplots(figsize=(6, 3.0))
+        # pick top absolute contributors
+        df_plot = df_swing_imp.copy()
+        df_plot["contrib_signed"] = df_plot["contribution"]
+        # order by absolute contribution and take top N
+        df_plot_top = df_plot.reindex(df_plot["abs_contribution"].sort_values(ascending=False).index).head(TOP_SHOW)
+        y = df_plot_top["feature"]
+        x = df_plot_top["contrib_signed"]
+        colors = ["#D32F2F" if v > 0 else "#1976D2" for v in x]  # red = positive contribution, blue = negative
+        ax.barh(y, x, color=colors, edgecolor="#ffffff")
+        ax.axvline(0, color="#444444", linewidth=0.7)
+        ax.set_xlabel("Contribution to Swing+ (signed)")
+        ax.set_ylabel("")
+        ax.invert_yaxis()
+        for i, (val, pct) in enumerate(zip(df_plot_top["contribution"], df_plot_top["pct_of_abs"])):
+            ax.text(val + np.sign(val) * 0.002 * max(1, np.abs(df_plot_top["contribution"]).max()), f"{val:.2f} ({pct:.0%})", va="center", fontsize=8, color="#0b1320")
+        plt.tight_layout()
+        st.pyplot(fig)
+
+        # Also show a small table
+        st.markdown("<div style='margin-top:6px; font-size:0.92em; color:#374151;'>Top feature contributions for Swing+</div>", unsafe_allow_html=True)
+        st.dataframe(
+            df_plot_top[["feature", "value_raw", "contribution", "pct_of_abs"]]
+            .rename(columns={"value_raw": "raw", "contribution": "signed_contrib", "pct_of_abs": "pct_of_total_abs"})
+            .assign(pct_of_total_abs=lambda d: (d["pct_of_total_abs"].apply(lambda v: f"{v:.0%}")))
+            .style.format({"signed_contrib": "{:.3f}"}),
+            use_container_width=True,
+            hide_index=True
+        )
+
+    with col_b:
+        st.markdown(f"<div style='text-align:center;font-weight:600;color:#183153;'>ProjSwing+ contributions (model pred: {contributions['pred_proj']:.2f} | actual: {player_row['ProjSwing+']:.2f})</div>", unsafe_allow_html=True)
+
+        fig2, ax2 = plt.subplots(figsize=(6, 3.0))
+        df_plot2 = df_proj_imp.copy()
+        df_plot2["contrib_signed"] = df_plot2["contribution"]
+        df_plot2_top = df_plot2.reindex(df_plot2["abs_contribution"].sort_values(ascending=False).index).head(TOP_SHOW)
+        y2 = df_plot2_top["feature"]
+        x2 = df_plot2_top["contrib_signed"]
+        colors2 = ["#D32F2F" if v > 0 else "#1976D2" for v in x2]
+        ax2.barh(y2, x2, color=colors2, edgecolor="#ffffff")
+        ax2.axvline(0, color="#444444", linewidth=0.7)
+        ax2.set_xlabel("Contribution to ProjSwing+ (signed)")
+        ax2.set_ylabel("")
+        ax2.invert_yaxis()
+        for i, (val, pct) in enumerate(zip(df_plot2_top["contribution"], df_plot2_top["pct_of_abs"])):
+            ax2.text(val + np.sign(val) * 0.002 * max(1, np.abs(df_plot2_top["contribution"]).max()), f"{val:.2f} ({pct:.0%})", va="center", fontsize=8, color="#0b1320")
+        plt.tight_layout()
+        st.pyplot(fig2)
+
+        st.markdown("<div style='margin-top:6px; font-size:0.92em; color:#374151;'>Top feature contributions for ProjSwing+</div>", unsafe_allow_html=True)
+        st.dataframe(
+            df_plot2_top[["feature", "value_raw", "contribution", "pct_of_abs"]]
+            .rename(columns={"value_raw": "raw", "contribution": "signed_contrib", "pct_of_abs": "pct_of_total_abs"})
+            .assign(pct_of_total_abs=lambda d: (d["pct_of_total_abs"].apply(lambda v: f"{v:.0%}")))
+            .style.format({"signed_contrib": "{:.3f}"}),
+            use_container_width=True,
+            hide_index=True
+        )
+
+# ------------------ Mechanical similarity cluster (unchanged) ------------------
 name_col = "Name"
 TOP_N = 10
 
@@ -478,114 +679,4 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 gap: 10px;
                 align-items: center;
             }
-            /* Each item spans the full available width of the container for a long, centered look */
-            .sim-item {
-                display: flex;
-                align-items: center;
-                background: #ffffff;
-                border-radius: 12px;
-                padding: 12px 18px;
-                gap: 16px;
-                width: 100%;
-                border: 1px solid #eef4f8;
-                box-shadow: 0 6px 18px rgba(15,23,42,0.04);
-            }
-            .sim-rank {
-                font-size: 1.05em;
-                font-weight: 700;
-                color: #183153;
-                min-width: 36px;
-                text-align: center;
-            }
-            .sim-headshot-compact {
-                height: 56px;
-                width: 56px;
-                border-radius: 10px;
-                object-fit: cover;
-                box-shadow: 0 1px 6px rgba(0,0,0,0.06);
-            }
-            .sim-name-compact {
-                flex: 1;
-                font-size: 1.05em;
-                font-weight: 400;
-                color: #183153;
-            }
-            .sim-score-compact {
-                font-size: 1.0em;
-                font-weight: 700;
-                color: #333;
-                margin-right: 16px;
-                min-width: 80px;
-                text-align: right;
-            }
-            .sim-bar-mini {
-                width: 260px;
-                height: 12px;
-                background: #f4f7fa;
-                border-radius: 999px;
-                overflow: hidden;
-                margin-left: 12px;
-            }
-            .sim-bar-fill {
-                height: 100%;
-                border-radius: 999px;
-                transition: width 0.5s ease;
-            }
-            @media (max-width: 1100px) {
-                .sim-container { max-width: 92%; }
-                .sim-bar-mini { width: 180px; height: 10px; }
-                .sim-headshot-compact { height: 48px; width: 48px; }
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
-
-        # Header text: unbold except player name bolded
-        st.markdown(f'<div class="sim-container"><div class="sim-header">Top {TOP_N} mechanically similar players to <span style="font-weight:700;">{player_select}</span></div>', unsafe_allow_html=True)
-        st.markdown('<div class="sim-list">', unsafe_allow_html=True)
-
-        for idx, sim in enumerate(sim_rows, 1):
-            pct = max(0.0, min(1.0, float(sim['score'])))
-            width_pct = int(round(pct * 100))
-
-            start_color = "#D32F2F"
-            end_color = "#FFEB3B"
-
-            sim_pct_text = f"{pct:.1%}"
-
-            st.markdown(
-                f"""
-                <div class="sim-item">
-                    <div class="sim-rank">{idx}</div>
-                    <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                    <div class="sim-name-compact">{sim['name']}</div>
-                    <div class="sim-score-compact">{sim_pct_text}</div>
-                    <div class="sim-bar-mini" aria-hidden="true">
-                        <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-        st.markdown('</div></div>', unsafe_allow_html=True)
-
-        with st.expander("Show Detailed Heatmap"):
-            fig, ax = plt.subplots(figsize=(6, 4.2))
-            heatmap_data = similarity_df.loc[top_names, top_names]
-            sns.heatmap(
-                heatmap_data,
-                annot=True,
-                fmt=".2f",
-                cmap="coolwarm",
-                linewidths=0.5,
-                cbar_kws={"label": "Cosine Similarity"},
-                ax=ax,
-                annot_kws={"fontsize":8}
-            )
-            ax.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=12, weight="bold")
-            plt.xticks(rotation=45, ha='right', fontsize=8)
-            plt.yticks(fontsize=9)
-            plt.tight_layout()
-            st.pyplot(fig)
+            /* Each item spans the full available width of the container for a long, centered
