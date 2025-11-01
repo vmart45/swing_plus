@@ -580,9 +580,9 @@ else:
 
                 st.markdown("<div style='margin-top:6px; font-size:0.92em; color:#374151;'>Top feature contributions for Swing+</div>", unsafe_allow_html=True)
                 display_df = df_plot_top[["feature", "value_raw", "contribution", "pct_of_abs"]].rename(columns={"value_raw": "raw", "contribution": "signed_contrib", "pct_of_abs": "pct_of_total_abs"})
-                display_df = display_df.assign(pct_of_total_abs=lambda d: (d["pct_of_total_abs"].apply(lambda v: f"{0.0:.0%}") if pd.isna(v) else d["pct_of_total_abs"].apply(lambda v: f"{v:.0%}")) )
-                # fix formatting in a safer way
-                display_df["signed_contrib"] = display_df["signed_contrib"].apply(lambda v: f"{0.0:.3f}" if pd.isna(v) else f"{v:.3f}")
+                # format pct_of_total_abs and signed_contrib safely
+                display_df["pct_of_total_abs"] = display_df["pct_of_total_abs"].apply(lambda v: f"{v:.0%}" if pd.notna(v) else "0%")
+                display_df["signed_contrib"] = display_df["signed_contrib"].apply(lambda v: f"{v:.3f}" if pd.notna(v) else "0.000")
                 st.dataframe(display_df, use_container_width=True, hide_index=True)
 
     with col_b:
@@ -621,8 +621,8 @@ else:
 
                 st.markdown("<div style='margin-top:6px; font-size:0.92em; color:#374151;'>Top feature contributions for ProjSwing+</div>", unsafe_allow_html=True)
                 display_df2 = df_plot2_top[["feature", "value_raw", "contribution", "pct_of_abs"]].rename(columns={"value_raw": "raw", "contribution": "signed_contrib", "pct_of_abs": "pct_of_total_abs"})
-                display_df2 = display_df2.assign(pct_of_total_abs=lambda d: (d["pct_of_total_abs"].apply(lambda v: f"{0.0:.0%}") if pd.isna(v) else d["pct_of_total_abs"].apply(lambda v: f"{v:.0%}")) )
-                display_df2["signed_contrib"] = display_df2["signed_contrib"].apply(lambda v: f"{0.0:.3f}" if pd.isna(v) else f"{v:.3f}")
+                display_df2["pct_of_total_abs"] = display_df2["pct_of_total_abs"].apply(lambda v: f"{v:.0%}" if pd.notna(v) else "0%")
+                display_df2["signed_contrib"] = display_df2["signed_contrib"].apply(lambda v: f"{v:.3f}" if pd.notna(v) else "0.000")
                 st.dataframe(display_df2, use_container_width=True, hide_index=True)
 
 # ------------------ Mechanical similarity cluster (unchanged) ------------------
