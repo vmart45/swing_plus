@@ -11,7 +11,6 @@ import seaborn as sns
 import matplotlib
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
-import streamlit.components.v1 as components
 
 st.set_page_config(
     page_title="Swing+ & ProjSwing+ Dashboard",
@@ -250,10 +249,10 @@ headshot_html = ""
 if "id" in player_row and pd.notnull(player_row["id"]):
     player_id = str(int(player_row["id"]))
     headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
-    headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-right:24px;" alt="headshot"/>'
+    headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-righ:20px;" alt="headshot"/>'
 else:
     fallback_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-    headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-right:24px;" alt="headshot"/>'
+    headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-righ:20px;" alt="headshot"/>'
 
 logo_html = ""
 if logo_url:
@@ -349,7 +348,7 @@ st.markdown(
       </div>
       <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
         <div style="font-size: 2.2em; font-weight: 700; color: {power_color};">{player_row['PowerIndex+']:.1f}</div>
-        <div style="font-size:1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">PowerIndex+</div>
+        <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">PowerIndex+</div>
         <span style="background: #B3E5FC33; color: #01579B; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_power_rank} of {total_players}</span>
       </div>
     </div>
@@ -452,97 +451,81 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
                 "score": sim_score
             })
 
-        # CSS for compact inline chips (minimal-space, good-looking)
+        # Add styles for the similarity bar visualization
         st.markdown(
             """
             <style>
-            .chips-row {
-                display:flex;
-                gap:10px;
-                align-items:center;
-                justify-content:center;
-                flex-wrap:wrap;
-                margin-top:8px;
-                margin-bottom:12px;
+            .sim-card {
+                background:#fff;border-radius:14px;box-shadow:0 2px 8px #0001;padding:18px 13px 13px 13px;width:168px;text-align:center;margin-bottom:8px;
             }
-            .chip {
-                display:flex;
-                align-items:center;
-                gap:8px;
-                background:#ffffff;
-                border-radius:999px;
-                padding:6px 10px;
-                box-shadow: 0 1px 6px #00000014;
-                font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-                color:#183153;
-                font-weight:600;
-                font-size:0.95em;
-                min-height:40px;
+            .sim-head {
+                height:74px;width:74px;object-fit:cover;border-radius:12px;box-shadow:0 1px 5px #0001;margin-bottom:8px;
             }
-            .chip-img {
-                height:34px;
-                width:34px;
-                border-radius:8px;
-                object-fit:cover;
-                box-shadow:0 1px 4px #00000012;
-                background:#fff;
+            .sim-name {
+                font-size:1.01em;font-weight:700;color:#183153;margin:2px 0 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
             }
-            .chip-text {
-                display:flex;
-                flex-direction:column;
-                line-height:1;
+            .sim-score {
+                font-size:0.98em;font-weight:600;color:#385684;margin-top:8px;margin-bottom:6px;
             }
-            .chip-name {
-                font-size:0.95em;
-                font-weight:700;
-                color:#183153;
-                white-space:nowrap;
+            .sim-bar-outer {
+                background: #eef2f7;
+                border-radius: 999px;
+                height: 10px;
+                width: 120px;
+                margin: 6px auto 0 auto;
+                overflow: hidden;
+                box-shadow: inset 0 1px 2px #00000010;
             }
-            .chip-score {
-                font-size:0.85em;
-                font-weight:700;
-                color:#B71036;
+            .sim-bar-inner {
+                height: 100%;
+                border-radius: 999px;
+                transition: width 0.6s ease;
             }
-            .chip-bar {
-                height:6px;
-                width:90px;
-                background:#eef2f7;
-                border-radius:999px;
-                overflow:hidden;
-                margin-left:8px;
-            }
-            .chip-bar-inner {
-                height:100%;
-                border-radius:999px;
+            .sim-score-value {
+                font-weight:700;color:#B71036;margin-left:6px;
             }
             </style>
             """,
             unsafe_allow_html=True
         )
 
-        # Render compact chips centered under the header (minimal space)
-        chips_html = '<div class="chips-row">'
-        for sim in sim_rows[:TOP_N]:
-            pct = max(0, min(1.0, float(sim['score'])))
-            width_pct = int(round(pct * 100))
-            cmap = cm.get_cmap("RdYlGn_r")
-            color_rgb = cmap(pct)[:3]
-            color_hex = '#{:02x}{:02x}{:02x}'.format(int(color_rgb[0]*255), int(color_rgb[1]*255), int(color_rgb[2]*255))
-            chips_html += f'''
-            <div class="chip" title="{sim['name']} — {sim['score']:.2f}">
-              <img src="{sim['headshot_url']}" class="chip-img" alt="headshot"/>
-              <div class="chip-text">
-                <div class="chip-name">{sim['name']}</div>
-                <div class="chip-score">{sim['score']:.2f}</div>
-              </div>
-              <div class="chip-bar" aria-hidden="true">
-                <div class="chip-bar-inner" style="width:{width_pct}%; background: linear-gradient(90deg, {color_hex}, #FFD54F);"></div>
-              </div>
-            </div>
-            '''
-        chips_html += '</div>'
-
-        components.html(chips_html, height=84, scrolling=False)
+        st.markdown(
+            "<div style='display: flex; flex-direction: column; align-items: center; max-width:920px; margin: 0 auto 10px auto;'>",
+            unsafe_allow_html=True
+        )
+        for row in range(2):
+            st.markdown(
+                "<div style='display:flex;gap:18px;margin-bottom:12px;justify-content:center;'>",
+                unsafe_allow_html=True
+            )
+            for col in range(5):
+                idx = row*5 + col
+                if idx >= len(sim_rows):
+                    continue
+                sim = sim_rows[idx]
+                # compute percentage width for the bar
+                pct = max(0, min(1.0, float(sim['score'])))
+                width_pct = int(round(pct * 100))
+                # compute a color gradient from green (high) to red (low)
+                # use matplotlib colormap to pick color
+                cmap = cm.get_cmap("RdYlGn_r")
+                color_rgb = cmap(pct)[:3]
+                color_hex = '#{:02x}{:02x}{:02x}'.format(int(color_rgb[0]*255), int(color_rgb[1]*255), int(color_rgb[2]*255))
+                st.markdown(
+                    f"""
+                    <div class="sim-card">
+                      <img src="{sim['headshot_url']}" class="sim-head" alt="headshot"/>
+                      <div class="sim-name">{sim['name']}</div>
+                      <div class="sim-score">Similarity: <span class="sim-score-value">{sim['score']:.2f}</span></div>
+                      <div class="sim-bar-outer" aria-hidden="true">
+                        <div class="sim-bar-inner" style="width:{width_pct}%; background: linear-gradient(90deg, {color_hex}, #FFD54F);"></div>
+                      </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
         with st.expander("Show Heatmap"):
             fig, ax = plt.subplots(figsize=(6, 4.2))
