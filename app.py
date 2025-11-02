@@ -851,7 +851,6 @@ with tab_player:
                 st.pyplot(fig)
 
 # ---------------- Glossary tab ----------------
-# ---------------- Glossary tab ----------------
 with tab_glossary:
     # Glossary content (native Streamlit, responsive CSS grid with consistent card sizing)
     glossary = {
@@ -872,9 +871,9 @@ with tab_glossary:
     }
 
     st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-    st.markdown('<div style="max-width:1200px;margin:0 auto;padding:0 12px;">', unsafe_allow_html=True)
 
-    # Search box
+    # Top search row
+    st.markdown('<div style="max-width:1200px;margin:0 auto;padding:0 12px;">', unsafe_allow_html=True)
     q = st.text_input("Search terms...", value="", placeholder="Type to filter glossary (term or text)...")
     st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
 
