@@ -849,10 +849,8 @@ with tab_player:
                 plt.yticks(fontsize=9)
                 plt.tight_layout()
                 st.pyplot(fig)
-
 # ---------------- Glossary tab ----------------
 with tab_glossary:
-    # Glossary content (native Streamlit, responsive CSS grid with consistent card sizing)
     glossary = {
         "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter’s swing is compared to the league average. A score of 100 is average, while every 10 points above or below represents roughly one standard deviation. Higher values indicate more efficient, well-sequenced swings.",
         "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters whose mechanical foundation and power potential suggest strong long-term growth.",
@@ -871,15 +869,14 @@ with tab_glossary:
     }
 
     st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-
-    # Top search row
     st.markdown('<div style="max-width:1200px;margin:0 auto;padding:0 12px;">', unsafe_allow_html=True)
+
+    # Search input
     q = st.text_input("Search terms...", value="", placeholder="Type to filter glossary (term or text)...")
     st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
 
     # Build DataFrame for filtering
     gloss_df = pd.DataFrame([{"term": k, "definition": v} for k, v in glossary.items()])
-
     if q and q.strip():
         qn = q.strip().lower()
         mask = gloss_df["term"].str.lower().str.contains(qn) | gloss_df["definition"].str.lower().str.contains(qn)
@@ -887,8 +884,8 @@ with tab_glossary:
     else:
         filtered = gloss_df.copy().reset_index(drop=True)
 
-    # Robust CSS grid: equal card heights, consistent spacing
-    grid_css = """
+    # CSS grid for consistent card sizing and spacing
+    css = """
     <style>
     .glossary-grid {
       display: grid;
@@ -906,10 +903,9 @@ with tab_glossary:
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
-      justify-content: flex-start;
       gap: 8px;
-      min-height: 140px;      /* consistent minimum */
-      max-height: 220px;      /* consistent maximum to keep rows aligned */
+      min-height: 140px;
+      max-height: 220px;
       overflow: hidden;
     }
     .glossary-term {
@@ -922,35 +918,35 @@ with tab_glossary:
       color: #475569;
       font-size: 0.95rem;
       line-height: 1.45;
-      /* multiline ellipsis if overflow */
       display: -webkit-box;
       -webkit-line-clamp: 6;
       -webkit-box-orient: vertical;
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    @media (max-width: 640px) {
-      .glossary-card { min-height: 120px; max-height: none; }
+    @media (max-width:640px){
+      .glossary-card { min-height:120px; max-height:none; }
     }
     </style>
     """
-    st.markdown(grid_css, unsafe_allow_html=True)
+    st.markdown(css, unsafe_allow_html=True)
 
-    # Render the cards as a single grid container (native page flow)
-    cards_html = ['<div class="glossary-grid">']
+    # Render grid container using a single st.markdown call inside a dedicated container to avoid accidental printing/escaping
+    container = st.container()
+    grid_html = ['<div class="glossary-grid">']
     for _, row in filtered.iterrows():
-        term_html = row['term']
-        def_html = row['definition'].replace('"', '&quot;')
-        cards_html.append(f'''
+        term_html = str(row["term"])
+        def_html = str(row["definition"]).replace('"', '&quot;')
+        grid_html.append(f'''
           <div class="glossary-card" title="{def_html}">
             <div class="glossary-term">{term_html}</div>
             <div class="glossary-def">{def_html}</div>
           </div>
         ''')
-    cards_html.append('</div>')
-    st.markdown(''.join(cards_html), unsafe_allow_html=True)
+    grid_html.append("</div>")
+    container.markdown(''.join(grid_html), unsafe_allow_html=True)
 
     if filtered.shape[0] == 0:
         st.info("No matching terms found.")
 
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
