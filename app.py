@@ -669,6 +669,7 @@ with tab_player:
                 "shap_value": "Contribution",
                 "pct_of_abs": "PctImportance"
             })
+            # Round 'Value' to 2 decimal points as requested
             display_df["Value"] = display_df["Value"].apply(lambda v: f"{v:.2f}" if pd.notna(v) else "NaN")
             display_df["Contribution"] = display_df["Contribution"].apply(lambda v: f"{v:.3f}")
             display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
@@ -865,17 +866,21 @@ with tab_glossary:
     .glossary-header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px;}
     .glossary-title { font-size:1.3rem; color:#183153; font-weight:800; }
     .glossary-search { flex:1; margin-left:12px; }
-    .glossary-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap:14px; }
-    .glossary-card { background: #fff; border-radius:12px; padding:14px 16px; box-shadow: 0 6px 18px rgba(15,23,42,0.04); border:1px solid #eef4f8; }
-    .term { font-weight:700; color:#0b1320; margin-bottom:8px; font-size:1.02rem; }
-    .definition { color:#475569; font-size:0.95rem; line-height:1.4; }
-    .highlight { background: linear-gradient(90deg, #FFF3CD 0%, #FFFDE7 100%); padding:6px; border-radius:8px; }
+    /* Use a responsive grid but allow the page to scroll naturally (no inner scroll container) */
+    .glossary-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:16px; }
+    .glossary-card { background: #fff; border-radius:12px; padding:16px; box-shadow: 0 6px 18px rgba(15,23,42,0.04); border:1px solid #eef4f8; }
+    .term { font-weight:700; color:#0b1320; margin-bottom:8px; font-size:1.03rem; }
+    .definition { color:#475569; font-size:0.96rem; line-height:1.5; }
     .no-results { text-align:center; color:#6b7280; margin-top:18px; }
+    @media (max-width: 700px) {
+      .glossary-grid { grid-template-columns: 1fr; gap:12px; }
+      .glossary-wrap { padding: 0 12px; }
+    }
     </style>
     <div class="glossary-wrap">
       <div class="glossary-header">
         <div class="glossary-title">Glossary of Key Terms</div>
-        <input id="gloss-search" class="glossary-search" type="search" placeholder="Search terms..." style="padding:8px 12px;border-radius:10px;border:1px solid #e6eef6; max-width:360px;">
+        <input id="gloss-search" class="glossary-search" type="search" placeholder="Search terms..." style="padding:8px 12px;border-radius:10px;border:1px solid #e6eef6; max-width:420px;">
       </div>
       <div id="glossary-grid" class="glossary-grid">
     """
@@ -919,7 +924,6 @@ with tab_glossary:
         noResults.style.display = visible === 0 ? 'block' : 'none';
       });
 
-      // small keyboard shortcut to focus search: press "/" to focus
       document.addEventListener('keydown', function(e){
         if(e.key === '/' && document.activeElement !== input){
           e.preventDefault();
@@ -930,5 +934,4 @@ with tab_glossary:
     </script>
     """
 
-    # render via st.markdown so the glossary is part of the page flow (no inner scrolling container)
     st.markdown(glossary_html, unsafe_allow_html=True)
