@@ -34,17 +34,15 @@ st.markdown(
 DATA_PATH = "ProjSwingPlus_Output_with_team.csv"
 MODEL_PATH = "swingplus_model.pkl"
 DOC_FILENAME = "SwingPlus_Documentation.pdf"
-# Raw GitHub URL for viewing the PDF outside the app (pinned to the commit in question)
 DOC_RAW_URL = "https://raw.githubusercontent.com/vmart45/swing_plus/14381a10958c94c746c86b971b07136f4557f855/SwingPlus_Documentation.pdf"
 
 if not os.path.exists(DATA_PATH):
     st.error(f"Could not find `{DATA_PATH}` in the app directory.")
     st.stop()
 
-# Sidebar: external link to documentation
 st.sidebar.header("Resources", divider="gray")
 st.sidebar.markdown(
-    f'[Open SwingPlus Documentation (external) ⤴]({DOC_RAW_URL})',
+    f'<a href="{DOC_RAW_URL}" target="_blank" rel="noopener noreferrer">Open SwingPlus Documentation (opens in new tab) ⤴</a>',
     unsafe_allow_html=True
 )
 
@@ -301,7 +299,6 @@ logo_html = ""
 if logo_url:
     logo_html = f'<img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;margin-left:46px;background:transparent;border-radius:0;" alt="logo"/>'
 
-# Restore MLB bio lookup exactly as before
 player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
 
 player_bio = ""
