@@ -934,4 +934,4 @@ with tab_glossary:
     </script>
     """
 
-    st.markdown(glossary_html, height = 900, scrolling=True)
+    st.markdown(glossary_html, height=900, scrolling=True)
