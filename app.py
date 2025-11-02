@@ -16,6 +16,7 @@ import pickle
 import joblib
 import shap
 import plotly.graph_objects as go
+import streamlit.components.v1 as components
 
 st.set_page_config(
     page_title="Swing+ & ProjSwing+ Dashboard",
@@ -55,14 +56,10 @@ df = load_data(DATA_PATH)
 
 # =====================================================
 # Fix potential renamed column: avg_batter_position -> avg_batter_x_position
-# If the CSV contains avg_batter_position (old name) but code expects avg_batter_x_position,
-# create the expected column so downstream code works without changes.
-# Also handle the inverse if somehow only avg_batter_x_position exists but code expects avg_batter_position.
 # =====================================================
 if "avg_batter_position" in df.columns and "avg_batter_x_position" not in df.columns:
     df["avg_batter_x_position"] = df["avg_batter_position"]
 elif "avg_batter_x_position" in df.columns and "avg_batter_position" not in df.columns:
-    # keep both for safety
     df["avg_batter_position"] = df["avg_batter_x_position"]
 
 mlb_teams = [
@@ -150,8 +147,8 @@ if "batted_ball_events" in df.columns:
 main_cmap = "RdYlBu_r"
 elite_cmap = "Reds"
 
-# Create top-level tabs: Main (metrics + leaderboards) and Player (player detail view)
-tab_main, tab_player = st.tabs(["Main", "Player"])
+# Create top-level tabs: Main (metrics + leaderboards), Player (detail), Glossary
+tab_main, tab_player, tab_glossary = st.tabs(["Main", "Player", "Glossary"])
 
 # ---------------- Main tab: Metrics table and leaderboards ----------------
 with tab_main:
@@ -173,7 +170,6 @@ with tab_main:
         ] if c in df_filtered.columns
     ]
 
-    # Friendly display names for mechanical features
     FEATURE_LABELS = {
         "avg_bat_speed": "Avg Bat Speed (mph)",
         "swing_length": "Swing Length (m)",
@@ -194,7 +190,6 @@ with tab_main:
         "est_woba": "xwOBA",
         "xwOBA_pred": "Predicted xwOBA"
     }
-    # extend rename_map with friendly names
     for k, v in FEATURE_LABELS.items():
         if k in df.columns:
             rename_map[k] = v
@@ -262,7 +257,7 @@ with tab_main:
             hide_index=True
         )
 
-# ---------------- Player tab: Player Detail view (moved AS IS) ----------------
+# ---------------- Player tab: Player Detail view ----------------
 with tab_player:
     st.markdown(
         """
@@ -372,14 +367,11 @@ with tab_player:
     p_proj_rank = df.loc[df["Name"] == player_select, "ProjSwing+_rank"].iloc[0]
     p_power_rank = df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]
 
-    # New plus_color: color by rank (1 = reddest, max = bluest)
     def plus_color_by_rank(rank, total, start_hex="#D32F2F", end_hex="#3B82C4"):
-        # clamp
         if total <= 1:
             ratio = 0.0
         else:
-            ratio = (rank - 1) / (total - 1)  # 0 => best (rank 1), 1 => worst
-        # We want rank=1 -> red (start_hex), rank=total -> blue (end_hex)
+            ratio = (rank - 1) / (total - 1)
         def hex_to_rgb(h):
             h = h.lstrip("#")
             return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
@@ -392,7 +384,6 @@ with tab_player:
         rb = sb + (eb - sb) * ratio
         return rgb_to_hex((rr, rg, rb))
 
-    # Use colors computed from ranks so best players (rank=1) are redder, worst are bluer.
     swing_color = plus_color_by_rank(p_swing_rank, total_players)
     proj_color = plus_color_by_rank(p_proj_rank, total_players)
     power_color = plus_color_by_rank(p_power_rank, total_players)
@@ -501,7 +492,6 @@ with tab_player:
         model_loaded = False
         model_error = f"Model file not found at {MODEL_PATH}"
 
-    # Robust helper: prepare model input for SHAP using the model's expected feature names
     def prepare_model_input_for_player(player_row, feature_list_fallback, model_obj, df_reference=None):
         expected = None
         try:
@@ -547,7 +537,6 @@ with tab_player:
                     X_raw[c] = X_raw[c].fillna(0.0)
         return X_raw
 
-    # Compute SHAP values for the selected player (Swing+ only)
     shap_df = None
     shap_base = None
     shap_pred = None
@@ -598,14 +587,13 @@ with tab_player:
             shap_df["abs_shap"] = np.abs(shap_df["shap_value"])
             total_abs = shap_df["abs_shap"].sum() if shap_df["abs_shap"].sum() != 0 else 1.0
             shap_df["pct_of_abs"] = shap_df["abs_shap"] / total_abs
-            # sort by absolute importance for display and ensure chart orders by pct descending
             shap_df = shap_df.sort_values("abs_shap", ascending=False).reset_index(drop=True)
 
         except Exception as e:
             shap_df = None
             model_error = str(e)
 
-    # ------------------ Display Swing+ SHAP panel (interactive HTML chart + table) ------------------
+    # ------------------ Display Swing+ SHAP panel (interactive chart + table) ------------------
     st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
     st.markdown(
         """
@@ -633,18 +621,16 @@ with tab_player:
                 st.caption(f"Model load error: {model_error}")
         else:
             TOP_SHOW = min(8, len(shap_df))
-            # select top by absolute contribution and then order for chart by pct_of_abs descending (largest at top)
             df_plot_top = shap_df.head(TOP_SHOW).copy()
+            # Order by pct_of_abs descending so largest importance at top
             df_plot_top = df_plot_top.sort_values("pct_of_abs", ascending=False).reset_index(drop=True)
 
-            # Prepare data for horizontal bar chart (plotly)
-            # we want largest percentage at top: set y in chart and use autorange reversed
             y = df_plot_top["feature"].map(lambda x: FEATURE_LABELS.get(x, x)).tolist()
             x_vals = df_plot_top["shap_value"].astype(float).tolist()
             pct_vals = df_plot_top["pct_of_abs"].astype(float).tolist()
             colors = ["#D8573C" if float(v) > 0 else "#3B82C4" for v in x_vals]
 
-            # text inside bars: contribution and percentage (percentage emphasized)
+            # Keep text inside bars and show both contribution and percentage
             text_labels = [f"{val:.3f}  ({pct:.0%})" for val, pct in zip(x_vals, pct_vals)]
 
             fig = go.Figure()
@@ -659,7 +645,6 @@ with tab_player:
                 textposition='inside',
                 insidetextanchor='middle'
             ))
-            # increase left and bottom margin to avoid text cutoff and ensure labels visible
             fig.update_layout(
                 margin=dict(l=160, r=24, t=12, b=60),
                 xaxis_title="SHAP contribution to Swing+ (signed)",
@@ -668,7 +653,6 @@ with tab_player:
                 showlegend=False,
                 font=dict(size=11)
             )
-            # disable interactivity: static plot and hide modebar
             st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
     with col2:
@@ -685,7 +669,6 @@ with tab_player:
                 "shap_value": "Contribution",
                 "pct_of_abs": "PctImportance"
             })
-            # Round 'Value' to 2 decimal points as requested
             display_df["Value"] = display_df["Value"].apply(lambda v: f"{v:.2f}" if pd.notna(v) else "NaN")
             display_df["Contribution"] = display_df["Contribution"].apply(lambda v: f"{v:.3f}")
             display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
@@ -730,7 +713,6 @@ with tab_player:
             st.markdown(
                 """
                 <style>
-                /* Container centered and stretched so the list aligns under the main heading */
                 .sim-container {
                     width: 100%;
                     max-width: 1160px;
@@ -854,3 +836,98 @@ with tab_player:
                 plt.yticks(fontsize=9)
                 plt.tight_layout()
                 st.pyplot(fig)
+
+# ---------------- Glossary tab ----------------
+with tab_glossary:
+    glossary = {
+        "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter’s swing is compared to the league average. A score of 100 is average, while every 10 points above or below represents roughly one standard deviation. Higher values indicate more efficient, well-sequenced swings.",
+        "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters whose mechanical foundation and power potential suggest strong long-term growth.",
+        "PowerIndex+": "A normalized measure of raw swing-driven power potential, built from metrics like bat speed, swing length, and attack angle. It represents how much force and lift a hitter’s swing can naturally generate, independent of game results.",
+        "xwOBA (Expected Weighted On-Base Average)": "An advanced Statcast metric estimating a hitter’s overall offensive quality based on exit velocity and launch angle. It reflects what a player’s on-base performance should be, given contact quality, rather than what actually happened.",
+        "Predicted xwOBA": "A model-generated estimate of expected offensive production using a player’s swing or biomechanical data (rather than batted-ball outcomes). It predicts what a player’s xwOBA would be based on their swing traits alone.",
+        "Avg Bat Speed": "The average velocity of the bat head at the point of contact, measured in miles per hour. Higher bat speed typically translates to higher exit velocity and more power potential.",
+        "Avg Swing Length": "The average distance the bat travels from launch to contact. Longer swings can generate more leverage and power but may reduce contact consistency.",
+        "Avg Attack Angle": "The vertical angle of the bat’s path at contact, measured relative to the ground. Positive values indicate an upward swing plane; moderate positive angles (around 10–20°) are generally optimal for line drives and power.",
+        "Avg Swing Tilt": "The overall body tilt or lateral bend during the swing. It reflects how the hitter’s upper body moves through the swing plane, often influencing contact quality and pitch coverage.",
+        "Avg Attack Direction": "The horizontal direction of the bat’s movement at contact — whether the swing path moves toward right field (positive) or left field (negative). It captures how the hitter matches their bat path to pitch location.",
+        "Avg Intercept Y vs. Plate": "The vertical position (height) at which the bat’s swing plane crosses the plate area. It helps identify how “flat” or “steep” a hitter’s swing path is through the hitting zone.",
+        "Avg Intercept Y vs. Batter": "The same intercept concept, but relative to the hitter’s body position instead of the plate. It contextualizes swing height based on a hitter’s individual setup and stance.",
+        "Avg Batter Y Pos": "The average vertical position of the hitter’s body (typically the torso or bat knob) at the moment of contact. It helps quantify a hitter’s posture and body control through the swing.",
+        "Avg X Pos": "The average horizontal position of the bat or hands at contact, relative to the center of the plate. This reflects how far out in front or deep in the zone the hitter tends to make contact."
+    }
+
+    # Render a polished searchable glossary using HTML/CSS/JS
+    glossary_items = [{"term": k, "def": v} for k, v in glossary.items()]
+
+    glossary_html = """
+    <style>
+    .glossary-wrap { max-width:1100px; margin: 18px auto; font-family: Inter, Roboto, Arial, sans-serif; }
+    .glossary-header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px;}
+    .glossary-title { font-size:1.3rem; color:#183153; font-weight:800; }
+    .glossary-search { flex:1; margin-left:12px; }
+    .glossary-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap:14px; }
+    .glossary-card { background: #fff; border-radius:12px; padding:14px 16px; box-shadow: 0 6px 18px rgba(15,23,42,0.04); border:1px solid #eef4f8; }
+    .term { font-weight:700; color:#0b1320; margin-bottom:8px; font-size:1.02rem; }
+    .definition { color:#475569; font-size:0.95rem; line-height:1.4; }
+    .highlight { background: linear-gradient(90deg, #FFF3CD 0%, #FFFDE7 100%); padding:6px; border-radius:8px; }
+    .no-results { text-align:center; color:#6b7280; margin-top:18px; }
+    </style>
+    <div class="glossary-wrap">
+      <div class="glossary-header">
+        <div class="glossary-title">Glossary of Key Terms</div>
+        <input id="gloss-search" class="glossary-search" type="search" placeholder="Search terms..." style="padding:8px 12px;border-radius:10px;border:1px solid #e6eef6; max-width:360px;">
+      </div>
+      <div id="glossary-grid" class="glossary-grid">
+    """
+
+    for item in glossary_items:
+        term_html = item["term"].replace('"', "&quot;")
+        def_html = item["def"].replace('"', "&quot;")
+        glossary_html += f'''
+        <div class="glossary-card" data-term="{term_html.lower()}" data-def="{def_html.lower()}">
+          <div class="term">{term_html}</div>
+          <div class="definition">{def_html}</div>
+        </div>
+        '''
+
+    glossary_html += """
+      </div>
+      <div id="no-results" class="no-results" style="display:none;">No matching terms found.</div>
+    </div>
+
+    <script>
+    (function(){
+      const input = document.getElementById('gloss-search');
+      const cards = Array.from(document.querySelectorAll('.glossary-card'));
+      const noResults = document.getElementById('no-results');
+
+      function normalize(s){ return (s||'').toString().trim().toLowerCase(); }
+
+      input.addEventListener('input', function(e){
+        const q = normalize(e.target.value);
+        let visible = 0;
+        cards.forEach(c=>{
+          const term = c.getAttribute('data-term') || '';
+          const def = c.getAttribute('data-def') || '';
+          if(!q || term.includes(q) || def.includes(q)){
+            c.style.display = 'block';
+            visible += 1;
+          } else {
+            c.style.display = 'none';
+          }
+        });
+        noResults.style.display = visible === 0 ? 'block' : 'none';
+      });
+
+      // small keyboard shortcut to focus search: press "/" to focus
+      document.addEventListener('keydown', function(e){
+        if(e.key === '/' && document.activeElement !== input){
+          e.preventDefault();
+          input.focus();
+        }
+      });
+    })();
+    </script>
+    """
+
+    components.html(glossary_html, height=520, scrolling=True)
