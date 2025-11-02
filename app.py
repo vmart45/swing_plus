@@ -42,7 +42,7 @@ if not os.path.exists(DATA_PATH):
 
 st.sidebar.header("Resources", divider="gray")
 st.sidebar.markdown(
-    f'<a href="{DOC_RAW_URL}" target="_blank" rel="noopener noreferrer">Download SwingPlus Documentation ⤴</a>',
+    f'<a href="{DOC_RAW_URL}" target="_blank" rel="noopener noreferrer">Download SwingPlus Documentation</a>',
     unsafe_allow_html=True
 )
 
