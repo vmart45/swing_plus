@@ -598,7 +598,7 @@ with tab_player:
             shap_df["abs_shap"] = np.abs(shap_df["shap_value"])
             total_abs = shap_df["abs_shap"].sum() if shap_df["abs_shap"].sum() != 0 else 1.0
             shap_df["pct_of_abs"] = shap_df["abs_shap"] / total_abs
-            shap_df = shap_df.sort_values("shap_value", ascending=False).reset_index(drop=True)
+            shap_df = shap_df.sort_values("abs_shap", ascending=False).reset_index(drop=True)
 
         except Exception as e:
             shap_df = None
@@ -626,13 +626,17 @@ with tab_player:
 
     with col1:
         st.markdown(f"<div style='text-align:center;font-weight:700;color:#183153;'>Model prediction: {shap_pred_label} &nbsp; | &nbsp; Actual Swing+: {swing_actual_label}</div>", unsafe_allow_html=True)
-        if not model_loaded or explainer is None or shap_df is None:
+        if not model_loaded or explainer is None or shap_df is None or len(shap_df) == 0:
             st.info("Swing+ model or SHAP explainer not available. Ensure swingplus_model.pkl is a supported model/pipeline.")
             if model_error:
                 st.caption(f"Model load error: {model_error}")
         else:
             TOP_SHOW = min(8, len(shap_df))
-            df_plot_top = shap_df.reindex(shap_df["abs_shap"].sort_values(ascending=False).index).head(TOP_SHOW)
+            # shap_df already sorted by abs_shap descending above
+            df_plot_top = shap_df.head(TOP_SHOW).copy()
+
+            # Order bars so largest abs_shap is at the top visually (plotly uses y with autorange reversed)
+            df_plot_top = df_plot_top.sort_values("abs_shap", ascending=True)  # ascending so top (last) is largest when autorange reversed
 
             # Prepare data for horizontal bar chart (plotly)
             y = df_plot_top["feature"].map(lambda x: FEATURE_LABELS.get(x, x)).tolist()
@@ -640,28 +644,21 @@ with tab_player:
             pct_vals = df_plot_top["pct_of_abs"].astype(float).tolist()
             colors = ["#D8573C" if float(v) > 0 else "#3B82C4" for v in x_vals]
 
-            # Plotly horizontal bar (reverse order so largest appears on top visually)
-            y_rev = y[::-1]
-            x_rev = x_vals[::-1]
-            pct_rev = pct_vals[::-1]
-            colors_rev = colors[::-1]
-
-            hover_texts = []
-            for raw_val, pct in zip(x_rev, pct_rev):
-                hover_texts.append(f"Contribution: {raw_val:.3f}<br>Importance: {pct:.0%}")
+            # Build text labels that include contribution and percentage
+            text_labels = [f"{val:.3f} ({pct:.0%})" for val, pct in zip(x_vals, pct_vals)]
 
             fig = go.Figure()
             fig.add_trace(go.Bar(
-                x=x_rev,
-                y=y_rev,
+                x=x_vals,
+                y=y,
                 orientation='h',
-                marker_color=colors_rev,
+                marker_color=colors,
                 hoverinfo='text',
-                hovertext=hover_texts,
-                text=[f"{v:.3f}" for v in x_rev],
-                textposition='auto'
+                hovertext=[f"Contribution: {v:.3f}<br>Importance: {p:.0%}" for v, p in zip(x_vals, pct_vals)],
+                text=text_labels,
+                textposition='outside'
             ))
-            # increase bottom margin to avoid text cutoff
+            # increase bottom margin to avoid text cutoff and ensure labels visible
             fig.update_layout(
                 margin=dict(l=140, r=24, t=12, b=80),
                 xaxis_title="SHAP contribution to Swing+ (signed)",
@@ -675,7 +672,7 @@ with tab_player:
 
     with col2:
         st.markdown(f"<div style='text-align:center;font-weight:700;color:#183153;'>Model baseline: {base_label}</div>", unsafe_allow_html=True)
-        if shap_df is None:
+        if shap_df is None or len(shap_df) == 0:
             st.write("No SHAP data to show.")
         else:
             display_df = shap_df.copy()
