@@ -930,4 +930,5 @@ with tab_glossary:
     </script>
     """
 
-    components.html(glossary_html, height=520, scrolling=True)
+    # render via st.markdown so the glossary is part of the page flow (no inner scrolling container)
+    st.markdown(glossary_html, unsafe_allow_html=True)
