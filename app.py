@@ -263,7 +263,7 @@ with tab_main:
             hide_index=True
         )
 
-# ---------------- Player tab: Player Detail view (unchanged) ----------------
+# ---------------- Player tab: Player Detail view ----------------
 with tab_player:
     st.markdown(
         """
@@ -547,6 +547,7 @@ with tab_player:
                     X_raw[c] = X_raw[c].fillna(0.0)
         return X_raw
 
+    # Compute SHAP values for the selected player (Swing+ only)
     shap_df = None
     shap_base = None
     shap_pred = None
@@ -686,170 +687,173 @@ with tab_player:
             display_df = display_df.reset_index(drop=True)
             st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-# ------------------ Mechanical similarity cluster (unchanged) ------------------
-name_col = "Name"
-TOP_N = 10
+    # ------------------ Mechanical similarity cluster (PLAYER-SPECIFIC) ------------------
+    # This block MUST be inside the player tab. It was previously leaking into the Glossary tab.
+    name_col = "Name"
+    TOP_N = 10
 
-mech_features_available = [f for f in mechanical_features if f in df.columns]
-if len(mech_features_available) >= 2 and name_col in df.columns:
-    df_mech = df.dropna(subset=mech_features_available + [name_col]).reset_index(drop=True)
-    if player_select in df_mech[name_col].values and len(df_mech) > TOP_N:
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(df_mech[mech_features_available])
-        similarity_matrix = cosine_similarity(X_scaled)
-        similarity_df = pd.DataFrame(similarity_matrix, index=df_mech[name_col], columns=df_mech[name_col])
+    mech_features_available = [f for f in mechanical_features if f in df.columns]
+    if len(mech_features_available) >= 2 and name_col in df.columns:
+        df_mech = df.dropna(subset=mech_features_available + [name_col]).reset_index(drop=True)
+        if player_select in df_mech[name_col].values and len(df_mech) > TOP_N:
+            scaler = StandardScaler()
+            X_scaled = scaler.fit_transform(df_mech[mech_features_available])
+            similarity_matrix = cosine_similarity(X_scaled)
+            similarity_df = pd.DataFrame(similarity_matrix, index=df_mech[name_col], columns=df_mech[name_col])
 
-        similar_players = (
-            similarity_df.loc[player_select]
-            .sort_values(ascending=False)
-            .iloc[1:TOP_N+1]
-        )
+            similar_players = (
+                similarity_df.loc[player_select]
+                .sort_values(ascending=False)
+                .iloc[1:TOP_N+1]
+            )
 
-        top_names = [player_select] + list(similar_players.index)
-        sim_rows = []
-        for sim_name in similar_players.index:
-            sim_row = df_mech[df_mech[name_col] == sim_name]
-            if "id" in sim_row.columns and pd.notnull(sim_row.iloc[0]["id"]):
-                sim_id = str(int(sim_row.iloc[0]["id"]))
-                sim_headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{sim_id}/headshot/silo/current.png"
-            else:
-                sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-            sim_score = similar_players[sim_name]
-            sim_rows.append({
-                "name": sim_name,
-                "headshot_url": sim_headshot_url,
-                "score": sim_score
-            })
-
-        st.markdown(
-            """
-            <style>
-            .sim-container {
-                width: 100%;
-                max-width: 1160px;
-                margin: 12px auto 10px auto;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-            }
-            .sim-list {
-                width: 100%;
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-                align-items: center;
-            }
-            .sim-item {
-                display: flex;
-                align-items: center;
-                background: #ffffff;
-                border-radius: 12px;
-                padding: 10px 14px;
-                gap: 12px;
-                width: 100%;
-                border: 1px solid #eef4f8;
-                box-shadow: 0 6px 18px rgba(15,23,42,0.04);
-            }
-            .sim-rank {
-                font-size: 1em;
-                font-weight: 700;
-                color: #183153;
-                min-width: 36px;
-                text-align: center;
-            }
-            .sim-headshot-compact {
-                height: 48px;
-                width: 48px;
-                border-radius: 8px;
-                object-fit: cover;
-                box-shadow: 0 1px 6px rgba(0,0,0,0.06);
-            }
-            .sim-name-compact {
-                flex: 1;
-                font-size: 1em;
-                color: #183153;
-            }
-            .sim-score-compact {
-                font-size: 0.98em;
-                font-weight: 700;
-                color: #333;
-                margin-right: 12px;
-                min-width: 72px;
-                text-align: right;
-            }
-            .sim-bar-mini {
-                width: 220px;
-                height: 10px;
-                background: #f4f7fa;
-                border-radius: 999px;
-                overflow: hidden;
-                margin-left: 8px;
-            }
-            .sim-bar-fill {
-                height: 100%;
-                border-radius: 999px;
-                transition: width 0.5s ease;
-            }
-            @media (max-width: 1100px) {
-                .sim-container { max-width: 92%; }
-                .sim-bar-mini { width: 160px; height: 8px; }
-                .sim-headshot-compact { height: 40px; width: 40px; }
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
-
-        st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to <span style="font-weight:800;">{player_select}</span></div>', unsafe_allow_html=True)
-        st.markdown('<div class="sim-list">', unsafe_allow_html=True)
-
-        for idx, sim in enumerate(sim_rows, 1):
-            pct = max(0.0, min(1.0, float(sim['score'])))
-            width_pct = int(round(pct * 100))
-
-            start_color = "#D32F2F"
-            end_color = "#FFB648"
-
-            sim_pct_text = f"{pct:.1%}"
+            top_names = [player_select] + list(similar_players.index)
+            sim_rows = []
+            for sim_name in similar_players.index:
+                sim_row = df_mech[df_mech[name_col] == sim_name]
+                if "id" in sim_row.columns and pd.notnull(sim_row.iloc[0]["id"]):
+                    sim_id = str(int(sim_row.iloc[0]["id"]))
+                    sim_headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{sim_id}/headshot/silo/current.png"
+                else:
+                    sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
+                sim_score = similar_players[sim_name]
+                sim_rows.append({
+                    "name": sim_name,
+                    "headshot_url": sim_headshot_url,
+                    "score": sim_score
+                })
 
             st.markdown(
-                f"""
-                <div class="sim-item">
-                    <div class="sim-rank">{idx}</div>
-                    <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                    <div class="sim-name-compact">{sim['name']}</div>
-                    <div class="sim-score-compact">{sim_pct_text}</div>
-                    <div class="sim-bar-mini" aria-hidden="true">
-                        <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
-                    </div>
-                </div>
+                """
+                <style>
+                .sim-container {
+                    width: 100%;
+                    max-width: 1160px;
+                    margin: 12px auto 10px auto;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                }
+                .sim-list {
+                    width: 100%;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                    align-items: center;
+                }
+                .sim-item {
+                    display: flex;
+                    align-items: center;
+                    background: #ffffff;
+                    border-radius: 12px;
+                    padding: 10px 14px;
+                    gap: 12px;
+                    width: 100%;
+                    border: 1px solid #eef4f8;
+                    box-shadow: 0 6px 18px rgba(15,23,42,0.04);
+                }
+                .sim-rank {
+                    font-size: 1em;
+                    font-weight: 700;
+                    color: #183153;
+                    min-width: 36px;
+                    text-align: center;
+                }
+                .sim-headshot-compact {
+                    height: 48px;
+                    width: 48px;
+                    border-radius: 8px;
+                    object-fit: cover;
+                    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+                }
+                .sim-name-compact {
+                    flex: 1;
+                    font-size: 1em;
+                    color: #183153;
+                }
+                .sim-score-compact {
+                    font-size: 0.98em;
+                    font-weight: 700;
+                    color: #333;
+                    margin-right: 12px;
+                    min-width: 72px;
+                    text-align: right;
+                }
+                .sim-bar-mini {
+                    width: 220px;
+                    height: 10px;
+                    background: #f4f7fa;
+                    border-radius: 999px;
+                    overflow: hidden;
+                    margin-left: 8px;
+                }
+                .sim-bar-fill {
+                    height: 100%;
+                    border-radius: 999px;
+                    transition: width 0.5s ease;
+                }
+                @media (max-width: 1100px) {
+                    .sim-container { max-width: 92%; }
+                    .sim-bar-mini { width: 160px; height: 8px; }
+                    .sim-headshot-compact { height: 40px; width: 40px; }
+                }
+                </style>
                 """,
                 unsafe_allow_html=True
             )
 
-        st.markdown('</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to <span style="font-weight:800;">{player_select}</span></div>', unsafe_allow_html=True)
+            st.markdown('<div class="sim-list">', unsafe_allow_html=True)
 
-        with st.expander("Show Detailed Heatmap"):
-            fig, ax = plt.subplots(figsize=(6, 4.2))
-            heatmap_data = similarity_df.loc[top_names, top_names]
-            sns.heatmap(
-                heatmap_data,
-                annot=True,
-                fmt=".2f",
-                cmap="coolwarm",
-                linewidths=0.5,
-                cbar_kws={"label": "Cosine Similarity"},
-                ax=ax,
-                annot_kws={"fontsize":8}
-            )
-            ax.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=12, weight="bold")
-            plt.xticks(rotation=45, ha='right', fontsize=8)
-            plt.yticks(fontsize=9)
-            plt.tight_layout()
-            st.pyplot(fig)
+            for idx, sim in enumerate(sim_rows, 1):
+                pct = max(0.0, min(1.0, float(sim['score'])))
+                width_pct = int(round(pct * 100))
+
+                start_color = "#D32F2F"
+                end_color = "#FFB648"
+
+                sim_pct_text = f"{pct:.1%}"
+
+                st.markdown(
+                    f"""
+                    <div class="sim-item">
+                        <div class="sim-rank">{idx}</div>
+                        <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
+                        <div class="sim-name-compact">{sim['name']}</div>
+                        <div class="sim-score-compact">{sim_pct_text}</div>
+                        <div class="sim-bar-mini" aria-hidden="true">
+                            <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+            st.markdown('</div></div>', unsafe_allow_html=True)
+
+            with st.expander("Show Detailed Heatmap"):
+                fig, ax = plt.subplots(figsize=(6, 4.2))
+                heatmap_data = similarity_df.loc[top_names, top_names]
+                sns.heatmap(
+                    heatmap_data,
+                    annot=True,
+                    fmt=".2f",
+                    cmap="coolwarm",
+                    linewidths=0.5,
+                    cbar_kws={"label": "Cosine Similarity"},
+                    ax=ax,
+                    annot_kws={"fontsize":8}
+                )
+                ax.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=12, weight="bold")
+                plt.xticks(rotation=45, ha='right', fontsize=8)
+                plt.yticks(fontsize=9)
+                plt.tight_layout()
+                st.pyplot(fig)
 
 # ---------------- Glossary tab ----------------
 with tab_glossary:
+    # Use a native Streamlit implementation (no iframe) so the glossary becomes part of the page flow
+    # and there is no scrolling-within-an-iframe. Also search/filter is implemented in Python so no JS needed.
     glossary = {
         "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter’s swing is compared to the league average. A score of 100 is average, while every 10 points above or below represents roughly one standard deviation. Higher values indicate more efficient, well-sequenced swings.",
         "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters whose mechanical foundation and power potential suggest strong long-term growth.",
@@ -867,83 +871,41 @@ with tab_glossary:
         "Avg X Pos": "The average horizontal position of the bat or hands at contact, relative to the center of the plate. This reflects how far out in front or deep in the zone the hitter tends to make contact."
     }
 
-    # Render a polished searchable glossary using HTML/CSS/JS
-    glossary_items = [{"term": k, "def": v} for k, v in glossary.items()]
+    st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+    st.markdown('<div style="max-width:1100px;margin:0 auto;">', unsafe_allow_html=True)
+    col_search, _ = st.columns([2, 1])
+    with col_search:
+        q = st.text_input("Search terms...", value="", placeholder="Type to filter glossary (term or text)...")
+    st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
 
-    glossary_html = """
-    <style>
-    .glossary-wrap { max-width:1100px; margin: 18px auto; font-family: Inter, Roboto, Arial, sans-serif; }
-    .glossary-header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px;}
-    .glossary-title { font-size:1.3rem; color:#183153; font-weight:800; }
-    .glossary-search { flex:1; margin-left:12px; }
-    /* Use a responsive grid but allow the page to scroll naturally (no inner scroll container) */
-    .glossary-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:16px; }
-    .glossary-card { background: #fff; border-radius:12px; padding:16px; box-shadow: 0 6px 18px rgba(15,23,42,0.04); border:1px solid #eef4f8; }
-    .term { font-weight:700; color:#0b1320; margin-bottom:8px; font-size:1.03rem; }
-    .definition { color:#475569; font-size:0.96rem; line-height:1.5; }
-    .no-results { text-align:center; color:#6b7280; margin-top:18px; }
-    @media (max-width: 700px) {
-      .glossary-grid { grid-template-columns: 1fr; gap:12px; }
-      .glossary-wrap { padding: 0 12px; }
-    }
-    </style>
-    <div class="glossary-wrap">
-      <div class="glossary-header">
-        <div class="glossary-title">Glossary of Key Terms</div>
-        <input id="gloss-search" class="glossary-search" type="search" placeholder="Search terms..." style="padding:8px 12px;border-radius:10px;border:1px solid #e6eef6; max-width:420px;">
-      </div>
-      <div id="glossary-grid" class="glossary-grid">
-    """
+    # Prepare dataframe for filtering
+    gloss_df = pd.DataFrame([{"term": k, "definition": v} for k, v in glossary.items()])
+    if q and q.strip():
+        qn = q.strip().lower()
+        mask = gloss_df["term"].str.lower().str.contains(qn) | gloss_df["definition"].str.lower().str.contains(qn)
+        filtered = gloss_df[mask].reset_index(drop=True)
+    else:
+        filtered = gloss_df.copy().reset_index(drop=True)
 
-    for item in glossary_items:
-        term_html = item["term"].replace('"', "&quot;")
-        def_html = item["def"].replace('"', "&quot;")
-        glossary_html += f'''
-        <div class="glossary-card" data-term="{term_html.lower()}" data-def="{def_html.lower()}">
-          <div class="term">{term_html}</div>
-          <div class="definition">{def_html}</div>
-        </div>
-        '''
-
-    glossary_html += """
-      </div>
-      <div id="no-results" class="no-results" style="display:none;">No matching terms found.</div>
-    </div>
-
-    <script>
-    (function(){
-      const input = document.getElementById('gloss-search');
-      const cards = Array.from(document.querySelectorAll('.glossary-card'));
-      const noResults = document.getElementById('no-results');
-
-      function normalize(s){ return (s||'').toString().trim().toLowerCase(); }
-
-      input.addEventListener('input', function(e){
-        const q = normalize(e.target.value);
-        let visible = 0;
-        cards.forEach(c=>{
-          const term = c.getAttribute('data-term') || '';
-          const def = c.getAttribute('data-def') || '';
-          if(!q || term.includes(q) || def.includes(q)){
-            c.style.display = 'block';
-            visible += 1;
-          } else {
-            c.style.display = 'none';
-          }
-        });
-        noResults.style.display = visible === 0 ? 'block' : 'none';
-      });
-
-      document.addEventListener('keydown', function(e){
-        if(e.key === '/' && document.activeElement !== input){
-          e.preventDefault();
-          input.focus();
-        }
-      });
-    })();
-    </script>
-    """
-
-    # Use components.html to render the glossary (iframe) so the embedded JS/CSS runs correctly.
-    # st.markdown with scripts can render as raw text / be blocked; components.html embeds an iframe.
-    components.html(glossary_html, height=900, scrolling=True)
+    # Render responsive grid using Streamlit columns: 2 cards per row on narrow, 3 on wide depending on width
+    # We'll render in rows of up to 3 cards to keep layout tidy, but it's native page flow (no iframe).
+    cards_per_row = 3
+    # On small screens, prefer 1 column
+    # Streamlit doesn't provide easy viewport detection; choose 3 as default and let CSS handle wrapping
+    for i in range(0, len(filtered), cards_per_row):
+        row_items = filtered.iloc[i:i+cards_per_row]
+        cols = st.columns(len(row_items))
+        for c, (_, r) in zip(cols, row_items.iterrows()):
+            with c:
+                st.markdown(
+                    f"""
+                    <div style="background:#fff;border-radius:12px;padding:14px 16px;border:1px solid #eef4f8;box-shadow:0 6px 18px rgba(15,23,42,0.04);">
+                      <div style="font-weight:700;color:#0b1320;margin-bottom:8px;font-size:1.02rem;">{r['term']}</div>
+                      <div style="color:#475569;font-size:0.95rem;line-height:1.4;">{r['definition']}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+    if filtered.shape[0] == 0:
+        st.info("No matching terms found.")
+    st.markdown("</div>", unsafe_allow_html=True)
