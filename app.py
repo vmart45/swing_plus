@@ -932,19 +932,26 @@ with tab_glossary:
     """
     st.markdown(css, unsafe_allow_html=True)
 
-    # Render grid container
-    grid_html_parts = ['<div class="glossary-grid">']
-    for _, row in filtered.iterrows():
-        term_html = str(row["term"])
-        def_html = str(row["definition"]).replace('"', '&quot;')
-        grid_html_parts.append(f'''
-          <div class="glossary-card" title="{def_html}">
-            <div class="glossary-term">{term_html}</div>
-            <div class="glossary-def">{def_html}</div>
-          </div>
-        ''')
-    grid_html_parts.append("</div>")
-    st.markdown(''.join(grid_html_parts), unsafe_allow_html=True)
+    # Use columns instead of custom HTML grid
+    cols_per_row = 3
+    rows = [filtered.iloc[i:i+cols_per_row] for i in range(0, len(filtered), cols_per_row)]
+    
+    for row_data in rows:
+        cols = st.columns(cols_per_row)
+        for idx, (_, item) in enumerate(row_data.iterrows()):
+            if idx < len(cols):
+                with cols[idx]:
+                    st.markdown(f"""
+                    <div style="background: #fff; border-radius: 12px; padding: 18px; border: 1px solid #eef4f8; 
+                                box-shadow: 0 6px 18px rgba(15,23,42,0.04); min-height: 140px;">
+                        <div style="font-weight: 700; color: #0b1320; font-size: 1.03rem; margin-bottom: 8px;">
+                            {item['term']}
+                        </div>
+                        <div style="color: #475569; font-size: 0.95rem; line-height: 1.45;">
+                            {item['definition']}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
     if filtered.shape[0] == 0:
         st.info("No matching terms found.")
