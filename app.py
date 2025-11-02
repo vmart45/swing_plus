@@ -851,9 +851,9 @@ with tab_player:
                 st.pyplot(fig)
 
 # ---------------- Glossary tab ----------------
+# ---------------- Glossary tab ----------------
 with tab_glossary:
-    # Use a native Streamlit implementation (no iframe) so the glossary becomes part of the page flow
-    # and there is no scrolling-within-an-iframe. Also search/filter is implemented in Python so no JS needed.
+    # Glossary content (native Streamlit, responsive CSS grid with consistent card sizing)
     glossary = {
         "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter’s swing is compared to the league average. A score of 100 is average, while every 10 points above or below represents roughly one standard deviation. Higher values indicate more efficient, well-sequenced swings.",
         "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters whose mechanical foundation and power potential suggest strong long-term growth.",
@@ -872,14 +872,15 @@ with tab_glossary:
     }
 
     st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-    st.markdown('<div style="max-width:1100px;margin:0 auto;">', unsafe_allow_html=True)
-    col_search, _ = st.columns([2, 1])
-    with col_search:
-        q = st.text_input("Search terms...", value="", placeholder="Type to filter glossary (term or text)...")
-    st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+    st.markdown('<div style="max-width:1200px;margin:0 auto;padding:0 12px;">', unsafe_allow_html=True)
 
-    # Prepare dataframe for filtering
+    # Search box
+    q = st.text_input("Search terms...", value="", placeholder="Type to filter glossary (term or text)...")
+    st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+
+    # Build DataFrame for filtering
     gloss_df = pd.DataFrame([{"term": k, "definition": v} for k, v in glossary.items()])
+
     if q and q.strip():
         qn = q.strip().lower()
         mask = gloss_df["term"].str.lower().str.contains(qn) | gloss_df["definition"].str.lower().str.contains(qn)
@@ -887,25 +888,70 @@ with tab_glossary:
     else:
         filtered = gloss_df.copy().reset_index(drop=True)
 
-    # Render responsive grid using Streamlit columns: 2 cards per row on narrow, 3 on wide depending on width
-    # We'll render in rows of up to 3 cards to keep layout tidy, but it's native page flow (no iframe).
-    cards_per_row = 3
-    # On small screens, prefer 1 column
-    # Streamlit doesn't provide easy viewport detection; choose 3 as default and let CSS handle wrapping
-    for i in range(0, len(filtered), cards_per_row):
-        row_items = filtered.iloc[i:i+cards_per_row]
-        cols = st.columns(len(row_items))
-        for c, (_, r) in zip(cols, row_items.iterrows()):
-            with c:
-                st.markdown(
-                    f"""
-                    <div style="background:#fff;border-radius:12px;padding:14px 16px;border:1px solid #eef4f8;box-shadow:0 6px 18px rgba(15,23,42,0.04);">
-                      <div style="font-weight:700;color:#0b1320;margin-bottom:8px;font-size:1.02rem;">{r['term']}</div>
-                      <div style="color:#475569;font-size:0.95rem;line-height:1.4;">{r['definition']}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+    # Robust CSS grid: equal card heights, consistent spacing
+    grid_css = """
+    <style>
+    .glossary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 18px;
+      align-items: start;
+      margin-bottom: 18px;
+    }
+    .glossary-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 18px;
+      border: 1px solid #eef4f8;
+      box-shadow: 0 6px 18px rgba(15,23,42,0.04);
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      gap: 8px;
+      min-height: 140px;      /* consistent minimum */
+      max-height: 220px;      /* consistent maximum to keep rows aligned */
+      overflow: hidden;
+    }
+    .glossary-term {
+      font-weight: 700;
+      color: #0b1320;
+      font-size: 1.03rem;
+      margin-bottom: 0;
+    }
+    .glossary-def {
+      color: #475569;
+      font-size: 0.95rem;
+      line-height: 1.45;
+      /* multiline ellipsis if overflow */
+      display: -webkit-box;
+      -webkit-line-clamp: 6;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    @media (max-width: 640px) {
+      .glossary-card { min-height: 120px; max-height: none; }
+    }
+    </style>
+    """
+    st.markdown(grid_css, unsafe_allow_html=True)
+
+    # Render the cards as a single grid container (native page flow)
+    cards_html = ['<div class="glossary-grid">']
+    for _, row in filtered.iterrows():
+        term_html = row['term']
+        def_html = row['definition'].replace('"', '&quot;')
+        cards_html.append(f'''
+          <div class="glossary-card" title="{def_html}">
+            <div class="glossary-term">{term_html}</div>
+            <div class="glossary-def">{def_html}</div>
+          </div>
+        ''')
+    cards_html.append('</div>')
+    st.markdown(''.join(cards_html), unsafe_allow_html=True)
+
     if filtered.shape[0] == 0:
         st.info("No matching terms found.")
-    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
