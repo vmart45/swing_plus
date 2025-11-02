@@ -866,7 +866,7 @@ with tab_glossary:
         "Avg Intercept Y vs. Plate": "The vertical position (height) at which the bat's swing plane crosses the plate area. It helps identify how 'flat' or 'steep' a hitter's swing path is through the hitting zone.",
         "Avg Intercept Y vs. Batter": "The same intercept concept, but relative to the hitter's body position instead of the plate. It contextualizes swing height based on a hitter's individual setup and stance.",
         "Avg Batter Y Pos": "The average vertical position of the hitter's body (typically the torso or bat knob) at the moment of contact. It helps quantify a hitter's posture and body control through the swing.",
-        "Avg X Pos": "The average horizontal position of the bat or hands at contact, relative to the center of the plate. This reflects how far out in front or deep in the zone the hitter tends to make contact."
+        "Avg Batter X Pos": "The average horizontal position of the bat or hands at contact, relative to the center of the plate. This reflects how far out in front or deep in the zone the hitter tends to make contact."
     }
 
     st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
@@ -897,7 +897,7 @@ with tab_glossary:
                     st.markdown(f"""
                     <div style="background: #fff; border-radius: 12px; padding: 18px; border: 1px solid #eef4f8; 
                                 box-shadow: 0 6px 18px rgba(15,23,42,0.04); height: 220px; 
-                                display: flex; flex-direction: column; justify-content: center; text-align: center;">
+                                display: flex; flex-direction: column; justify-content: center;">
                         <div style="font-weight: 700; color: #0b1320; font-size: 1.03rem; margin-bottom: 12px;">
                             {item['term']}
                         </div>
