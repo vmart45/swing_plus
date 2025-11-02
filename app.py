@@ -15,6 +15,8 @@ import numpy as np
 import pickle
 import joblib
 import shap
+import plotly.graph_objects as go
+import streamlit.components.v1 as components
 
 st.set_page_config(
     page_title="Swing+ & ProjSwing+ Dashboard",
@@ -603,7 +605,7 @@ with tab_player:
             shap_df = None
             model_error = str(e)
 
-    # ------------------ Display Swing+ SHAP panel (clean visual and table) ------------------
+    # ------------------ Display Swing+ SHAP panel (interactive HTML chart + table) ------------------
     st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
     st.markdown(
         """
@@ -633,25 +635,44 @@ with tab_player:
             TOP_SHOW = min(8, len(shap_df))
             df_plot_top = shap_df.reindex(shap_df["abs_shap"].sort_values(ascending=False).index).head(TOP_SHOW)
 
-            fig, ax = plt.subplots(figsize=(7, 3.4))
-            y = df_plot_top["feature"].map(lambda x: FEATURE_LABELS.get(x, x))
-            x = df_plot_top["shap_value"].astype(float)
-            colors = ["#D8573C" if float(v) > 0 else "#3B82C4" for v in x]
-            ax.barh(y, x, color=colors, edgecolor="none", height=0.6)
-            ax.axvline(0, color="#444444", linewidth=0.8)
-            ax.set_xlabel("SHAP contribution to Swing+ (signed)", fontsize=10)
-            ax.set_ylabel("")
-            ax.invert_yaxis()
-            ax.tick_params(axis='x', labelsize=9)
-            ax.tick_params(axis='y', labelsize=10)
-            for i, row in df_plot_top.reset_index(drop=True).iterrows():
-                val_f = 0.0 if pd.isna(row["shap_value"]) else float(row["shap_value"])
-                pct_f = 0.0 if pd.isna(row["pct_of_abs"]) else float(row["pct_of_abs"])
-                offset = (np.sign(val_f) * 0.0025 * max(1, np.nanmax(np.abs(df_plot_top["shap_value"].astype(float).values))))
-                ax.text(val_f + offset, FEATURE_LABELS.get(row["feature"], row["feature"]), f"{val_f:.3f}  ({pct_f:.0%})", va="center", fontsize=8, color="#0b1320")
-            sns.despine(left=True, bottom=False)
-            plt.tight_layout()
-            st.pyplot(fig)
+            # Prepare data for horizontal bar chart (plotly)
+            y = df_plot_top["feature"].map(lambda x: FEATURE_LABELS.get(x, x)).tolist()
+            x_vals = df_plot_top["shap_value"].astype(float).tolist()
+            pct_vals = df_plot_top["pct_of_abs"].astype(float).tolist()
+            colors = ["#D8573C" if float(v) > 0 else "#3B82C4" for v in x_vals]
+
+            # Plotly horizontal bar (reverse order so largest appears on top visually)
+            y_rev = y[::-1]
+            x_rev = x_vals[::-1]
+            pct_rev = pct_vals[::-1]
+            colors_rev = colors[::-1]
+
+            hover_texts = []
+            for raw_val, pct in zip(x_rev, pct_rev):
+                hover_texts.append(f"Contribution: {raw_val:.3f}<br>Importance: {pct:.0%}")
+
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                x=x_rev,
+                y=y_rev,
+                orientation='h',
+                marker_color=colors_rev,
+                hoverinfo='text',
+                hovertext=hover_texts,
+                text=[f"{v:.3f}" for v in x_rev],
+                textposition='outside'
+            ))
+            fig.update_layout(
+                margin=dict(l=120, r=24, t=12, b=24),
+                xaxis_title="SHAP contribution to Swing+ (signed)",
+                yaxis=dict(autorange="reversed"),
+                height=360,
+                showlegend=False,
+                font=dict(size=11)
+            )
+            # Convert to HTML and render (interactive)
+            plot_html = fig.to_html(full_html=False, include_plotlyjs='cdn')
+            components.html(plot_html, height=400, scrolling=False)
 
     with col2:
         st.markdown(f"<div style='text-align:center;font-weight:700;color:#183153;'>Model baseline: {base_label}</div>", unsafe_allow_html=True)
@@ -667,6 +688,8 @@ with tab_player:
                 "shap_value": "Contribution",
                 "pct_of_abs": "PctImportance"
             })
+            # Round 'Value' to 2 decimal points as requested
+            display_df["Value"] = display_df["Value"].apply(lambda v: f"{v:.2f}" if pd.notna(v) else "NaN")
             display_df["Contribution"] = display_df["Contribution"].apply(lambda v: f"{v:.3f}")
             display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
             display_df = display_df.reset_index(drop=True)
