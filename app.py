@@ -598,6 +598,7 @@ with tab_player:
             shap_df["abs_shap"] = np.abs(shap_df["shap_value"])
             total_abs = shap_df["abs_shap"].sum() if shap_df["abs_shap"].sum() != 0 else 1.0
             shap_df["pct_of_abs"] = shap_df["abs_shap"] / total_abs
+            # sort by absolute importance for display and ensure chart orders by pct descending
             shap_df = shap_df.sort_values("abs_shap", ascending=False).reset_index(drop=True)
 
         except Exception as e:
@@ -632,20 +633,19 @@ with tab_player:
                 st.caption(f"Model load error: {model_error}")
         else:
             TOP_SHOW = min(8, len(shap_df))
-            # shap_df already sorted by abs_shap descending above
+            # select top by absolute contribution and then order for chart by pct_of_abs descending (largest at top)
             df_plot_top = shap_df.head(TOP_SHOW).copy()
-
-            # Order bars so largest abs_shap is at the top visually (plotly uses y with autorange reversed)
-            df_plot_top = df_plot_top.sort_values("abs_shap", ascending=True)  # ascending so top (last) is largest when autorange reversed
+            df_plot_top = df_plot_top.sort_values("pct_of_abs", ascending=False).reset_index(drop=True)
 
             # Prepare data for horizontal bar chart (plotly)
+            # we want largest percentage at top: set y in chart and use autorange reversed
             y = df_plot_top["feature"].map(lambda x: FEATURE_LABELS.get(x, x)).tolist()
             x_vals = df_plot_top["shap_value"].astype(float).tolist()
             pct_vals = df_plot_top["pct_of_abs"].astype(float).tolist()
             colors = ["#D8573C" if float(v) > 0 else "#3B82C4" for v in x_vals]
 
-            # Build text labels that include contribution and percentage
-            text_labels = [f"{val:.3f} ({pct:.0%})" for val, pct in zip(x_vals, pct_vals)]
+            # text inside bars: contribution and percentage (percentage emphasized)
+            text_labels = [f"{val:.3f}  ({pct:.0%})" for val, pct in zip(x_vals, pct_vals)]
 
             fig = go.Figure()
             fig.add_trace(go.Bar(
@@ -656,18 +656,19 @@ with tab_player:
                 hoverinfo='text',
                 hovertext=[f"Contribution: {v:.3f}<br>Importance: {p:.0%}" for v, p in zip(x_vals, pct_vals)],
                 text=text_labels,
-                textposition='outside'
+                textposition='inside',
+                insidetextanchor='middle'
             ))
-            # increase bottom margin to avoid text cutoff and ensure labels visible
+            # increase left and bottom margin to avoid text cutoff and ensure labels visible
             fig.update_layout(
-                margin=dict(l=140, r=24, t=12, b=80),
+                margin=dict(l=160, r=24, t=12, b=60),
                 xaxis_title="SHAP contribution to Swing+ (signed)",
                 yaxis=dict(autorange="reversed"),
                 height=420,
                 showlegend=False,
                 font=dict(size=11)
             )
-            # disable interactivity: use staticPlot True via st.plotly_chart config and hide modebar
+            # disable interactivity: static plot and hide modebar
             st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
     with col2:
