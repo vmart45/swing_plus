@@ -34,20 +34,17 @@ st.markdown(
 DATA_PATH = "ProjSwingPlus_Output_with_team.csv"
 MODEL_PATH = "swingplus_model.pkl"
 DOC_FILENAME = "SwingPlus_documentation.pdf"
-# Raw GitHub URL for viewing the PDF outside the app (pinned to the commit in question)
 DOC_RAW_URL = "https://raw.githubusercontent.com/vmart45/swing_plus/14381a10958c94c746c86b971b07136f4557f855/SwingPlus_documentation.pdf"
 
 if not os.path.exists(DATA_PATH):
     st.error(f"Could not find `{DATA_PATH}` in the app directory.")
     st.stop()
 
-# Sidebar: link to documentation (open in new tab) and local download (if available)
 st.sidebar.header("Resources", divider="gray")
 st.sidebar.markdown(
     f'[Open SwingPlus Documentation (external) ⤴]({DOC_RAW_URL})',
     unsafe_allow_html=True
 )
-# If the PDF exists locally, offer a download button
 if os.path.exists(DOC_FILENAME):
     with open(DOC_FILENAME, "rb") as f:
         pdf_bytes = f.read()
@@ -58,7 +55,6 @@ if os.path.exists(DOC_FILENAME):
         mime="application/pdf"
     )
 else:
-    # Provide the raw GH link as a download fallback
     st.sidebar.markdown(
         f'[Download SwingPlus Documentation (raw) ⤴]({DOC_RAW_URL})',
         unsafe_allow_html=True
@@ -300,16 +296,23 @@ headshot_html = ""
 if "id" in player_row and pd.notnull(player_row["id"]):
     player_id = str(int(player_row["id"]))
     headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
-    headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-righ[...]
+    headshot_html = (
+        f'<img src="{headshot_url}" '
+        f'style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;'
+        f'box-shadow:0 1px 6px rgba(0,0,0,0.06);margin-right:18px;" alt="headshot"/>'
+    )
 else:
     fallback_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-    headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;box-shadow:0 1px 6px #0001;margin-righ[...]
+    headshot_html = (
+        f'<img src="{fallback_url}" '
+        f'style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;'
+        f'box-shadow:0 1px 6px rgba(0,0,0,0.06);margin-right:18px;" alt="headshot"/>'
+    )
 
 logo_html = ""
 if logo_url:
     logo_html = f'<img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;margin-left:46px;background:transparent;border-radius:0;" alt="logo"/>'
 
-# Restore MLB bio lookup exactly as before
 player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
 
 player_bio = ""
@@ -776,7 +779,7 @@ if len(mech_features_available) >= 2 and name_col in df.columns:
             unsafe_allow_html=True
         )
 
-        st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to <span s[...]
+        st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to <span style="font-weight:900;">{player_select}</span></div>', unsafe_allow_html=True)
         st.markdown('<div class="sim-list">', unsafe_allow_html=True)
 
         for idx, sim in enumerate(sim_rows, 1):
