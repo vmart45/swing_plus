@@ -885,53 +885,6 @@ with tab_glossary:
     else:
         filtered = gloss_df.copy().reset_index(drop=True)
 
-    # CSS grid for consistent card sizing and spacing
-    css = """
-    <style>
-    .glossary-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 18px;
-      align-items: start;
-      margin-bottom: 18px;
-    }
-    .glossary-card {
-      background: #fff;
-      border-radius: 12px;
-      padding: 18px;
-      border: 1px solid #eef4f8;
-      box-shadow: 0 6px 18px rgba(15,23,42,0.04);
-      box-sizing: border-box;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      min-height: 140px;
-      max-height: 220px;
-      overflow: hidden;
-    }
-    .glossary-term {
-      font-weight: 700;
-      color: #0b1320;
-      font-size: 1.03rem;
-      margin-bottom: 0;
-    }
-    .glossary-def {
-      color: #475569;
-      font-size: 0.95rem;
-      line-height: 1.45;
-      display: -webkit-box;
-      -webkit-line-clamp: 6;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    @media (max-width:640px){
-      .glossary-card { min-height:120px; max-height:none; }
-    }
-    </style>
-    """
-    st.markdown(css, unsafe_allow_html=True)
-
     # Use columns instead of custom HTML grid
     cols_per_row = 3
     rows = [filtered.iloc[i:i+cols_per_row] for i in range(0, len(filtered), cols_per_row)]
@@ -943,7 +896,7 @@ with tab_glossary:
                 with cols[idx]:
                     st.markdown(f"""
                     <div style="background: #fff; border-radius: 12px; padding: 18px; border: 1px solid #eef4f8; 
-                                box-shadow: 0 6px 18px rgba(15,23,42,0.04); min-height: 140px;">
+                                box-shadow: 0 6px 18px rgba(15,23,42,0.04); height: 220px; overflow: auto;">
                         <div style="font-weight: 700; color: #0b1320; font-size: 1.03rem; margin-bottom: 8px;">
                             {item['term']}
                         </div>
