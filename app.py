@@ -16,7 +16,6 @@ import pickle
 import joblib
 import shap
 import plotly.graph_objects as go
-import streamlit.components.v1 as components
 
 st.set_page_config(
     page_title="Swing+ & ProjSwing+ Dashboard",
@@ -660,19 +659,19 @@ with tab_player:
                 hoverinfo='text',
                 hovertext=hover_texts,
                 text=[f"{v:.3f}" for v in x_rev],
-                textposition='outside'
+                textposition='auto'
             ))
+            # increase bottom margin to avoid text cutoff
             fig.update_layout(
-                margin=dict(l=120, r=24, t=12, b=24),
+                margin=dict(l=140, r=24, t=12, b=80),
                 xaxis_title="SHAP contribution to Swing+ (signed)",
                 yaxis=dict(autorange="reversed"),
-                height=360,
+                height=420,
                 showlegend=False,
                 font=dict(size=11)
             )
-            # Convert to HTML and render (interactive)
-            plot_html = fig.to_html(full_html=False, include_plotlyjs='cdn')
-            components.html(plot_html, height=400, scrolling=False)
+            # disable interactivity: use staticPlot True via st.plotly_chart config and hide modebar
+            st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
     with col2:
         st.markdown(f"<div style='text-align:center;font-weight:700;color:#183153;'>Model baseline: {base_label}</div>", unsafe_allow_html=True)
