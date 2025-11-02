@@ -56,10 +56,14 @@ df = load_data(DATA_PATH)
 
 # =====================================================
 # Fix potential renamed column: avg_batter_position -> avg_batter_x_position
+# If the CSV contains avg_batter_position (old name) but code expects avg_batter_x_position,
+# create the expected column so downstream code works without changes.
+# Also handle the inverse if somehow only avg_batter_x_position exists but code expects avg_batter_position.
 # =====================================================
 if "avg_batter_position" in df.columns and "avg_batter_x_position" not in df.columns:
     df["avg_batter_x_position"] = df["avg_batter_position"]
 elif "avg_batter_x_position" in df.columns and "avg_batter_position" not in df.columns:
+    # keep both for safety
     df["avg_batter_position"] = df["avg_batter_x_position"]
 
 mlb_teams = [
@@ -170,6 +174,7 @@ with tab_main:
         ] if c in df_filtered.columns
     ]
 
+    # Friendly display names for mechanical features
     FEATURE_LABELS = {
         "avg_bat_speed": "Avg Bat Speed (mph)",
         "swing_length": "Swing Length (m)",
@@ -190,6 +195,7 @@ with tab_main:
         "est_woba": "xwOBA",
         "xwOBA_pred": "Predicted xwOBA"
     }
+    # extend rename_map with friendly names
     for k, v in FEATURE_LABELS.items():
         if k in df.columns:
             rename_map[k] = v
@@ -257,7 +263,7 @@ with tab_main:
             hide_index=True
         )
 
-# ---------------- Player tab: Player Detail view ----------------
+# ---------------- Player tab: Player Detail view (unchanged) ----------------
 with tab_player:
     st.markdown(
         """
@@ -367,11 +373,14 @@ with tab_player:
     p_proj_rank = df.loc[df["Name"] == player_select, "ProjSwing+_rank"].iloc[0]
     p_power_rank = df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]
 
+    # New plus_color: color by rank (1 = reddest, max = bluest)
     def plus_color_by_rank(rank, total, start_hex="#D32F2F", end_hex="#3B82C4"):
+        # clamp
         if total <= 1:
             ratio = 0.0
         else:
-            ratio = (rank - 1) / (total - 1)
+            ratio = (rank - 1) / (total - 1)  # 0 => best (rank 1), 1 => worst
+        # We want rank=1 -> red (start_hex), rank=total -> blue (end_hex)
         def hex_to_rgb(h):
             h = h.lstrip("#")
             return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
@@ -384,6 +393,7 @@ with tab_player:
         rb = sb + (eb - sb) * ratio
         return rgb_to_hex((rr, rg, rb))
 
+    # Use colors computed from ranks so best players (rank=1) are redder, worst are bluer.
     swing_color = plus_color_by_rank(p_swing_rank, total_players)
     proj_color = plus_color_by_rank(p_proj_rank, total_players)
     power_color = plus_color_by_rank(p_power_rank, total_players)
@@ -676,167 +686,167 @@ with tab_player:
             display_df = display_df.reset_index(drop=True)
             st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-    # ------------------ Mechanical similarity cluster (unchanged) ------------------
-    name_col = "Name"
-    TOP_N = 10
+# ------------------ Mechanical similarity cluster (unchanged) ------------------
+name_col = "Name"
+TOP_N = 10
 
-    mech_features_available = [f for f in mechanical_features if f in df.columns]
-    if len(mech_features_available) >= 2 and name_col in df.columns:
-        df_mech = df.dropna(subset=mech_features_available + [name_col]).reset_index(drop=True)
-        if player_select in df_mech[name_col].values and len(df_mech) > TOP_N:
-            scaler = StandardScaler()
-            X_scaled = scaler.fit_transform(df_mech[mech_features_available])
-            similarity_matrix = cosine_similarity(X_scaled)
-            similarity_df = pd.DataFrame(similarity_matrix, index=df_mech[name_col], columns=df_mech[name_col])
+mech_features_available = [f for f in mechanical_features if f in df.columns]
+if len(mech_features_available) >= 2 and name_col in df.columns:
+    df_mech = df.dropna(subset=mech_features_available + [name_col]).reset_index(drop=True)
+    if player_select in df_mech[name_col].values and len(df_mech) > TOP_N:
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(df_mech[mech_features_available])
+        similarity_matrix = cosine_similarity(X_scaled)
+        similarity_df = pd.DataFrame(similarity_matrix, index=df_mech[name_col], columns=df_mech[name_col])
 
-            similar_players = (
-                similarity_df.loc[player_select]
-                .sort_values(ascending=False)
-                .iloc[1:TOP_N+1]
-            )
+        similar_players = (
+            similarity_df.loc[player_select]
+            .sort_values(ascending=False)
+            .iloc[1:TOP_N+1]
+        )
 
-            top_names = [player_select] + list(similar_players.index)
-            sim_rows = []
-            for sim_name in similar_players.index:
-                sim_row = df_mech[df_mech[name_col] == sim_name]
-                if "id" in sim_row.columns and pd.notnull(sim_row.iloc[0]["id"]):
-                    sim_id = str(int(sim_row.iloc[0]["id"]))
-                    sim_headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{sim_id}/headshot/silo/current.png"
-                else:
-                    sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-                sim_score = similar_players[sim_name]
-                sim_rows.append({
-                    "name": sim_name,
-                    "headshot_url": sim_headshot_url,
-                    "score": sim_score
-                })
+        top_names = [player_select] + list(similar_players.index)
+        sim_rows = []
+        for sim_name in similar_players.index:
+            sim_row = df_mech[df_mech[name_col] == sim_name]
+            if "id" in sim_row.columns and pd.notnull(sim_row.iloc[0]["id"]):
+                sim_id = str(int(sim_row.iloc[0]["id"]))
+                sim_headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{sim_id}/headshot/silo/current.png"
+            else:
+                sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
+            sim_score = similar_players[sim_name]
+            sim_rows.append({
+                "name": sim_name,
+                "headshot_url": sim_headshot_url,
+                "score": sim_score
+            })
+
+        st.markdown(
+            """
+            <style>
+            .sim-container {
+                width: 100%;
+                max-width: 1160px;
+                margin: 12px auto 10px auto;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            .sim-list {
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                align-items: center;
+            }
+            .sim-item {
+                display: flex;
+                align-items: center;
+                background: #ffffff;
+                border-radius: 12px;
+                padding: 10px 14px;
+                gap: 12px;
+                width: 100%;
+                border: 1px solid #eef4f8;
+                box-shadow: 0 6px 18px rgba(15,23,42,0.04);
+            }
+            .sim-rank {
+                font-size: 1em;
+                font-weight: 700;
+                color: #183153;
+                min-width: 36px;
+                text-align: center;
+            }
+            .sim-headshot-compact {
+                height: 48px;
+                width: 48px;
+                border-radius: 8px;
+                object-fit: cover;
+                box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+            }
+            .sim-name-compact {
+                flex: 1;
+                font-size: 1em;
+                color: #183153;
+            }
+            .sim-score-compact {
+                font-size: 0.98em;
+                font-weight: 700;
+                color: #333;
+                margin-right: 12px;
+                min-width: 72px;
+                text-align: right;
+            }
+            .sim-bar-mini {
+                width: 220px;
+                height: 10px;
+                background: #f4f7fa;
+                border-radius: 999px;
+                overflow: hidden;
+                margin-left: 8px;
+            }
+            .sim-bar-fill {
+                height: 100%;
+                border-radius: 999px;
+                transition: width 0.5s ease;
+            }
+            @media (max-width: 1100px) {
+                .sim-container { max-width: 92%; }
+                .sim-bar-mini { width: 160px; height: 8px; }
+                .sim-headshot-compact { height: 40px; width: 40px; }
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
+        st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to <span style="font-weight:800;">{player_select}</span></div>', unsafe_allow_html=True)
+        st.markdown('<div class="sim-list">', unsafe_allow_html=True)
+
+        for idx, sim in enumerate(sim_rows, 1):
+            pct = max(0.0, min(1.0, float(sim['score'])))
+            width_pct = int(round(pct * 100))
+
+            start_color = "#D32F2F"
+            end_color = "#FFB648"
+
+            sim_pct_text = f"{pct:.1%}"
 
             st.markdown(
-                """
-                <style>
-                .sim-container {
-                    width: 100%;
-                    max-width: 1160px;
-                    margin: 12px auto 10px auto;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                }
-                .sim-list {
-                    width: 100%;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 10px;
-                    align-items: center;
-                }
-                .sim-item {
-                    display: flex;
-                    align-items: center;
-                    background: #ffffff;
-                    border-radius: 12px;
-                    padding: 10px 14px;
-                    gap: 12px;
-                    width: 100%;
-                    border: 1px solid #eef4f8;
-                    box-shadow: 0 6px 18px rgba(15,23,42,0.04);
-                }
-                .sim-rank {
-                    font-size: 1em;
-                    font-weight: 700;
-                    color: #183153;
-                    min-width: 36px;
-                    text-align: center;
-                }
-                .sim-headshot-compact {
-                    height: 48px;
-                    width: 48px;
-                    border-radius: 8px;
-                    object-fit: cover;
-                    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
-                }
-                .sim-name-compact {
-                    flex: 1;
-                    font-size: 1em;
-                    color: #183153;
-                }
-                .sim-score-compact {
-                    font-size: 0.98em;
-                    font-weight: 700;
-                    color: #333;
-                    margin-right: 12px;
-                    min-width: 72px;
-                    text-align: right;
-                }
-                .sim-bar-mini {
-                    width: 220px;
-                    height: 10px;
-                    background: #f4f7fa;
-                    border-radius: 999px;
-                    overflow: hidden;
-                    margin-left: 8px;
-                }
-                .sim-bar-fill {
-                    height: 100%;
-                    border-radius: 999px;
-                    transition: width 0.5s ease;
-                }
-                @media (max-width: 1100px) {
-                    .sim-container { max-width: 92%; }
-                    .sim-bar-mini { width: 160px; height: 8px; }
-                    .sim-headshot-compact { height: 40px; width: 40px; }
-                }
-                </style>
+                f"""
+                <div class="sim-item">
+                    <div class="sim-rank">{idx}</div>
+                    <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
+                    <div class="sim-name-compact">{sim['name']}</div>
+                    <div class="sim-score-compact">{sim_pct_text}</div>
+                    <div class="sim-bar-mini" aria-hidden="true">
+                        <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
+                    </div>
+                </div>
                 """,
                 unsafe_allow_html=True
             )
 
-            st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to <span style="font-weight:800;">{player_select}</span></div>', unsafe_allow_html=True)
-            st.markdown('<div class="sim-list">', unsafe_allow_html=True)
+        st.markdown('</div></div>', unsafe_allow_html=True)
 
-            for idx, sim in enumerate(sim_rows, 1):
-                pct = max(0.0, min(1.0, float(sim['score'])))
-                width_pct = int(round(pct * 100))
-
-                start_color = "#D32F2F"
-                end_color = "#FFB648"
-
-                sim_pct_text = f"{pct:.1%}"
-
-                st.markdown(
-                    f"""
-                    <div class="sim-item">
-                        <div class="sim-rank">{idx}</div>
-                        <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                        <div class="sim-name-compact">{sim['name']}</div>
-                        <div class="sim-score-compact">{sim_pct_text}</div>
-                        <div class="sim-bar-mini" aria-hidden="true">
-                            <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-            st.markdown('</div></div>', unsafe_allow_html=True)
-
-            with st.expander("Show Detailed Heatmap"):
-                fig, ax = plt.subplots(figsize=(6, 4.2))
-                heatmap_data = similarity_df.loc[top_names, top_names]
-                sns.heatmap(
-                    heatmap_data,
-                    annot=True,
-                    fmt=".2f",
-                    cmap="coolwarm",
-                    linewidths=0.5,
-                    cbar_kws={"label": "Cosine Similarity"},
-                    ax=ax,
-                    annot_kws={"fontsize":8}
-                )
-                ax.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=12, weight="bold")
-                plt.xticks(rotation=45, ha='right', fontsize=8)
-                plt.yticks(fontsize=9)
-                plt.tight_layout()
-                st.pyplot(fig)
+        with st.expander("Show Detailed Heatmap"):
+            fig, ax = plt.subplots(figsize=(6, 4.2))
+            heatmap_data = similarity_df.loc[top_names, top_names]
+            sns.heatmap(
+                heatmap_data,
+                annot=True,
+                fmt=".2f",
+                cmap="coolwarm",
+                linewidths=0.5,
+                cbar_kws={"label": "Cosine Similarity"},
+                ax=ax,
+                annot_kws={"fontsize":8}
+            )
+            ax.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=12, weight="bold")
+            plt.xticks(rotation=45, ha='right', fontsize=8)
+            plt.yticks(fontsize=9)
+            plt.tight_layout()
+            st.pyplot(fig)
 
 # ---------------- Glossary tab ----------------
 with tab_glossary:
@@ -934,4 +944,6 @@ with tab_glossary:
     </script>
     """
 
-    st.markdown(glossary_html, height=900, scrolling=True)
+    # Use components.html to render the glossary (iframe) so the embedded JS/CSS runs correctly.
+    # st.markdown with scripts can render as raw text / be blocked; components.html embeds an iframe.
+    components.html(glossary_html, height=900, scrolling=True)
