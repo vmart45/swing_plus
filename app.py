@@ -890,14 +890,15 @@ with tab_glossary:
     rows = [filtered.iloc[i:i+cols_per_row] for i in range(0, len(filtered), cols_per_row)]
     
     for row_data in rows:
-        cols = st.columns(cols_per_row)
+        cols = st.columns(cols_per_row, gap="large")
         for idx, (_, item) in enumerate(row_data.iterrows()):
             if idx < len(cols):
                 with cols[idx]:
                     st.markdown(f"""
                     <div style="background: #fff; border-radius: 12px; padding: 18px; border: 1px solid #eef4f8; 
-                                box-shadow: 0 6px 18px rgba(15,23,42,0.04); height: 220px; overflow: auto;">
-                        <div style="font-weight: 700; color: #0b1320; font-size: 1.03rem; margin-bottom: 8px;">
+                                box-shadow: 0 6px 18px rgba(15,23,42,0.04); height: 220px; 
+                                display: flex; flex-direction: column; justify-content: center; text-align: center;">
+                        <div style="font-weight: 700; color: #0b1320; font-size: 1.03rem; margin-bottom: 12px;">
                             {item['term']}
                         </div>
                         <div style="color: #475569; font-size: 0.95rem; line-height: 1.45;">
@@ -905,6 +906,9 @@ with tab_glossary:
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
+        
+        # Add spacing between rows
+        st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
 
     if filtered.shape[0] == 0:
         st.info("No matching terms found.")
