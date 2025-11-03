@@ -17,6 +17,7 @@ import joblib
 import shap
 import plotly.graph_objects as go
 import streamlit.components.v1 as components
+from urllib.parse import quote, unquote
 
 st.set_page_config(
     page_title="Swing+ & ProjSwing+ Dashboard",
@@ -274,10 +275,25 @@ with tab_player:
         unsafe_allow_html=True
     )
 
+    # Allow deep-linking to a player via URL query param ?player=Player+Name
+    params = st.experimental_get_query_params()
+    qp_player = None
+    if "player" in params and len(params["player"]) > 0:
+        try:
+            qp_player = unquote(params["player"][0])
+        except Exception:
+            qp_player = params["player"][0]
+
+    player_options = sorted(df_filtered["Name"].unique())
+    default_index = 0
+    if qp_player and qp_player in player_options:
+        default_index = player_options.index(qp_player)
+
     player_select = st.selectbox(
         "Select a Player",
-        sorted(df_filtered["Name"].unique()),
-        key="player_select"
+        player_options,
+        key="player_select",
+        index=default_index
     )
     player_row = df[df["Name"] == player_select].iloc[0]
 
@@ -792,6 +808,11 @@ with tab_player:
                     border-radius: 999px;
                     transition: width 0.5s ease;
                 }
+                .sim-link {
+                    color: inherit;
+                    text-decoration: none;
+                    font-weight: 700;
+                }
                 @media (max-width: 1100px) {
                     .sim-container { max-width: 92%; }
                     .sim-bar-mini { width: 160px; height: 8px; }
@@ -814,12 +835,16 @@ with tab_player:
 
                 sim_pct_text = f"{pct:.1%}"
 
+                # Make the player name a clickable link that deep-links to the player page via query param.
+                # The link points to the same page with ?player=Player+Name (URL-encoded).
+                player_link = f"?player={quote(sim['name'])}"
+
                 st.markdown(
                     f"""
                     <div class="sim-item">
                         <div class="sim-rank">{idx}</div>
                         <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                        <div class="sim-name-compact">{sim['name']}</div>
+                        <div class="sim-name-compact"><a class="sim-link" href="{player_link}">{sim['name']}</a></div>
                         <div class="sim-score-compact">{sim_pct_text}</div>
                         <div class="sim-bar-mini" aria-hidden="true">
                             <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
@@ -853,18 +878,18 @@ with tab_player:
 # ---------------- Glossary tab ----------------
 with tab_glossary:
     glossary = {
-        "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter's swing is compared to the league average. A score of 100 is average, while every 10 points above or below represents roughly one standard deviation. Higher values indicate more efficient, well-sequenced swings.",
-        "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters whose mechanical foundation and power potential suggest strong long-term growth.",
-        "PowerIndex+": "A normalized measure of raw swing-driven power potential, built from metrics like bat speed, swing length, and attack angle. It represents how much force and lift a hitter's swing can naturally generate, independent of game results.",
-        "xwOBA (Expected Weighted On-Base Average)": "An advanced Statcast metric estimating a hitter's overall offensive quality based on exit velocity and launch angle. It reflects what a player's on-base performance should be, given contact quality, rather than what actually happened.",
-        "Predicted xwOBA": "A model-generated estimate of expected offensive production using a player's swing or biomechanical data (rather than batted-ball outcomes). It predicts what a player's xwOBA would be based on their swing traits alone.",
+        "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter's swing is compared to the league average. A score of 100 is average, while every 10 points is one standard deviation.",
+        "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters who show both efficient mechanics and physical attributes that suggest future growth.",
+        "PowerIndex+": "A normalized measure of raw swing-driven power potential, built from metrics like bat speed, swing length, and attack angle. It represents how much force and lift a hitter's swing can generate relative to peers.",
+        "xwOBA (Expected Weighted On-Base Average)": "An advanced Statcast metric estimating a hitter's overall offensive quality based on exit velocity and launch angle. It reflects what a player's outcomes should be given batted-ball quality.",
+        "Predicted xwOBA": "A model-generated estimate of expected offensive production using a player's swing or biomechanical data (rather than batted-ball outcomes). It predicts what a player's xwOBA might look like given their swing profile.",
         "Avg Bat Speed": "The average velocity of the bat head at the point of contact, measured in miles per hour. Higher bat speed typically translates to higher exit velocity and more power potential.",
         "Avg Swing Length": "The average distance the bat travels from launch to contact. Longer swings can generate more leverage and power but may reduce contact consistency.",
-        "Avg Attack Angle": "The vertical angle of the bat's path at contact, measured relative to the ground. Positive values indicate an upward swing plane; moderate positive angles (around 10–20°) are generally optimal for line drives and power.",
+        "Avg Attack Angle": "The vertical angle of the bat's path at contact, measured relative to the ground. Positive values indicate an upward swing plane; moderate positive angles (around 10–20°) often correlate with better launch angles for power.",
         "Avg Swing Tilt": "The overall body tilt or lateral bend during the swing. It reflects how the hitter's upper body moves through the swing plane, often influencing contact quality and pitch coverage.",
-        "Avg Attack Direction": "The horizontal direction of the bat's movement at contact — whether the swing path moves toward right field (positive) or left field (negative). It captures how the hitter matches their bat path to pitch location.",
-        "Avg Intercept Y vs. Plate": "The vertical position (height) at which the bat's swing plane crosses the plate area. It helps identify how 'flat' or 'steep' a hitter's swing path is through the hitting zone.",
-        "Avg Intercept Y vs. Batter": "The same intercept concept, but relative to the hitter's body position instead of the plate. It contextualizes swing height based on a hitter's individual setup and stance.",
+        "Avg Attack Direction": "The horizontal direction of the bat's movement at contact — whether the swing path moves toward right field (positive) or left field (negative). It captures how the swing path favors certain batted-ball directions.",
+        "Avg Intercept Y vs. Plate": "The vertical position (height) at which the bat's swing plane crosses the plate area. It helps identify how 'flat' or 'steep' a hitter's swing path is through the strike zone.",
+        "Avg Intercept Y vs. Batter": "The same intercept concept, but relative to the hitter's body position instead of the plate. It contextualizes swing height based on a hitter's individual setup and posture.",
         "Avg Batter Y Pos": "The average vertical position of the hitter's body (typically the torso or bat knob) at the moment of contact. It helps quantify a hitter's posture and body control through the swing.",
         "Avg Batter X Pos": "The average horizontal position of the bat or hands at contact, relative to the center of the plate. This reflects how far out in front or deep in the zone the hitter tends to make contact."
     }
