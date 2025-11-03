@@ -836,7 +836,7 @@ with tab_player:
                 sim_pct_text = f"{pct:.1%}"
 
                 # Make the player name a clickable link that deep-links to the player page via query param.
-                # We'll use a same-tab navigation pattern: intercept clicks with JS, pushState, then click the Player tab button.
+                # The link points to the same page with ?player=Player+Name (URL-encoded) and opens in the same tab.
                 player_link = f"?player={quote(sim['name'])}"
 
                 st.markdown(
@@ -844,7 +844,7 @@ with tab_player:
                     <div class="sim-item">
                         <div class="sim-rank">{idx}</div>
                         <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                        <div class="sim-name-compact"><a class="sim-link" href="{player_link}">{sim['name']}</a></div>
+                        <div class="sim-name-compact"><a class="sim-link" href="{player_link}" target="_self" rel="noopener noreferrer">{sim['name']}</a></div>
                         <div class="sim-score-compact">{sim_pct_text}</div>
                         <div class="sim-bar-mini" aria-hidden="true">
                             <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
@@ -874,7 +874,7 @@ with tab_player:
                 plt.yticks(fontsize=9)
                 plt.tight_layout()
                 st.pyplot(fig)
-                
+
 # ---------------- Glossary tab ----------------
 with tab_glossary:
     glossary = {
@@ -941,114 +941,60 @@ with tab_glossary:
     st.markdown("</div>", unsafe_allow_html=True)
 
 # Inject JavaScript at the end of the page so it runs after Streamlit has rendered the tabs.
-# This script intercepts clicks on our similarity player links, does a same-tab history.pushState to add ?player=Name,
-# then activates the "Player" tab button (by clicking it) and scrolls to the top of the Player tab content.
-# It also runs on page load: if ?player=... already present, it will activate the Player tab.
+# This script:
+# - When a link with ?player=... is clicked, it will update the location.search (same-tab navigation).
+# - On page load it will check for ?player=... and click the "Player" tab after Streamlit renders the tab buttons.
 components.html(
     """
     <script>
-    (function() {
-        // Helper: find the Streamlit "Player" tab button and click it.
-        function openPlayerTab() {
-            const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
-            if (!tabs || tabs.length === 0) return false;
-            const playerTab = tabs.find(t => (t.innerText || t.textContent || '').trim().toLowerCase() === 'player');
-            if (playerTab) {
-                playerTab.click();
-                return true;
-            }
-            return false;
-        }
-
-        // Try to activate player tab on page load if ?player= is present
+    (function(){
         try {
-            const params = new URLSearchParams(window.location.search);
-            const p = params.get('player');
-            if (p) {
-                // attempt repeatedly until Streamlit has rendered the tabs
-                let attempts = 0;
-                const maxAttempts = 80;
-                const interval = setInterval(() => {
-                    attempts += 1;
-                    const ok = openPlayerTab();
-                    if (ok || attempts >= maxAttempts) {
-                        clearInterval(interval);
-                        // after opening the tab, try to set focus/scroll a bit
-                        setTimeout(() => {
-                            const el = document.querySelector('div[data-testid="stAppViewContainer"]');
-                            if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
-                        }, 200);
-                    }
-                }, 120);
-            }
+            // Intercept clicks on anchor links that include ?player=... so they navigate in the same tab without target=_blank behavior.
+            document.addEventListener('click', function(e) {
+                var el = e.target;
+                // climb up until anchor or body
+                while (el && el.tagName !== 'A' && el !== document.body) {
+                    el = el.parentElement;
+                }
+                if (!el || el.tagName !== 'A') return;
+                var href = el.getAttribute('href') || '';
+                if (href.indexOf('?player=') !== -1) {
+                    // allow Streamlit to handle same-tab navigation by setting location.search
+                    e.preventDefault();
+                    // replace preserves session history better than assign
+                    window.location.href = href;
+                }
+            }, true);
         } catch (e) {
             // noop
         }
 
-        // Intercept clicks on anchors that include ?player= and handle same-tab navigation
-        document.addEventListener('click', function(evt) {
-            try {
-                let el = evt.target;
-                // climb up to an anchor if clicked inside
-                while (el && el.tagName !== 'A' && el !== document.body) el = el.parentElement;
-                if (!el || el.tagName !== 'A') return;
-                const href = el.getAttribute('href') || '';
-                if (!href.includes('?player=')) return;
-                // Prevent default navigation
-                evt.preventDefault();
-                // Use pushState to update URL without a full page load
-                try {
-                    const newUrl = href.startsWith('?') ? (window.location.pathname + href) : href;
-                    history.pushState(null, '', newUrl);
-                } catch (err) {
-                    // fallback to location.assign if pushState fails
-                    window.location.href = href;
-                    return;
-                }
-                // Activate the Player tab after pushState
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const p = params.get('player');
+            if (p) {
+                // Wait for Streamlit to render and then click the Player tab button.
+                const maxAttempts = 80;
                 let attempts = 0;
-                const maxAttempts = 60;
-                const interval = setInterval(() => {
+                const t = setInterval(() => {
                     attempts += 1;
-                    const ok = openPlayerTab();
-                    if (ok || attempts >= maxAttempts) {
-                        clearInterval(interval);
-                        // scroll the top of the page so the player content is visible
-                        setTimeout(() => {
-                            const el = document.querySelector('div[data-testid="stAppViewContainer"]');
-                            if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
-                            // try focusing the selectbox inside Player tab
-                            const sel = Array.from(document.querySelectorAll('select, [role="combobox"], input')).find(i => (i && i.getAttribute && i.getAttribute('data-testid') && i.getAttribute('data-testid').includes('stSelectbox')));
-                            if (sel) sel.focus();
-                        }, 200);
-                    }
-                }, 100);
-            } catch (e) {
-                // noop
-            }
-        }, true);
-
-        // Handle browser back/forward navigation so if user navigates history to a URL with ?player= it opens the Player tab
-        window.addEventListener('popstate', function(event) {
-            try {
-                const params = new URLSearchParams(window.location.search);
-                const p = params.get('player');
-                if (p) {
-                    // try to open Player tab
-                    let attempts = 0;
-                    const maxAttempts = 60;
-                    const interval = setInterval(() => {
-                        attempts += 1;
-                        const ok = (function(){ const tabs = Array.from(document.querySelectorAll('[role="tab"]')); if (!tabs) return false; const playerTab = tabs.find(t => (t.innerText || t.textContent || '').trim().toLowerCase() === 'player'); if (playerTab) { playerTab.click(); return true; } return false; })();
-                        if (ok || attempts >= maxAttempts) {
-                            clearInterval(interval);
+                    const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
+                    if (tabs && tabs.length > 0) {
+                        // find the Player tab (case-insensitive)
+                        const playerTab = tabs.find(t => (t.innerText || t.textContent || '').trim().toLowerCase() === 'player');
+                        if (playerTab) {
+                            playerTab.click();
+                            clearInterval(t);
                         }
-                    }, 120);
-                }
-            } catch (e) {
-                // noop
+                    }
+                    if (attempts >= maxAttempts) {
+                        clearInterval(t);
+                    }
+                }, 120); // try every 120ms for up to ~9.6s
             }
-        });
+        } catch (e) {
+            // noop
+        }
     })();
     </script>
     """,
