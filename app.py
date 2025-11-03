@@ -57,14 +57,10 @@ df = load_data(DATA_PATH)
 
 # =====================================================
 # Fix potential renamed column: avg_batter_position -> avg_batter_x_position
-# If the CSV contains avg_batter_position (old name) but code expects avg_batter_x_position,
-# create the expected column so downstream code works without changes.
-# Also handle the inverse if somehow only avg_batter_x_position exists but code expects avg_batter_position.
 # =====================================================
 if "avg_batter_position" in df.columns and "avg_batter_x_position" not in df.columns:
     df["avg_batter_x_position"] = df["avg_batter_position"]
 elif "avg_batter_x_position" in df.columns and "avg_batter_position" not in df.columns:
-    # keep both for safety
     df["avg_batter_position"] = df["avg_batter_x_position"]
 
 mlb_teams = [
@@ -152,9 +148,7 @@ if "batted_ball_events" in df.columns:
 main_cmap = "RdYlBu_r"
 elite_cmap = "Reds"
 
-# --- New navigation approach:
-# Use a radio (or horizontal buttons) to control top-level page so we can programmatically select Player when ?player= is present.
-# Read query params to set defaults.
+# Check for player query parameter to determine default view
 params = st.experimental_get_query_params()
 qp_player = None
 if "player" in params and len(params["player"]) > 0:
@@ -163,39 +157,41 @@ if "player" in params and len(params["player"]) > 0:
     except Exception:
         qp_player = params["player"][0]
 
-# If "page" query param present, respect it. Otherwise, if player param present, default to Player page.
-qp_page = None
-if "page" in params and len(params["page"]) > 0:
-    try:
-        qp_page = unquote(params["page"][0])
-    except Exception:
-        qp_page = params["page"][0]
+# Initialize session state for active view
+if "active_view" not in st.session_state:
+    if qp_player:
+        st.session_state.active_view = "Player"
+    else:
+        st.session_state.active_view = "Main"
 
-page_options = ["Main", "Player", "Glossary"]
-default_page = 0
-if qp_page and qp_page in page_options:
-    default_page = page_options.index(qp_page)
-elif qp_player:
-    default_page = page_options.index("Player")
+# Create radio button navigation that looks like tabs
+st.markdown("""
+<style>
+div[data-testid="stHorizontalBlock"] > div {
+    flex: 1;
+    text-align: center;
+}
+</style>
+""", unsafe_allow_html=True)
 
-# Render top-level navigation as horizontal radio at top of the app
-st.markdown("<div style='display:flex;justify-content:center;margin-bottom:6px;'>", unsafe_allow_html=True)
-page = st.radio("", page_options, index=default_page, horizontal=True, key="top_nav")
-st.markdown("</div>", unsafe_allow_html=True)
+col1, col2, col3 = st.columns(3)
+with col1:
+    if st.button("📊 Main", use_container_width=True, type="primary" if st.session_state.active_view == "Main" else "secondary"):
+        st.session_state.active_view = "Main"
+        st.rerun()
+with col2:
+    if st.button("👤 Player", use_container_width=True, type="primary" if st.session_state.active_view == "Player" else "secondary"):
+        st.session_state.active_view = "Player"
+        st.rerun()
+with col3:
+    if st.button("📖 Glossary", use_container_width=True, type="primary" if st.session_state.active_view == "Glossary" else "secondary"):
+        st.session_state.active_view = "Glossary"
+        st.rerun()
 
-# Helper to update query params when user selects player via click or selectionbox
-def set_player_query(player_name):
-    try:
-        st.experimental_set_query_params(player=player_name, page="Player")
-    except Exception:
-        # fallback: set only player
-        try:
-            st.experimental_set_query_params(player=player_name)
-        except Exception:
-            pass
+st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
 
-# ---------------- Main tab content ----------------
-if page == "Main":
+# ---------------- Main view ----------------
+if st.session_state.active_view == "Main":
     st.markdown(
         """
         <h2 style="text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; letter-spacing:0.01em; color:#2a3757;">
@@ -214,7 +210,6 @@ if page == "Main":
         ] if c in df_filtered.columns
     ]
 
-    # Friendly display names for mechanical features
     FEATURE_LABELS = {
         "avg_bat_speed": "Avg Bat Speed (mph)",
         "swing_length": "Swing Length (m)",
@@ -235,7 +230,6 @@ if page == "Main":
         "est_woba": "xwOBA",
         "xwOBA_pred": "Predicted xwOBA"
     }
-    # extend rename_map with friendly names
     for k, v in FEATURE_LABELS.items():
         if k in df.columns:
             rename_map[k] = v
@@ -303,8 +297,8 @@ if page == "Main":
             hide_index=True
         )
 
-# ---------------- Player tab content ----------------
-elif page == "Player":
+# ---------------- Player view ----------------
+elif st.session_state.active_view == "Player":
     st.markdown(
         """
         <h2 style="text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; letter-spacing:0.01em; color:#2a3757;">
@@ -314,26 +308,17 @@ elif page == "Player":
         unsafe_allow_html=True
     )
 
-    # Build player options from filtered df
     player_options = sorted(df_filtered["Name"].unique())
-
-    # Determine default player: from query param or first in list
     default_index = 0
     if qp_player and qp_player in player_options:
         default_index = player_options.index(qp_player)
 
-    # Use selectbox for player selection; when changed, update query params so link clicks / back-forward work
     player_select = st.selectbox(
         "Select a Player",
         player_options,
         key="player_select",
-        index=default_index,
-        on_change=None
+        index=default_index
     )
-    # Keep query in sync when user changes selection manually
-    if st.session_state.get("player_select") and (qp_player != st.session_state["player_select"]):
-        set_player_query(st.session_state["player_select"])
-
     player_row = df[df["Name"] == player_select].iloc[0]
 
     headshot_size = 96
@@ -428,14 +413,11 @@ elif page == "Player":
     p_proj_rank = df.loc[df["Name"] == player_select, "ProjSwing+_rank"].iloc[0]
     p_power_rank = df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]
 
-    # New plus_color: color by rank (1 = reddest, max = bluest)
     def plus_color_by_rank(rank, total, start_hex="#D32F2F", end_hex="#3B82C4"):
-        # clamp
         if total <= 1:
             ratio = 0.0
         else:
-            ratio = (rank - 1) / (total - 1)  # 0 => best (rank 1), 1 => worst
-        # We want rank=1 -> red (start_hex), rank=total -> blue (end_hex)
+            ratio = (rank - 1) / (total - 1)
         def hex_to_rgb(h):
             h = h.lstrip("#")
             return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
@@ -448,7 +430,6 @@ elif page == "Player":
         rb = sb + (eb - sb) * ratio
         return rgb_to_hex((rr, rg, rb))
 
-    # Use colors computed from ranks so best players (rank=1) are redder, worst are bluer.
     swing_color = plus_color_by_rank(p_swing_rank, total_players)
     proj_color = plus_color_by_rank(p_proj_rank, total_players)
     power_color = plus_color_by_rank(p_power_rank, total_players)
@@ -528,7 +509,7 @@ elif page == "Player":
         "swing_length"
     ]
 
-    # ------------------- Load Swing+ model and create SHAP explainer -------------------
+    # Load Swing+ model and create SHAP explainer
     model = None
     explainer = None
     model_loaded = False
@@ -602,7 +583,7 @@ elif page == "Player":
                     X_raw[c] = X_raw[c].fillna(0.0)
         return X_raw
 
-    # Compute SHAP values for the selected player (Swing+ only)
+    # Compute SHAP values for the selected player
     shap_df = None
     shap_base = None
     shap_pred = None
@@ -659,7 +640,7 @@ elif page == "Player":
             shap_df = None
             model_error = str(e)
 
-    # ------------------ Display Swing+ SHAP panel (interactive chart + table) ------------------
+    # Display Swing+ SHAP panel
     st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
     st.markdown(
         """
@@ -672,6 +653,18 @@ elif page == "Player":
         """,
         unsafe_allow_html=True
     )
+
+    FEATURE_LABELS = {
+        "avg_bat_speed": "Avg Bat Speed (mph)",
+        "swing_length": "Swing Length (m)",
+        "attack_angle": "Attack Angle (°)",
+        "swing_tilt": "Swing Tilt (°)",
+        "attack_direction": "Attack Direction",
+        "avg_intercept_y_vs_plate": "Intercept Y vs Plate",
+        "avg_intercept_y_vs_batter": "Intercept Y vs Batter",
+        "avg_batter_y_position": "Batter Y Pos",
+        "avg_batter_x_position": "Batter X Pos"
+    }
 
     col1, col2 = st.columns([1, 1])
 
@@ -688,7 +681,6 @@ elif page == "Player":
         else:
             TOP_SHOW = min(8, len(shap_df))
             df_plot_top = shap_df.head(TOP_SHOW).copy()
-            # Order by pct_of_abs descending so largest importance at top
             df_plot_top = df_plot_top.sort_values("pct_of_abs", ascending=False).reset_index(drop=True)
 
             y = df_plot_top["feature"].map(lambda x: FEATURE_LABELS.get(x, x)).tolist()
@@ -696,7 +688,6 @@ elif page == "Player":
             pct_vals = df_plot_top["pct_of_abs"].astype(float).tolist()
             colors = ["#D8573C" if float(v) > 0 else "#3B82C4" for v in x_vals]
 
-            # Keep text inside bars and show both contribution and percentage
             text_labels = [f"{val:.3f}  ({pct:.0%})" for val, pct in zip(x_vals, pct_vals)]
 
             fig = go.Figure()
@@ -735,15 +726,13 @@ elif page == "Player":
                 "shap_value": "Contribution",
                 "pct_of_abs": "PctImportance"
             })
-            # Round 'Value' to 2 decimal points as requested
             display_df["Value"] = display_df["Value"].apply(lambda v: f"{v:.2f}" if pd.notna(v) else "NaN")
             display_df["Contribution"] = display_df["Contribution"].apply(lambda v: f"{v:.3f}")
             display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
             display_df = display_df.reset_index(drop=True)
             st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-    # ------------------ Mechanical similarity cluster (PLAYER-SPECIFIC) ------------------
-    # This block MUST be inside the player tab. It was previously leaking into the Glossary tab.
+    # Mechanical similarity cluster
     name_col = "Name"
     TOP_N = 10
 
@@ -851,6 +840,10 @@ elif page == "Player":
                     color: inherit;
                     text-decoration: none;
                     font-weight: 700;
+                    cursor: pointer;
+                }
+                .sim-link:hover {
+                    color: #3B82C4;
                 }
                 @media (max-width: 1100px) {
                     .sim-container { max-width: 92%; }
@@ -874,15 +867,15 @@ elif page == "Player":
 
                 sim_pct_text = f"{pct:.1%}"
 
-                # Link will set both player and page query params so the app will show Player page by default on navigation.
-                player_link = f"?player={quote(sim['name'])}&page=Player"
-
+                # Create a button-like link that uses session state
+                player_link_id = f"player_link_{idx}_{sim['name'].replace(' ', '_')}"
+                
                 st.markdown(
                     f"""
                     <div class="sim-item">
                         <div class="sim-rank">{idx}</div>
                         <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                        <div class="sim-name-compact"><a class="sim-link" href="{player_link}">{sim['name']}</a></div>
+                        <div class="sim-name-compact"><span class="sim-link" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: '{sim['name']}'}}, '*')">{sim['name']}</span></div>
                         <div class="sim-score-compact">{sim_pct_text}</div>
                         <div class="sim-bar-mini" aria-hidden="true">
                             <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
@@ -891,6 +884,12 @@ elif page == "Player":
                     """,
                     unsafe_allow_html=True
                 )
+                
+                # Add hidden button for each player
+                if st.button(f"btn_{sim['name']}", key=player_link_id, type="secondary", help=f"View {sim['name']}", use_container_width=False):
+                    st.experimental_set_query_params(player=sim['name'])
+                    st.session_state.active_view = "Player"
+                    st.rerun()
 
             st.markdown('</div></div>', unsafe_allow_html=True)
 
@@ -913,8 +912,8 @@ elif page == "Player":
                 plt.tight_layout()
                 st.pyplot(fig)
 
-# ---------------- Glossary tab content ----------------
-else:  # Glossary
+# ---------------- Glossary view ----------------
+elif st.session_state.active_view == "Glossary":
     glossary = {
         "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter's swing is compared to the league average. A score of 100 is average, while every 10 points is one standard deviation.",
         "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters who show both efficient mechanics and physical attributes that suggest future growth.",
@@ -935,11 +934,9 @@ else:  # Glossary
     st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
     st.markdown('<div style="max-width:1200px;margin:0 auto;padding:0 12px;">', unsafe_allow_html=True)
 
-    # Search input
     q = st.text_input("Search terms...", value="", placeholder="Type to filter glossary (term or text)...")
     st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
 
-    # Build DataFrame for filtering
     gloss_df = pd.DataFrame([{"term": k, "definition": v} for k, v in glossary.items()])
     if q and q.strip():
         qn = q.strip().lower()
@@ -948,7 +945,6 @@ else:  # Glossary
     else:
         filtered = gloss_df.copy().reset_index(drop=True)
 
-    # Use columns instead of custom HTML grid
     cols_per_row = 3
     rows = [filtered.iloc[i:i+cols_per_row] for i in range(0, len(filtered), cols_per_row)]
     
@@ -970,39 +966,9 @@ else:  # Glossary
                     </div>
                     """, unsafe_allow_html=True)
         
-        # Add spacing between rows
         st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
 
     if filtered.shape[0] == 0:
         st.info("No matching terms found.")
 
     st.markdown("</div>", unsafe_allow_html=True)
-
-# --- Add a small JS helper so clicking similarity links updates URL and stays in same tab.
-# Because we now control top-level page via the "page" query param and the radio control reads that on load,
-# clicking a link with ?player=Name&page=Player will reload and show Player by default.
-# This JS simply intercepts clicks and uses pushState to avoid opening a new tab in some environments.
-components.html(
-    """
-    <script>
-    (function() {
-        document.addEventListener('click', function(e) {
-            try {
-                var el = e.target;
-                while (el && el.tagName !== 'A' && el !== document.body) el = el.parentElement;
-                if (!el || el.tagName !== 'A') return;
-                var href = el.getAttribute('href') || '';
-                if (href.indexOf('?player=') !== -1 && href.indexOf('page=Player') !== -1) {
-                    // same-tab navigation: update location to the target URL (this triggers Streamlit to reload)
-                    e.preventDefault();
-                    // Use assign to ensure Streamlit sees new query params and reloads accordingly
-                    window.location.assign(href);
-                }
-            } catch (err) {
-                // noop
-            }
-        }, true);
-    })();
-    """,
-    height=0
-)
