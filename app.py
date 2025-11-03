@@ -207,57 +207,65 @@ with tab_main:
         .reset_index(drop=True)
     )
 
+    # Prepare numeric bounds for bar rendering
+    numeric_cols = [c for c in ["Swing+", "ProjSwing+", "PowerIndex+"] if c in df_to_show.columns]
+    all_vals = []
+    for col in numeric_cols:
+        all_vals.extend(pd.to_numeric(df_to_show[col], errors="coerce").dropna().tolist())
+    if all_vals:
+        global_min = float(min(all_vals))
+        global_max = float(max(all_vals))
+    else:
+        global_min = 0.0
+        global_max = 1.0
+
+    # Safer JS renderer for bars (handles undefined/null)
+    bar_js = JsCode("""
+    class RenderSparkBar {
+      init(params) {
+        this.eGui = document.createElement('div');
+        const value = params.value;
+        const min = (params.context && params.context.minVal !== undefined) ? params.context.minVal : 0;
+        const max = (params.context && params.context.maxVal !== undefined) ? params.context.maxVal : 1;
+        let pct = 0;
+        if (value === null || value === undefined || isNaN(value)) {
+          pct = 0;
+        } else {
+          pct = (value - min) / (max - min + 1e-9);
+        }
+        const displayVal = (value === null || value === undefined || isNaN(value)) ? '' : Number(value).toFixed(2);
+        const colorPositive = '#D32F2F';
+        const colorPositiveEnd = '#FFB648';
+        const colorNegative = '#3B82C4';
+        const colorNegativeEnd = '#60A5FA';
+        const gradientStart = (value >= 0) ? colorPositive : colorNegative;
+        const gradientEnd = (value >= 0) ? colorPositiveEnd : colorNegativeEnd;
+        const widthPct = Math.round(Math.abs(pct) * 100);
+        this.eGui.innerHTML = `
+          <div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
+            <div style="flex:0 0 6ch; font-weight:700; color:#183153;">${displayVal}</div>
+            <div style="flex:1; height:18px; background:#f4f7fa; border-radius:9px; overflow:hidden;">
+              <div style="height:100%; width:${widthPct}%; background: linear-gradient(90deg, ${gradientStart}, ${gradientEnd});"></div>
+            </div>
+          </div>
+        `;
+      }
+      getGui() { return this.eGui; }
+    }
+    """)
+
     if AGGRID_AVAILABLE:
         gb = GridOptionsBuilder.from_dataframe(df_to_show)
-        gb.configure_default_column(filter=True, sortable=True, resizable=True, suppressMenu=True, wrapText=True, autoHeight=True)
-        bar_js = JsCode("""
-        class RenderSparkBar {
-          init(params) {
-            this.eGui = document.createElement('div');
-            const value = params.value;
-            const max = params.context.maxVal || 1;
-            const min = params.context.minVal || 0;
-            const pct = (value - min) / (max - min + 1e-9);
-            this.eGui.innerHTML = `
-              <div style="display:flex;align-items:center;gap:8px;">
-                <div style="flex:0 0 6ch; font-weight:700; color:#183153;">${value !== undefined && value !== null ? value.toFixed(2) : ''}</div>
-                <div style="flex:1; height:18px; background:#f4f7fa; border-radius:9px; overflow:hidden;">
-                  <div style="height:100%; width:${Math.round(Math.abs(pct)*100)}%; background: linear-gradient(90deg, ${value >= 0 ? '#D32F2F' : '#3B82C4'}, ${value >= 0 ? '#FFB648' : '#60A5FA'});"></div>
-                </div>
-              </div>
-            `;
-          }
-          getGui() {
-            return this.eGui;
-          }
-        }
-        """)
-        numeric_cols = []
-        for col in ["Swing+", "ProjSwing+", "PowerIndex+"]:
-            if col in df_to_show.columns:
-                vals = pd.to_numeric(df_to_show[col], errors="coerce").dropna()
-                if not vals.empty:
-                    numeric_cols.append(col)
-        all_vals = []
+        gb.configure_default_column(filter=True, sortable=True, resizable=True, suppressMenu=True, wrapText=True)
         for col in numeric_cols:
-            all_vals.extend(df_to_show[col].dropna().tolist())
-        if all_vals:
-            minVal = float(min(all_vals))
-            maxVal = float(max(all_vals))
-        else:
-            minVal = 0.0
-            maxVal = 1.0
-        for col in ["Swing+", "ProjSwing+", "PowerIndex+"]:
-            if col in df_to_show.columns:
-                gb.configure_column(col, cellRenderer=bar_js, cellStyle={"padding": "6px 8px"}, width=220)
+            gb.configure_column(col, cellRenderer=bar_js, cellStyle={"padding": "6px 8px"}, width=220)
         if "Team" in df_to_show.columns:
-            context = {"team_logo_map": image_dict, "minVal": minVal, "maxVal": maxVal}
             team_js = JsCode("""
             class TeamCell {
               init(params) {
                 this.eGui = document.createElement('div');
                 const team = params.value;
-                const map = params.context.team_logo_map || {};
+                const map = params.context && params.context.team_logo_map ? params.context.team_logo_map : {};
                 const url = map[team] || '';
                 this.eGui.innerHTML = `
                   <div style="display:flex;align-items:center;gap:8px;">
@@ -270,10 +278,11 @@ with tab_main:
             }
             """)
             gb.configure_column("Team", cellRenderer=team_js, width=160)
-            gb.configure_grid_options(context=context)
+        # Pass context including global bounds and logos so renderer never sees undefined context
+        gb.configure_grid_options(context={"team_logo_map": image_dict, "minVal": global_min, "maxVal": global_max})
         gb.configure_selection(selection_mode="single", use_checkbox=False, pre_selected_rows=[], suppressRowClickSelection=False)
         gb.configure_pagination(paginationAutoPageSize=False, paginationPageSize=10)
-        gb.configure_grid_options(domLayout='normal', rowHeight=40)
+        gb.configure_grid_options(domLayout='normal', rowHeight=48)
         gridOptions = gb.build()
         grid_response = AgGrid(
             df_to_show,
@@ -283,7 +292,7 @@ with tab_main:
             data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
             fit_columns_on_grid_load=True,
             allow_unsafe_jscode=True,
-            height=420,
+            height=520,
             theme="material"
         )
         selected = grid_response.get("selected_rows", [])
@@ -291,15 +300,16 @@ with tab_main:
             sel = selected[0]
             chosen_name = sel.get("Name") or next((v for k, v in sel.items() if k.lower() == "name"), None)
             if chosen_name:
-                st.session_state["player_select"] = chosen_name
+                try:
+                    st.session_state["player_select"] = chosen_name
+                except Exception:
+                    pass
     else:
         st.warning("st-aggrid is not available in this environment. Falling back to Streamlit's built-in table editor and a selection control. To enable the richer table, add 'st-aggrid' to requirements.txt and redeploy.")
-        st.markdown("<div style='margin-bottom:6px;'></div>", unsafe_allow_html=True)
         display_preview = df_to_show.head(200).copy()
-        numeric_cols_preview = [c for c in ["Swing+", "ProjSwing+", "PowerIndex+"] if c in display_preview.columns]
-        for c in numeric_cols_preview:
+        for c in [c for c in ["Swing+", "ProjSwing+", "PowerIndex+"] if c in display_preview.columns]:
             display_preview[c] = pd.to_numeric(display_preview[c], errors="coerce").round(2)
-        st.dataframe(display_preview, use_container_width=True, height=420)
+        st.dataframe(display_preview, use_container_width=True, height=520)
         visible_names = df_to_show["Name"].tolist()
         if "player_select" not in st.session_state:
             st.session_state["player_select"] = visible_names[0] if visible_names else None
@@ -315,7 +325,8 @@ with tab_main:
         unsafe_allow_html=True
     )
 
-    col1, col2 = st.columns(2)
+    # Make leaderboards visually less "smushed" by increasing rowHeight and using more horizontal space
+    col1, col2 = st.columns([1, 1], gap="large")
 
     with col1:
         st.markdown(
@@ -332,9 +343,25 @@ with tab_main:
         if AGGRID_AVAILABLE:
             gb2 = GridOptionsBuilder.from_dataframe(df_top_swing)
             gb2.configure_default_column(filter=False, sortable=True, resizable=True)
-            gb2.configure_column("Swing+", cellRenderer=bar_js, width=220)
+            if "Swing+" in df_top_swing.columns:
+                gb2.configure_column("Swing+", cellRenderer=bar_js, width=240)
+            if "Team" in df_top_swing.columns:
+                gb2.configure_column("Team", width=140)
+            # Use same context so bar renderer has min/max available
+            gb2.configure_grid_options(context={"team_logo_map": image_dict, "minVal": global_min, "maxVal": global_max})
             gb2.configure_selection(selection_mode="single", use_checkbox=False)
-            AgGrid(df_top_swing, gridOptions=gb2.build(), enable_enterprise_modules=False, update_mode=GridUpdateMode.NO_UPDATE, data_return_mode=DataReturnMode.FILTERED_AND_SORTED, fit_columns_on_grid_load=True, allow_unsafe_jscode=True, height=300, theme="material")
+            gb2.configure_grid_options(rowHeight=54)
+            AgGrid(
+                df_top_swing,
+                gridOptions=gb2.build(),
+                enable_enterprise_modules=False,
+                update_mode=GridUpdateMode.NO_UPDATE,
+                data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
+                fit_columns_on_grid_load=True,
+                allow_unsafe_jscode=True,
+                height=360,
+                theme="material"
+            )
         else:
             st.table(df_top_swing)
 
@@ -354,9 +381,23 @@ with tab_main:
             gb3 = GridOptionsBuilder.from_dataframe(df_top_proj)
             gb3.configure_default_column(filter=False, sortable=True, resizable=True)
             if "ProjSwing+" in df_top_proj.columns:
-                gb3.configure_column("ProjSwing+", cellRenderer=bar_js, width=220)
+                gb3.configure_column("ProjSwing+", cellRenderer=bar_js, width=240)
+            if "Team" in df_top_proj.columns:
+                gb3.configure_column("Team", width=140)
+            gb3.configure_grid_options(context={"team_logo_map": image_dict, "minVal": global_min, "maxVal": global_max})
             gb3.configure_selection(selection_mode="single", use_checkbox=False)
-            AgGrid(df_top_proj, gridOptions=gb3.build(), enable_enterprise_modules=False, update_mode=GridUpdateMode.NO_UPDATE, data_return_mode=DataReturnMode.FILTERED_AND_SORTED, fit_columns_on_grid_load=True, allow_unsafe_jscode=True, height=300, theme="material")
+            gb3.configure_grid_options(rowHeight=54)
+            AgGrid(
+                df_top_proj,
+                gridOptions=gb3.build(),
+                enable_enterprise_modules=False,
+                update_mode=GridUpdateMode.NO_UPDATE,
+                data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
+                fit_columns_on_grid_load=True,
+                allow_unsafe_jscode=True,
+                height=360,
+                theme="material"
+            )
         else:
             st.table(df_top_proj)
 
