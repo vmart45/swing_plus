@@ -18,17 +18,6 @@ import shap
 import plotly.graph_objects as go
 import streamlit.components.v1 as components
 
-try:
-    from st_aggrid import AgGrid, GridOptionsBuilder, DataReturnMode, GridUpdateMode, JsCode
-    AGGRID_AVAILABLE = True
-except Exception:
-    AGGRID_AVAILABLE = False
-    AgGrid = None
-    GridOptionsBuilder = None
-    DataReturnMode = None
-    GridUpdateMode = None
-    JsCode = None
-
 st.set_page_config(
     page_title="Swing+ & ProjSwing+ Dashboard",
     page_icon="⚾",
@@ -65,9 +54,16 @@ def load_data(path):
 
 df = load_data(DATA_PATH)
 
+# =====================================================
+# Fix potential renamed column: avg_batter_position -> avg_batter_x_position
+# If the CSV contains avg_batter_position (old name) but code expects avg_batter_x_position,
+# create the expected column so downstream code works without changes.
+# Also handle the inverse if somehow only avg_batter_x_position exists but code expects avg_batter_position.
+# =====================================================
 if "avg_batter_position" in df.columns and "avg_batter_x_position" not in df.columns:
     df["avg_batter_x_position"] = df["avg_batter_position"]
 elif "avg_batter_x_position" in df.columns and "avg_batter_position" not in df.columns:
+    # keep both for safety
     df["avg_batter_position"] = df["avg_batter_x_position"]
 
 mlb_teams = [
@@ -155,8 +151,10 @@ if "batted_ball_events" in df.columns:
 main_cmap = "RdYlBu_r"
 elite_cmap = "Reds"
 
+# Create top-level tabs: Main (metrics + leaderboards), Player (detail), Glossary
 tab_main, tab_player, tab_glossary = st.tabs(["Main", "Player", "Glossary"])
 
+# ---------------- Main tab: Metrics table and leaderboards ----------------
 with tab_main:
     st.markdown(
         """
@@ -176,6 +174,7 @@ with tab_main:
         ] if c in df_filtered.columns
     ]
 
+    # Friendly display names for mechanical features
     FEATURE_LABELS = {
         "avg_bat_speed": "Avg Bat Speed (mph)",
         "swing_length": "Swing Length (m)",
@@ -196,117 +195,24 @@ with tab_main:
         "est_woba": "xwOBA",
         "xwOBA_pred": "Predicted xwOBA"
     }
+    # extend rename_map with friendly names
     for k, v in FEATURE_LABELS.items():
         if k in df.columns:
             rename_map[k] = v
 
-    df_to_show = (
+    styled_df = (
         df_filtered[display_cols]
         .rename(columns=rename_map)
         .sort_values("Swing+", ascending=False)
         .reset_index(drop=True)
+        .style.background_gradient(
+            subset=[c for c in ["Swing+", "ProjSwing+", "PowerIndex+", "xwOBA", "Predicted xwOBA"] if c in rename_map.values()],
+            cmap=main_cmap
+        )
+        .format(precision=2)
     )
 
-    if AGGRID_AVAILABLE:
-        gb = GridOptionsBuilder.from_dataframe(df_to_show)
-        gb.configure_default_column(filter=True, sortable=True, resizable=True, suppressMenu=True, wrapText=True, autoHeight=True)
-        bar_js = JsCode("""
-        class RenderSparkBar {
-          init(params) {
-            this.eGui = document.createElement('div');
-            const value = params.value;
-            const max = params.context.maxVal || 1;
-            const min = params.context.minVal || 0;
-            const pct = (value - min) / (max - min + 1e-9);
-            this.eGui.innerHTML = `
-              <div style="display:flex;align-items:center;gap:8px;">
-                <div style="flex:0 0 6ch; font-weight:700; color:#183153;">${value !== undefined && value !== null ? value.toFixed(2) : ''}</div>
-                <div style="flex:1; height:18px; background:#f4f7fa; border-radius:9px; overflow:hidden;">
-                  <div style="height:100%; width:${Math.round(Math.abs(pct)*100)}%; background: linear-gradient(90deg, ${value >= 0 ? '#D32F2F' : '#3B82C4'}, ${value >= 0 ? '#FFB648' : '#60A5FA'});"></div>
-                </div>
-              </div>
-            `;
-          }
-          getGui() {
-            return this.eGui;
-          }
-        }
-        """)
-        numeric_cols = []
-        for col in ["Swing+", "ProjSwing+", "PowerIndex+"]:
-            if col in df_to_show.columns:
-                vals = pd.to_numeric(df_to_show[col], errors="coerce").dropna()
-                if not vals.empty:
-                    numeric_cols.append(col)
-        all_vals = []
-        for col in numeric_cols:
-            all_vals.extend(df_to_show[col].dropna().tolist())
-        if all_vals:
-            minVal = float(min(all_vals))
-            maxVal = float(max(all_vals))
-        else:
-            minVal = 0.0
-            maxVal = 1.0
-        for col in ["Swing+", "ProjSwing+", "PowerIndex+"]:
-            if col in df_to_show.columns:
-                gb.configure_column(col, cellRenderer=bar_js, cellStyle={"padding": "6px 8px"}, width=220)
-        if "Team" in df_to_show.columns:
-            context = {"team_logo_map": image_dict, "minVal": minVal, "maxVal": maxVal}
-            team_js = JsCode("""
-            class TeamCell {
-              init(params) {
-                this.eGui = document.createElement('div');
-                const team = params.value;
-                const map = params.context.team_logo_map || {};
-                const url = map[team] || '';
-                this.eGui.innerHTML = `
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    ${url ? `<img src="${url}" style="height:28px;width:28px;border-radius:6px;object-fit:cover;"/>` : ''}
-                    <div style="font-weight:700;color:#183153;">${team || ''}</div>
-                  </div>
-                `;
-              }
-              getGui() { return this.eGui; }
-            }
-            """)
-            gb.configure_column("Team", cellRenderer=team_js, width=160)
-            gb.configure_grid_options(context=context)
-        gb.configure_selection(selection_mode="single", use_checkbox=False, pre_selected_rows=[], suppressRowClickSelection=False)
-        gb.configure_pagination(paginationAutoPageSize=False, paginationPageSize=10)
-        gb.configure_grid_options(domLayout='normal', rowHeight=40)
-        gridOptions = gb.build()
-        grid_response = AgGrid(
-            df_to_show,
-            gridOptions=gridOptions,
-            enable_enterprise_modules=False,
-            update_mode=GridUpdateMode.MODEL_CHANGED,
-            data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
-            fit_columns_on_grid_load=True,
-            allow_unsafe_jscode=True,
-            height=420,
-            theme="material"
-        )
-        selected = grid_response.get("selected_rows", [])
-        if selected:
-            sel = selected[0]
-            chosen_name = sel.get("Name") or next((v for k, v in sel.items() if k.lower() == "name"), None)
-            if chosen_name:
-                st.session_state["player_select"] = chosen_name
-    else:
-        st.warning("st-aggrid is not available in this environment. Falling back to Streamlit's built-in table editor and a selection control. To enable the richer table, add 'st-aggrid' to requirements.txt and redeploy.")
-        st.markdown("<div style='margin-bottom:6px;'></div>", unsafe_allow_html=True)
-        # Show styled dataframe for visual improvement, and a selectable list of visible names to preserve interactivity
-        display_preview = df_to_show.head(200).copy()
-        numeric_cols_preview = [c for c in ["Swing+", "ProjSwing+", "PowerIndex+"] if c in display_preview.columns]
-        for c in numeric_cols_preview:
-            display_preview[c] = pd.to_numeric(display_preview[c], errors="coerce").round(2)
-        st.dataframe(display_preview, use_container_width=True, height=420)
-        # Provide a selectbox populated by currently visible names to let user choose a player
-        visible_names = df_to_show["Name"].tolist()
-        if "player_select" not in st.session_state:
-            st.session_state["player_select"] = visible_names[0] if visible_names else None
-        chosen = st.selectbox("Select a player from visible rows", visible_names, index=visible_names.index(st.session_state["player_select"]) if st.session_state.get("player_select") in visible_names else 0)
-        st.session_state["player_select"] = chosen
+    st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
     st.markdown(
         """
@@ -330,15 +236,13 @@ with tab_main:
         )
         top_swing = df_filtered.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
         leaderboard_cols = [c for c in ["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] if c in top_swing.columns]
-        df_top_swing = top_swing[leaderboard_cols].rename(columns=rename_map if isinstance(rename_map, dict) else {})
-        if AGGRID_AVAILABLE:
-            gb2 = GridOptionsBuilder.from_dataframe(df_top_swing)
-            gb2.configure_default_column(filter=False, sortable=True, resizable=True)
-            gb2.configure_column("Swing+", cellRenderer=bar_js, width=220)
-            gb2.configure_selection(selection_mode="single", use_checkbox=False)
-            AgGrid(df_top_swing, gridOptions=gb2.build(), enable_enterprise_modules=False, update_mode=GridUpdateMode.NO_UPDATE, data_return_mode=DataReturnMode.FILTERED_AND_SORTED, fit_columns_on_grid_load=True, allow_unsafe_jscode=True, height=300, theme="material")
-        else:
-            st.table(df_top_swing)
+        st.dataframe(
+            top_swing[leaderboard_cols]
+            .style.background_gradient(subset=["Swing+"], cmap=elite_cmap)
+            .format(precision=1),
+            use_container_width=True,
+            hide_index=True
+        )
 
     with col2:
         st.markdown(
@@ -351,17 +255,15 @@ with tab_main:
         )
         top_proj = df_filtered.sort_values("ProjSwing+", ascending=False).head(10).reset_index(drop=True)
         leaderboard_cols = [c for c in ["Name", "Team", "Age", "ProjSwing+", "Swing+", "PowerIndex+"] if c in top_proj.columns]
-        df_top_proj = top_proj[leaderboard_cols].rename(columns=rename_map if isinstance(rename_map, dict) else {})
-        if AGGRID_AVAILABLE:
-            gb3 = GridOptionsBuilder.from_dataframe(df_top_proj)
-            gb3.configure_default_column(filter=False, sortable=True, resizable=True)
-            if "ProjSwing+" in df_top_proj.columns:
-                gb3.configure_column("ProjSwing+", cellRenderer=bar_js, width=220)
-            gb3.configure_selection(selection_mode="single", use_checkbox=False)
-            AgGrid(df_top_proj, gridOptions=gb3.build(), enable_enterprise_modules=False, update_mode=GridUpdateMode.NO_UPDATE, data_return_mode=DataReturnMode.FILTERED_AND_SORTED, fit_columns_on_grid_load=True, allow_unsafe_jscode=True, height=300, theme="material")
-        else:
-            st.table(df_top_proj)
+        st.dataframe(
+            top_proj[leaderboard_cols]
+            .style.background_gradient(subset=["ProjSwing+"], cmap=elite_cmap)
+            .format(precision=1),
+            use_container_width=True,
+            hide_index=True
+        )
 
+# ---------------- Player tab: Player Detail view ----------------
 with tab_player:
     st.markdown(
         """
@@ -372,17 +274,11 @@ with tab_player:
         unsafe_allow_html=True
     )
 
-    if "player_select" not in st.session_state:
-        st.session_state["player_select"] = sorted(df_filtered["Name"].unique())[0] if len(df_filtered) > 0 else None
-
     player_select = st.selectbox(
         "Select a Player",
         sorted(df_filtered["Name"].unique()),
-        index=sorted(df_filtered["Name"].unique()).index(st.session_state["player_select"]) if st.session_state.get("player_select") in sorted(df_filtered["Name"].unique()) else 0,
         key="player_select"
     )
-    st.session_state["player_select"] = player_select
-
     player_row = df[df["Name"] == player_select].iloc[0]
 
     headshot_size = 96
@@ -477,11 +373,14 @@ with tab_player:
     p_proj_rank = df.loc[df["Name"] == player_select, "ProjSwing+_rank"].iloc[0]
     p_power_rank = df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]
 
+    # New plus_color: color by rank (1 = reddest, max = bluest)
     def plus_color_by_rank(rank, total, start_hex="#D32F2F", end_hex="#3B82C4"):
+        # clamp
         if total <= 1:
             ratio = 0.0
         else:
-            ratio = (rank - 1) / (total - 1)
+            ratio = (rank - 1) / (total - 1)  # 0 => best (rank 1), 1 => worst
+        # We want rank=1 -> red (start_hex), rank=total -> blue (end_hex)
         def hex_to_rgb(h):
             h = h.lstrip("#")
             return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
@@ -494,6 +393,7 @@ with tab_player:
         rb = sb + (eb - sb) * ratio
         return rgb_to_hex((rr, rg, rb))
 
+    # Use colors computed from ranks so best players (rank=1) are redder, worst are bluer.
     swing_color = plus_color_by_rank(p_swing_rank, total_players)
     proj_color = plus_color_by_rank(p_proj_rank, total_players)
     power_color = plus_color_by_rank(p_power_rank, total_players)
@@ -573,6 +473,7 @@ with tab_player:
         "swing_length"
     ]
 
+    # ------------------- Load Swing+ model and create SHAP explainer -------------------
     model = None
     explainer = None
     model_loaded = False
@@ -612,8 +513,10 @@ with tab_player:
                 expected = list(model_obj.get_booster().feature_name())
         except Exception:
             expected = None
+
         if expected is None or len(expected) == 0:
             expected = list(feature_list_fallback)
+
         row = {}
         for feat in expected:
             if feat in player_row and pd.notna(player_row[feat]):
@@ -633,6 +536,7 @@ with tab_player:
                             row[feat] = 0.0
                     else:
                         row[feat] = 0.0
+
         X_raw = pd.DataFrame([row], columns=expected)
         for c in X_raw.columns:
             X_raw[c] = pd.to_numeric(X_raw[c], errors="coerce").astype(float)
@@ -643,6 +547,7 @@ with tab_player:
                     X_raw[c] = X_raw[c].fillna(0.0)
         return X_raw
 
+    # Compute SHAP values for the selected player (Swing+ only)
     shap_df = None
     shap_base = None
     shap_pred = None
@@ -653,6 +558,7 @@ with tab_player:
     if model_loaded and explainer is not None and len(mech_features_available) >= 2:
         try:
             X_player = prepare_model_input_for_player(player_row, mech_features_available, model, df_reference=df)
+
             try:
                 expected_names = None
                 if hasattr(model, "feature_name_") and model.feature_name_ is not None:
@@ -666,20 +572,24 @@ with tab_player:
                     raise ValueError(model_error)
             except Exception:
                 pass
+
             try:
                 shap_pred = float(model.predict(X_player)[0])
             except Exception:
                 shap_pred = float(model.predict(X_player.values.reshape(1, -1))[0])
+
             try:
                 shap_values = explainer(X_player)
             except Exception:
                 shap_values = explainer(X_player.values)
+
             if hasattr(shap_values, "values"):
                 shap_values_arr = np.array(shap_values.values).flatten()
                 shap_base = float(shap_values.base_values) if np.size(shap_values.base_values) == 1 else float(shap_values.base_values.flatten()[0])
             else:
                 shap_values_arr = np.array(shap_values).flatten()
                 shap_base = None
+
             shap_df = pd.DataFrame({
                 "feature": X_player.columns.tolist(),
                 "raw": [float(X_player.iloc[0][f]) if pd.notna(X_player.iloc[0][f]) else np.nan for f in X_player.columns],
@@ -689,10 +599,12 @@ with tab_player:
             total_abs = shap_df["abs_shap"].sum() if shap_df["abs_shap"].sum() != 0 else 1.0
             shap_df["pct_of_abs"] = shap_df["abs_shap"] / total_abs
             shap_df = shap_df.sort_values("abs_shap", ascending=False).reset_index(drop=True)
+
         except Exception as e:
             shap_df = None
             model_error = str(e)
 
+    # ------------------ Display Swing+ SHAP panel (interactive chart + table) ------------------
     st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
     st.markdown(
         """
@@ -721,12 +633,17 @@ with tab_player:
         else:
             TOP_SHOW = min(8, len(shap_df))
             df_plot_top = shap_df.head(TOP_SHOW).copy()
+            # Order by pct_of_abs descending so largest importance at top
             df_plot_top = df_plot_top.sort_values("pct_of_abs", ascending=False).reset_index(drop=True)
+
             y = df_plot_top["feature"].map(lambda x: FEATURE_LABELS.get(x, x)).tolist()
             x_vals = df_plot_top["shap_value"].astype(float).tolist()
             pct_vals = df_plot_top["pct_of_abs"].astype(float).tolist()
             colors = ["#D8573C" if float(v) > 0 else "#3B82C4" for v in x_vals]
+
+            # Keep text inside bars and show both contribution and percentage
             text_labels = [f"{val:.3f}  ({pct:.0%})" for val, pct in zip(x_vals, pct_vals)]
+
             fig = go.Figure()
             fig.add_trace(go.Bar(
                 x=x_vals,
@@ -763,12 +680,15 @@ with tab_player:
                 "shap_value": "Contribution",
                 "pct_of_abs": "PctImportance"
             })
+            # Round 'Value' to 2 decimal points as requested
             display_df["Value"] = display_df["Value"].apply(lambda v: f"{v:.2f}" if pd.notna(v) else "NaN")
             display_df["Contribution"] = display_df["Contribution"].apply(lambda v: f"{v:.3f}")
             display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
             display_df = display_df.reset_index(drop=True)
             st.dataframe(display_df, use_container_width=True, hide_index=True)
 
+    # ------------------ Mechanical similarity cluster (PLAYER-SPECIFIC) ------------------
+    # This block MUST be inside the player tab. It was previously leaking into the Glossary tab.
     name_col = "Name"
     TOP_N = 10
 
@@ -780,11 +700,13 @@ with tab_player:
             X_scaled = scaler.fit_transform(df_mech[mech_features_available])
             similarity_matrix = cosine_similarity(X_scaled)
             similarity_df = pd.DataFrame(similarity_matrix, index=df_mech[name_col], columns=df_mech[name_col])
+
             similar_players = (
                 similarity_df.loc[player_select]
                 .sort_values(ascending=False)
                 .iloc[1:TOP_N+1]
             )
+
             top_names = [player_select] + list(similar_players.index)
             sim_rows = []
             for sim_name in similar_players.index:
@@ -880,15 +802,18 @@ with tab_player:
                 unsafe_allow_html=True
             )
 
-            st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to <span style="font-weight:900;">{player_select}</span></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to <span style="font-weight:800;">{player_select}</span></div>', unsafe_allow_html=True)
             st.markdown('<div class="sim-list">', unsafe_allow_html=True)
 
             for idx, sim in enumerate(sim_rows, 1):
                 pct = max(0.0, min(1.0, float(sim['score'])))
                 width_pct = int(round(pct * 100))
+
                 start_color = "#D32F2F"
                 end_color = "#FFB648"
+
                 sim_pct_text = f"{pct:.1%}"
+
                 st.markdown(
                     f"""
                     <div class="sim-item">
@@ -924,31 +849,34 @@ with tab_player:
                 plt.yticks(fontsize=9)
                 plt.tight_layout()
                 st.pyplot(fig)
-
+                
+# ---------------- Glossary tab ----------------
 with tab_glossary:
     glossary = {
-        "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter's swing is compared to the league average. A score of 100 is average, while every 10 po...",
-        "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters w...",
-        "PowerIndex+": "A normalized measure of raw swing-driven power potential, built from metrics like bat speed, swing length, and attack angle. It represents how much force and lift a hitter's sw...",
-        "xwOBA (Expected Weighted On-Base Average)": "An advanced Statcast metric estimating a hitter's overall offensive quality based on exit velocity and launch angle. It reflects what a player's o...",
-        "Predicted xwOBA": "A model-generated estimate of expected offensive production using a player's swing or biomechanical data (rather than batted-ball outcomes). It predicts what a player's xwO...",
-        "Avg Bat Speed": "The average velocity of the bat head at the point of contact, measured in miles per hour. Higher bat speed typically translates to higher exit velocity and more power potenti...",
+        "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter's swing is compared to the league average. A score of 100 is average, while every 10 points above or below represents roughly one standard deviation. Higher values indicate more efficient, well-sequenced swings.",
+        "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters whose mechanical foundation and power potential suggest strong long-term growth.",
+        "PowerIndex+": "A normalized measure of raw swing-driven power potential, built from metrics like bat speed, swing length, and attack angle. It represents how much force and lift a hitter's swing can naturally generate, independent of game results.",
+        "xwOBA (Expected Weighted On-Base Average)": "An advanced Statcast metric estimating a hitter's overall offensive quality based on exit velocity and launch angle. It reflects what a player's on-base performance should be, given contact quality, rather than what actually happened.",
+        "Predicted xwOBA": "A model-generated estimate of expected offensive production using a player's swing or biomechanical data (rather than batted-ball outcomes). It predicts what a player's xwOBA would be based on their swing traits alone.",
+        "Avg Bat Speed": "The average velocity of the bat head at the point of contact, measured in miles per hour. Higher bat speed typically translates to higher exit velocity and more power potential.",
         "Avg Swing Length": "The average distance the bat travels from launch to contact. Longer swings can generate more leverage and power but may reduce contact consistency.",
-        "Avg Attack Angle": "The vertical angle of the bat's path at contact, measured relative to the ground. Positive values indicate an upward swing plane; moderate positive angles (around 10–20°)...",
-        "Avg Swing Tilt": "The overall body tilt or lateral bend during the swing. It reflects how the hitter's upper body moves through the swing plane, often influencing contact quality and pitch co...",
-        "Avg Attack Direction": "The horizontal direction of the bat's movement at contact — whether the swing path moves toward right field (positive) or left field (negative). It captures how the ...",
-        "Avg Intercept Y vs. Plate": "The vertical position (height) at which the bat's swing plane crosses the plate area. It helps identify how 'flat' or 'steep' a hitter's swing path is through the...",
-        "Avg Intercept Y vs. Batter": "The same intercept concept, but relative to the hitter's body position instead of the plate. It contextualizes swing height based on a hitter's individual setup ...",
-        "Avg Batter Y Pos": "The average vertical position of the hitter's body (typically the torso or bat knob) at the moment of contact. It helps quantify a hitter's posture and body control throug...",
-        "Avg Batter X Pos": "The average horizontal position of the bat or hands at contact, relative to the center of the plate. This reflects how far out in front or deep in the zone the hitter tend..."
+        "Avg Attack Angle": "The vertical angle of the bat's path at contact, measured relative to the ground. Positive values indicate an upward swing plane; moderate positive angles (around 10–20°) are generally optimal for line drives and power.",
+        "Avg Swing Tilt": "The overall body tilt or lateral bend during the swing. It reflects how the hitter's upper body moves through the swing plane, often influencing contact quality and pitch coverage.",
+        "Avg Attack Direction": "The horizontal direction of the bat's movement at contact — whether the swing path moves toward right field (positive) or left field (negative). It captures how the hitter matches their bat path to pitch location.",
+        "Avg Intercept Y vs. Plate": "The vertical position (height) at which the bat's swing plane crosses the plate area. It helps identify how 'flat' or 'steep' a hitter's swing path is through the hitting zone.",
+        "Avg Intercept Y vs. Batter": "The same intercept concept, but relative to the hitter's body position instead of the plate. It contextualizes swing height based on a hitter's individual setup and stance.",
+        "Avg Batter Y Pos": "The average vertical position of the hitter's body (typically the torso or bat knob) at the moment of contact. It helps quantify a hitter's posture and body control through the swing.",
+        "Avg Batter X Pos": "The average horizontal position of the bat or hands at contact, relative to the center of the plate. This reflects how far out in front or deep in the zone the hitter tends to make contact."
     }
 
     st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
     st.markdown('<div style="max-width:1200px;margin:0 auto;padding:0 12px;">', unsafe_allow_html=True)
 
+    # Search input
     q = st.text_input("Search terms...", value="", placeholder="Type to filter glossary (term or text)...")
     st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
 
+    # Build DataFrame for filtering
     gloss_df = pd.DataFrame([{"term": k, "definition": v} for k, v in glossary.items()])
     if q and q.strip():
         qn = q.strip().lower()
@@ -957,6 +885,7 @@ with tab_glossary:
     else:
         filtered = gloss_df.copy().reset_index(drop=True)
 
+    # Use columns instead of custom HTML grid
     cols_per_row = 3
     rows = [filtered.iloc[i:i+cols_per_row] for i in range(0, len(filtered), cols_per_row)]
     
@@ -977,6 +906,8 @@ with tab_glossary:
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
+        
+        # Add spacing between rows
         st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
 
     if filtered.shape[0] == 0:
