@@ -57,10 +57,14 @@ df = load_data(DATA_PATH)
 
 # =====================================================
 # Fix potential renamed column: avg_batter_position -> avg_batter_x_position
+# If the CSV contains avg_batter_position (old name) but code expects avg_batter_x_position,
+# create the expected column so downstream code works without changes.
+# Also handle the inverse if somehow only avg_batter_x_position exists but code expects avg_batter_position.
 # =====================================================
 if "avg_batter_position" in df.columns and "avg_batter_x_position" not in df.columns:
     df["avg_batter_x_position"] = df["avg_batter_position"]
 elif "avg_batter_x_position" in df.columns and "avg_batter_position" not in df.columns:
+    # keep both for safety
     df["avg_batter_position"] = df["avg_batter_x_position"]
 
 mlb_teams = [
@@ -148,50 +152,11 @@ if "batted_ball_events" in df.columns:
 main_cmap = "RdYlBu_r"
 elite_cmap = "Reds"
 
-# Check for player query parameter to determine default view
-params = st.experimental_get_query_params()
-qp_player = None
-if "player" in params and len(params["player"]) > 0:
-    try:
-        qp_player = unquote(params["player"][0])
-    except Exception:
-        qp_player = params["player"][0]
+# Create top-level tabs: Main (metrics + leaderboards), Player (detail), Glossary
+tab_main, tab_player, tab_glossary = st.tabs(["Main", "Player", "Glossary"])
 
-# Initialize session state for active view
-if "active_view" not in st.session_state:
-    if qp_player:
-        st.session_state.active_view = "Player"
-    else:
-        st.session_state.active_view = "Main"
-
-# Create radio button navigation that looks like tabs
-st.markdown("""
-<style>
-div[data-testid="stHorizontalBlock"] > div {
-    flex: 1;
-    text-align: center;
-}
-</style>
-""", unsafe_allow_html=True)
-
-col1, col2, col3 = st.columns(3)
-with col1:
-    if st.button("📊 Main", use_container_width=True, type="primary" if st.session_state.active_view == "Main" else "secondary"):
-        st.session_state.active_view = "Main"
-        st.rerun()
-with col2:
-    if st.button("👤 Player", use_container_width=True, type="primary" if st.session_state.active_view == "Player" else "secondary"):
-        st.session_state.active_view = "Player"
-        st.rerun()
-with col3:
-    if st.button("📖 Glossary", use_container_width=True, type="primary" if st.session_state.active_view == "Glossary" else "secondary"):
-        st.session_state.active_view = "Glossary"
-        st.rerun()
-
-st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
-
-# ---------------- Main view ----------------
-if st.session_state.active_view == "Main":
+# ---------------- Main tab: Metrics table and leaderboards ----------------
+with tab_main:
     st.markdown(
         """
         <h2 style="text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; letter-spacing:0.01em; color:#2a3757;">
@@ -210,6 +175,7 @@ if st.session_state.active_view == "Main":
         ] if c in df_filtered.columns
     ]
 
+    # Friendly display names for mechanical features
     FEATURE_LABELS = {
         "avg_bat_speed": "Avg Bat Speed (mph)",
         "swing_length": "Swing Length (m)",
@@ -230,6 +196,7 @@ if st.session_state.active_view == "Main":
         "est_woba": "xwOBA",
         "xwOBA_pred": "Predicted xwOBA"
     }
+    # extend rename_map with friendly names
     for k, v in FEATURE_LABELS.items():
         if k in df.columns:
             rename_map[k] = v
@@ -297,8 +264,8 @@ if st.session_state.active_view == "Main":
             hide_index=True
         )
 
-# ---------------- Player view ----------------
-elif st.session_state.active_view == "Player":
+# ---------------- Player tab: Player Detail view ----------------
+with tab_player:
     st.markdown(
         """
         <h2 style="text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; letter-spacing:0.01em; color:#2a3757;">
@@ -307,6 +274,15 @@ elif st.session_state.active_view == "Player":
         """,
         unsafe_allow_html=True
     )
+
+    # Allow deep-linking to a player via URL query param ?player=Player+Name
+    params = st.experimental_get_query_params()
+    qp_player = None
+    if "player" in params and len(params["player"]) > 0:
+        try:
+            qp_player = unquote(params["player"][0])
+        except Exception:
+            qp_player = params["player"][0]
 
     player_options = sorted(df_filtered["Name"].unique())
     default_index = 0
@@ -413,11 +389,14 @@ elif st.session_state.active_view == "Player":
     p_proj_rank = df.loc[df["Name"] == player_select, "ProjSwing+_rank"].iloc[0]
     p_power_rank = df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]
 
+    # New plus_color: color by rank (1 = reddest, max = bluest)
     def plus_color_by_rank(rank, total, start_hex="#D32F2F", end_hex="#3B82C4"):
+        # clamp
         if total <= 1:
             ratio = 0.0
         else:
-            ratio = (rank - 1) / (total - 1)
+            ratio = (rank - 1) / (total - 1)  # 0 => best (rank 1), 1 => worst
+        # We want rank=1 -> red (start_hex), rank=total -> blue (end_hex)
         def hex_to_rgb(h):
             h = h.lstrip("#")
             return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
@@ -430,6 +409,7 @@ elif st.session_state.active_view == "Player":
         rb = sb + (eb - sb) * ratio
         return rgb_to_hex((rr, rg, rb))
 
+    # Use colors computed from ranks so best players (rank=1) are redder, worst are bluer.
     swing_color = plus_color_by_rank(p_swing_rank, total_players)
     proj_color = plus_color_by_rank(p_proj_rank, total_players)
     power_color = plus_color_by_rank(p_power_rank, total_players)
@@ -509,7 +489,7 @@ elif st.session_state.active_view == "Player":
         "swing_length"
     ]
 
-    # Load Swing+ model and create SHAP explainer
+    # ------------------- Load Swing+ model and create SHAP explainer -------------------
     model = None
     explainer = None
     model_loaded = False
@@ -583,7 +563,7 @@ elif st.session_state.active_view == "Player":
                     X_raw[c] = X_raw[c].fillna(0.0)
         return X_raw
 
-    # Compute SHAP values for the selected player
+    # Compute SHAP values for the selected player (Swing+ only)
     shap_df = None
     shap_base = None
     shap_pred = None
@@ -640,7 +620,7 @@ elif st.session_state.active_view == "Player":
             shap_df = None
             model_error = str(e)
 
-    # Display Swing+ SHAP panel
+    # ------------------ Display Swing+ SHAP panel (interactive chart + table) ------------------
     st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
     st.markdown(
         """
@@ -653,18 +633,6 @@ elif st.session_state.active_view == "Player":
         """,
         unsafe_allow_html=True
     )
-
-    FEATURE_LABELS = {
-        "avg_bat_speed": "Avg Bat Speed (mph)",
-        "swing_length": "Swing Length (m)",
-        "attack_angle": "Attack Angle (°)",
-        "swing_tilt": "Swing Tilt (°)",
-        "attack_direction": "Attack Direction",
-        "avg_intercept_y_vs_plate": "Intercept Y vs Plate",
-        "avg_intercept_y_vs_batter": "Intercept Y vs Batter",
-        "avg_batter_y_position": "Batter Y Pos",
-        "avg_batter_x_position": "Batter X Pos"
-    }
 
     col1, col2 = st.columns([1, 1])
 
@@ -681,6 +649,7 @@ elif st.session_state.active_view == "Player":
         else:
             TOP_SHOW = min(8, len(shap_df))
             df_plot_top = shap_df.head(TOP_SHOW).copy()
+            # Order by pct_of_abs descending so largest importance at top
             df_plot_top = df_plot_top.sort_values("pct_of_abs", ascending=False).reset_index(drop=True)
 
             y = df_plot_top["feature"].map(lambda x: FEATURE_LABELS.get(x, x)).tolist()
@@ -688,6 +657,7 @@ elif st.session_state.active_view == "Player":
             pct_vals = df_plot_top["pct_of_abs"].astype(float).tolist()
             colors = ["#D8573C" if float(v) > 0 else "#3B82C4" for v in x_vals]
 
+            # Keep text inside bars and show both contribution and percentage
             text_labels = [f"{val:.3f}  ({pct:.0%})" for val, pct in zip(x_vals, pct_vals)]
 
             fig = go.Figure()
@@ -726,13 +696,15 @@ elif st.session_state.active_view == "Player":
                 "shap_value": "Contribution",
                 "pct_of_abs": "PctImportance"
             })
+            # Round 'Value' to 2 decimal points as requested
             display_df["Value"] = display_df["Value"].apply(lambda v: f"{v:.2f}" if pd.notna(v) else "NaN")
             display_df["Contribution"] = display_df["Contribution"].apply(lambda v: f"{v:.3f}")
             display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
             display_df = display_df.reset_index(drop=True)
             st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-    # Mechanical similarity cluster
+    # ------------------ Mechanical similarity cluster (PLAYER-SPECIFIC) ------------------
+    # This block MUST be inside the player tab. It was previously leaking into the Glossary tab.
     name_col = "Name"
     TOP_N = 10
 
@@ -840,10 +812,6 @@ elif st.session_state.active_view == "Player":
                     color: inherit;
                     text-decoration: none;
                     font-weight: 700;
-                    cursor: pointer;
-                }
-                .sim-link:hover {
-                    color: #3B82C4;
                 }
                 @media (max-width: 1100px) {
                     .sim-container { max-width: 92%; }
@@ -867,15 +835,16 @@ elif st.session_state.active_view == "Player":
 
                 sim_pct_text = f"{pct:.1%}"
 
-                # Create a button-like link that uses session state
-                player_link_id = f"player_link_{idx}_{sim['name'].replace(' ', '_')}"
-                
+                # Make the player name a clickable link that deep-links to the player page via query param.
+                # The link points to the same page with ?player=Player+Name (URL-encoded).
+                player_link = f"?player={quote(sim['name'])}"
+
                 st.markdown(
                     f"""
                     <div class="sim-item">
                         <div class="sim-rank">{idx}</div>
                         <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                        <div class="sim-name-compact"><span class="sim-link" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: '{sim['name']}'}}, '*')">{sim['name']}</span></div>
+                        <div class="sim-name-compact"><a class="sim-link" href="{player_link}">{sim['name']}</a></div>
                         <div class="sim-score-compact">{sim_pct_text}</div>
                         <div class="sim-bar-mini" aria-hidden="true">
                             <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
@@ -884,12 +853,6 @@ elif st.session_state.active_view == "Player":
                     """,
                     unsafe_allow_html=True
                 )
-                
-                # Add hidden button for each player
-                if st.button(f"btn_{sim['name']}", key=player_link_id, type="secondary", help=f"View {sim['name']}", use_container_width=False):
-                    st.experimental_set_query_params(player=sim['name'])
-                    st.session_state.active_view = "Player"
-                    st.rerun()
 
             st.markdown('</div></div>', unsafe_allow_html=True)
 
@@ -911,9 +874,9 @@ elif st.session_state.active_view == "Player":
                 plt.yticks(fontsize=9)
                 plt.tight_layout()
                 st.pyplot(fig)
-
-# ---------------- Glossary view ----------------
-elif st.session_state.active_view == "Glossary":
+                
+# ---------------- Glossary tab ----------------
+with tab_glossary:
     glossary = {
         "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter's swing is compared to the league average. A score of 100 is average, while every 10 points is one standard deviation.",
         "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters who show both efficient mechanics and physical attributes that suggest future growth.",
@@ -934,9 +897,11 @@ elif st.session_state.active_view == "Glossary":
     st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
     st.markdown('<div style="max-width:1200px;margin:0 auto;padding:0 12px;">', unsafe_allow_html=True)
 
+    # Search input
     q = st.text_input("Search terms...", value="", placeholder="Type to filter glossary (term or text)...")
     st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
 
+    # Build DataFrame for filtering
     gloss_df = pd.DataFrame([{"term": k, "definition": v} for k, v in glossary.items()])
     if q and q.strip():
         qn = q.strip().lower()
@@ -945,6 +910,7 @@ elif st.session_state.active_view == "Glossary":
     else:
         filtered = gloss_df.copy().reset_index(drop=True)
 
+    # Use columns instead of custom HTML grid
     cols_per_row = 3
     rows = [filtered.iloc[i:i+cols_per_row] for i in range(0, len(filtered), cols_per_row)]
     
@@ -966,6 +932,7 @@ elif st.session_state.active_view == "Glossary":
                     </div>
                     """, unsafe_allow_html=True)
         
+        # Add spacing between rows
         st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
 
     if filtered.shape[0] == 0:
