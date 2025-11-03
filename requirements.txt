@@ -8,3 +8,4 @@ seaborn
 joblib
 shap
 lightgbm
+st_aggrid
