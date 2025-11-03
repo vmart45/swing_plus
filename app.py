@@ -75,7 +75,7 @@ elif "avg_batter_x_position" in df.columns and "avg_batter_position" not in df.c
 
 mlb_teams = [
     {"team": "AZ", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/ari.png&h=500&w=500"},
-    {"team": "LIC", "logo_url": "https://en.wikipedia.org/wiki/File:Tigres_Del_Licey_Logo.png#/media/File:Tigres_Del_Licey_Logo.png"},
+    {"team": "LIC", "logo_url": "<p><a href="https://en.wikipedia.org/wiki/File:Tigres_Del_Licey_Logo.png#/media/File:Tigres_Del_Licey_Logo.png"><img src="https://upload.wikimedia.org/wikipedia/en/0/07/Tigres_Del_Licey_Logo.png" alt="File:Tigres Del Licey Logo.png" height="300" width="280"></a><br>By The logo is from the following website: www.licey.com, <a href="//en.wikipedia.org/wiki/File:Tigres_Del_Licey_Logo.png" title="Fair use of copyrighted material in the context of Tigres del Licey">Fair use</a>, <a href="https://en.wikipedia.org/w/index.php?curid=16296519">Link</a></p>"},
     {"team": "ATL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/atl.png&h=500&w=500"},
     {"team": "BAL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/bal.png&h=500&w=500"},
     {"team": "BOS", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/bos.png&h=500&w=500"},
