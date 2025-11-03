@@ -973,24 +973,40 @@ components.html(
             const params = new URLSearchParams(window.location.search);
             const p = params.get('player');
             if (p) {
-                // Wait for Streamlit to render and then click the Player tab button.
-                const maxAttempts = 80;
-                let attempts = 0;
-                const t = setInterval(() => {
-                    attempts += 1;
+                // Use MutationObserver to wait for tabs to be fully rendered
+                let tabClicked = false;
+                const observer = new MutationObserver(() => {
+                    if (tabClicked) return;
+                    
                     const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
-                    if (tabs && tabs.length > 0) {
-                        // find the Player tab (case-insensitive)
+                    if (tabs && tabs.length >= 3) {
+                        // find the Player tab (should be second tab, index 1)
                         const playerTab = tabs.find(t => (t.innerText || t.textContent || '').trim().toLowerCase() === 'player');
-                        if (playerTab) {
+                        if (playerTab && !playerTab.getAttribute('aria-selected')) {
+                            // Only click if not already selected
                             playerTab.click();
-                            clearInterval(t);
+                            tabClicked = true;
+                            observer.disconnect();
+                        } else if (playerTab && playerTab.getAttribute('aria-selected') === 'true') {
+                            // Already on player tab, just disconnect observer
+                            tabClicked = true;
+                            observer.disconnect();
                         }
                     }
-                    if (attempts >= maxAttempts) {
-                        clearInterval(t);
+                });
+                
+                // Start observing
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true
+                });
+                
+                // Fallback: disconnect after 5 seconds
+                setTimeout(() => {
+                    if (!tabClicked) {
+                        observer.disconnect();
                     }
-                }, 120); // try every 120ms for up to ~9.6s
+                }, 5000);
             }
         } catch (e) {
             // noop
