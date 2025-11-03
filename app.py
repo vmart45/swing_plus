@@ -155,38 +155,6 @@ elite_cmap = "Reds"
 # Create top-level tabs: Main (metrics + leaderboards), Player (detail), Glossary
 tab_main, tab_player, tab_glossary = st.tabs(["Main", "Player", "Glossary"])
 
-# Inject JavaScript that, on page load, will switch to the Player tab if a `player` query param is present.
-# It also ensures that if a link with ?player=... is clicked (target _self), the tab will be activated on reload.
-components.html(
-    """
-    <script>
-    (function(){
-        try {
-            const params = new URLSearchParams(window.location.search);
-            const p = params.get('player');
-            if (p) {
-                // Find the tab button labeled "Player" and click it
-                const observer = new MutationObserver((mutations, obs) => {
-                    const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
-                    if (tabs && tabs.length>0) {
-                        const playerTab = tabs.find(t => (t.innerText || t.textContent || '').trim().toLowerCase() === 'player');
-                        if (playerTab) {
-                            playerTab.click();
-                            obs.disconnect();
-                        }
-                    }
-                });
-                observer.observe(document, { childList: true, subtree: true });
-            }
-        } catch (e) {
-            // noop
-        }
-    })();
-    </script>
-    """,
-    height=0,
-)
-
 # ---------------- Main tab: Metrics table and leaderboards ----------------
 with tab_main:
     st.markdown(
@@ -876,7 +844,7 @@ with tab_player:
                     <div class="sim-item">
                         <div class="sim-rank">{idx}</div>
                         <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                        <div class="sim-name-compact"><a class="sim-link" href="{player_link}" target="_self">{sim['name']}</a></div>
+                        <div class="sim-name-compact"><a class="sim-link" href="{player_link}" target="_self" rel="noopener noreferrer">{sim['name']}</a></div>
                         <div class="sim-score-compact">{sim_pct_text}</div>
                         <div class="sim-bar-mini" aria-hidden="true">
                             <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
@@ -906,7 +874,7 @@ with tab_player:
                 plt.yticks(fontsize=9)
                 plt.tight_layout()
                 st.pyplot(fig)
-                
+
 # ---------------- Glossary tab ----------------
 with tab_glossary:
     glossary = {
@@ -971,3 +939,64 @@ with tab_glossary:
         st.info("No matching terms found.")
 
     st.markdown("</div>", unsafe_allow_html=True)
+
+# Inject JavaScript at the end of the page so it runs after Streamlit has rendered the tabs.
+# This script:
+# - When a link with ?player=... is clicked, it will update the location.search (same-tab navigation).
+# - On page load it will check for ?player=... and click the "Player" tab after Streamlit renders the tab buttons.
+components.html(
+    """
+    <script>
+    (function(){
+        try {
+            // Intercept clicks on anchor links that include ?player=... so they navigate in the same tab without target=_blank behavior.
+            document.addEventListener('click', function(e) {
+                var el = e.target;
+                // climb up until anchor or body
+                while (el && el.tagName !== 'A' && el !== document.body) {
+                    el = el.parentElement;
+                }
+                if (!el || el.tagName !== 'A') return;
+                var href = el.getAttribute('href') || '';
+                if (href.indexOf('?player=') !== -1) {
+                    // allow Streamlit to handle same-tab navigation by setting location.search
+                    e.preventDefault();
+                    // replace preserves session history better than assign
+                    window.location.href = href;
+                }
+            }, true);
+        } catch (e) {
+            // noop
+        }
+
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const p = params.get('player');
+            if (p) {
+                // Wait for Streamlit to render and then click the Player tab button.
+                const maxAttempts = 80;
+                let attempts = 0;
+                const t = setInterval(() => {
+                    attempts += 1;
+                    const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
+                    if (tabs && tabs.length > 0) {
+                        // find the Player tab (case-insensitive)
+                        const playerTab = tabs.find(t => (t.innerText || t.textContent || '').trim().toLowerCase() === 'player');
+                        if (playerTab) {
+                            playerTab.click();
+                            clearInterval(t);
+                        }
+                    }
+                    if (attempts >= maxAttempts) {
+                        clearInterval(t);
+                    }
+                }, 120); // try every 120ms for up to ~9.6s
+            }
+        } catch (e) {
+            // noop
+        }
+    })();
+    </script>
+    """,
+    height=0,
+)
