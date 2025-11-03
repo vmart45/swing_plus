@@ -864,14 +864,6 @@ elif page == "Player":
             st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to <span style="font-weight:800;">{player_select}</span></div>', unsafe_allow_html=True)
             st.markdown('<div class="sim-list">', unsafe_allow_html=True)
 
-            # Build a safe base path for anchors (current pathname)
-            current_path = st.experimental_get_query_params().get("_path", [None])[0] if "_path" in st.experimental_get_query_params() else ""
-            if not current_path:
-                # fallback to window-like behavior by leaving href starting with '?'
-                base_href_prefix = ""
-            else:
-                base_href_prefix = current_path
-
             for idx, sim in enumerate(sim_rows, 1):
                 pct = max(0.0, min(1.0, float(sim['score'])))
                 width_pct = int(round(pct * 100))
@@ -881,8 +873,6 @@ elif page == "Player":
 
                 sim_pct_text = f"{pct:.1%}"
 
-                # Link will set both player and page query params so the app will show Player page by default on navigation.
-                # Use inline onclick to force same-tab navigation (no new tab)
                 player_query = f"player={quote(sim['name'])}&page=Player"
                 href = f"?{player_query}"
 
@@ -892,7 +882,7 @@ elif page == "Player":
                         <div class="sim-rank">{idx}</div>
                         <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
                         <div class="sim-name-compact">
-                            <a class="sim-link" href="{href}" onclick="window.location.href='{href}'; return false;">{sim['name']}</a>
+                            <a class="sim-link" href="{href}" onclick="window.history.pushState(null,'','{href}'); window.location.reload(); return false;">{sim['name']}</a>
                         </div>
                         <div class="sim-score-compact">{sim_pct_text}</div>
                         <div class="sim-bar-mini" aria-hidden="true">
@@ -994,28 +984,34 @@ components.html(
     """
     <script>
     (function() {
-        // Ensure clicks on anchors with ?player=... don't open new tabs.
-        // Most browsers open same-tab by default; this prevents external behaviors.
+        // Intercept clicks on links with ?player=... and ensure same-tab navigation.
+        // Use history.pushState then reload to let Streamlit pick up query params without opening a new tab.
         document.addEventListener('click', function(e) {
             try {
                 var el = e.target;
                 while (el && el.tagName !== 'A' && el !== document.body) el = el.parentElement;
                 if (!el || el.tagName !== 'A') return;
                 var href = el.getAttribute('href') || '';
-                if (href.indexOf('?player=') !== -1) {
-                    // prevent any default that might open a new tab, force same-tab navigation
-                    e.preventDefault();
-                    // update location in same tab
-                    window.location.href = href;
+                if (!href.includes('?player=')) return;
+                e.preventDefault();
+                // Use pushState to update URL in same tab, then reload the page so Streamlit reads new params.
+                var newUrl = href.startsWith('?') ? window.location.pathname + href : href;
+                try {
+                    history.pushState(null, '', newUrl);
+                } catch (err) {
+                    // ignore pushState errors
+                    window.location.href = newUrl;
+                    return;
                 }
+                // Small timeout to ensure history updated before reload
+                setTimeout(function(){
+                    window.location.reload();
+                }, 50);
             } catch (err) {
-                // noop
+                // fallback to default navigation if anything fails
+                try { window.location.href = href; } catch(e) {}
             }
         }, true);
-        // Handle back/forward navigation so ?player= opens Player page (radio respects query param on reload)
-        window.addEventListener('popstate', function() {
-            // no-op here; Streamlit reload will handle reading query params
-        });
     })();
     </script>
     """,
