@@ -155,6 +155,38 @@ elite_cmap = "Reds"
 # Create top-level tabs: Main (metrics + leaderboards), Player (detail), Glossary
 tab_main, tab_player, tab_glossary = st.tabs(["Main", "Player", "Glossary"])
 
+# Inject JavaScript that, on page load, will switch to the Player tab if a `player` query param is present.
+# It also ensures that if a link with ?player=... is clicked (target _self), the tab will be activated on reload.
+components.html(
+    """
+    <script>
+    (function(){
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const p = params.get('player');
+            if (p) {
+                // Find the tab button labeled "Player" and click it
+                const observer = new MutationObserver((mutations, obs) => {
+                    const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
+                    if (tabs && tabs.length>0) {
+                        const playerTab = tabs.find(t => (t.innerText || t.textContent || '').trim().toLowerCase() === 'player');
+                        if (playerTab) {
+                            playerTab.click();
+                            obs.disconnect();
+                        }
+                    }
+                });
+                observer.observe(document, { childList: true, subtree: true });
+            }
+        } catch (e) {
+            // noop
+        }
+    })();
+    </script>
+    """,
+    height=0,
+)
+
 # ---------------- Main tab: Metrics table and leaderboards ----------------
 with tab_main:
     st.markdown(
@@ -836,7 +868,7 @@ with tab_player:
                 sim_pct_text = f"{pct:.1%}"
 
                 # Make the player name a clickable link that deep-links to the player page via query param.
-                # The link points to the same page with ?player=Player+Name (URL-encoded).
+                # The link points to the same page with ?player=Player+Name (URL-encoded) and opens in the same tab.
                 player_link = f"?player={quote(sim['name'])}"
 
                 st.markdown(
@@ -844,7 +876,7 @@ with tab_player:
                     <div class="sim-item">
                         <div class="sim-rank">{idx}</div>
                         <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                        <div class="sim-name-compact"><a class="sim-link" href="{player_link}">{sim['name']}</a></div>
+                        <div class="sim-name-compact"><a class="sim-link" href="{player_link}" target="_self">{sim['name']}</a></div>
                         <div class="sim-score-compact">{sim_pct_text}</div>
                         <div class="sim-bar-mini" aria-hidden="true">
                             <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
