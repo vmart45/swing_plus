@@ -949,7 +949,7 @@ components.html(
     <script>
     (function(){
         try {
-            // Intercept clicks on anchor links that include ?player=... so they navigate in the same tab without target=_blank behavior.
+            // Intercept clicks on anchor links that include ?player=... so they navigate in the same tab
             document.addEventListener('click', function(e) {
                 var el = e.target;
                 // climb up until anchor or body
@@ -959,9 +959,7 @@ components.html(
                 if (!el || el.tagName !== 'A') return;
                 var href = el.getAttribute('href') || '';
                 if (href.indexOf('?player=') !== -1) {
-                    // allow Streamlit to handle same-tab navigation by setting location.search
                     e.preventDefault();
-                    // replace preserves session history better than assign
                     window.location.href = href;
                 }
             }, true);
@@ -973,40 +971,54 @@ components.html(
             const params = new URLSearchParams(window.location.search);
             const p = params.get('player');
             if (p) {
-                // Use MutationObserver to wait for tabs to be fully rendered
-                let tabClicked = false;
-                const observer = new MutationObserver(() => {
-                    if (tabClicked) return;
-                    
+                // Aggressively click Player tab as soon as possible
+                let clicked = false;
+                
+                // Immediate attempt
+                const attemptClick = () => {
+                    if (clicked) return true;
                     const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
-                    if (tabs && tabs.length >= 3) {
-                        // find the Player tab (should be second tab, index 1)
-                        const playerTab = tabs.find(t => (t.innerText || t.textContent || '').trim().toLowerCase() === 'player');
-                        if (playerTab && !playerTab.getAttribute('aria-selected')) {
-                            // Only click if not already selected
+                    if (tabs && tabs.length >= 2) {
+                        const playerTab = tabs[1]; // Player is second tab (index 1)
+                        if (playerTab) {
                             playerTab.click();
-                            tabClicked = true;
-                            observer.disconnect();
-                        } else if (playerTab && playerTab.getAttribute('aria-selected') === 'true') {
-                            // Already on player tab, just disconnect observer
-                            tabClicked = true;
-                            observer.disconnect();
+                            clicked = true;
+                            return true;
                         }
                     }
-                });
+                    return false;
+                };
                 
-                // Start observing
-                observer.observe(document.body, {
-                    childList: true,
-                    subtree: true
-                });
+                // Try immediately
+                attemptClick();
                 
-                // Fallback: disconnect after 5 seconds
-                setTimeout(() => {
-                    if (!tabClicked) {
+                // If not successful, use both MutationObserver and rapid polling
+                if (!clicked) {
+                    // Rapid polling for first 500ms
+                    let pollCount = 0;
+                    const rapidPoll = setInterval(() => {
+                        if (attemptClick() || pollCount++ > 50) {
+                            clearInterval(rapidPoll);
+                        }
+                    }, 10);
+                    
+                    // MutationObserver as backup
+                    const observer = new MutationObserver(() => {
+                        if (attemptClick()) {
+                            observer.disconnect();
+                        }
+                    });
+                    
+                    observer.observe(document.body, {
+                        childList: true,
+                        subtree: true
+                    });
+                    
+                    // Cleanup after 3 seconds
+                    setTimeout(() => {
                         observer.disconnect();
-                    }
-                }, 5000);
+                    }, 3000);
+                }
             }
         } catch (e) {
             // noop
