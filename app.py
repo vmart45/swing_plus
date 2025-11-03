@@ -109,6 +109,19 @@ extra_cols = [
 ]
 metric_extras = ["est_woba", "xwOBA_pred"]
 
+# Friendly display names for mechanical features (moved to module level so available everywhere)
+FEATURE_LABELS = {
+    "avg_bat_speed": "Avg Bat Speed (mph)",
+    "swing_length": "Swing Length (m)",
+    "attack_angle": "Attack Angle (°)",
+    "swing_tilt": "Swing Tilt (°)",
+    "attack_direction": "Attack Direction",
+    "avg_intercept_y_vs_plate": "Intercept Y vs Plate",
+    "avg_intercept_y_vs_batter": "Intercept Y vs Batter",
+    "avg_batter_y_position": "Batter Y Pos",
+    "avg_batter_x_position": "Batter X Pos"
+}
+
 if "id" in df.columns:
     core_cols = ["id"] + core_cols
 if "Team" in df.columns and "Team" not in core_cols:
@@ -152,11 +165,50 @@ if "batted_ball_events" in df.columns:
 main_cmap = "RdYlBu_r"
 elite_cmap = "Reds"
 
-# Create top-level tabs: Main (metrics + leaderboards), Player (detail), Glossary
-tab_main, tab_player, tab_glossary = st.tabs(["Main", "Player", "Glossary"])
+# --- New navigation approach:
+# Use a radio (or horizontal buttons) to control top-level page so we can programmatically select Player when ?player= is present.
+# Read query params to set defaults.
+params = st.experimental_get_query_params()
+qp_player = None
+if "player" in params and len(params["player"]) > 0:
+    try:
+        qp_player = unquote(params["player"][0])
+    except Exception:
+        qp_player = params["player"][0]
 
-# ---------------- Main tab: Metrics table and leaderboards ----------------
-with tab_main:
+# If "page" query param present, respect it. Otherwise, if player param present, default to Player page.
+qp_page = None
+if "page" in params and len(params["page"]) > 0:
+    try:
+        qp_page = unquote(params["page"][0])
+    except Exception:
+        qp_page = params["page"][0]
+
+page_options = ["Main", "Player", "Glossary"]
+default_page = 0
+if qp_page and qp_page in page_options:
+    default_page = page_options.index(qp_page)
+elif qp_player:
+    default_page = page_options.index("Player")
+
+# Render top-level navigation as horizontal radio at top of the app
+st.markdown("<div style='display:flex;justify-content:center;margin-bottom:6px;'>", unsafe_allow_html=True)
+page = st.radio("", page_options, index=default_page, horizontal=True, key="top_nav")
+st.markdown("</div>", unsafe_allow_html=True)
+
+# Helper to update query params when user selects player via click or selectionbox
+def set_player_query(player_name):
+    try:
+        st.experimental_set_query_params(player=player_name, page="Player")
+    except Exception:
+        # fallback: set only player
+        try:
+            st.experimental_set_query_params(player=player_name)
+        except Exception:
+            pass
+
+# ---------------- Main tab content ----------------
+if page == "Main":
     st.markdown(
         """
         <h2 style="text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; letter-spacing:0.01em; color:#2a3757;">
@@ -174,19 +226,6 @@ with tab_main:
             "avg_intercept_y_vs_plate", "avg_intercept_y_vs_batter", "avg_batter_y_position", "avg_batter_x_position"
         ] if c in df_filtered.columns
     ]
-
-    # Friendly display names for mechanical features
-    FEATURE_LABELS = {
-        "avg_bat_speed": "Avg Bat Speed (mph)",
-        "swing_length": "Swing Length (m)",
-        "attack_angle": "Attack Angle (°)",
-        "swing_tilt": "Swing Tilt (°)",
-        "attack_direction": "Attack Direction",
-        "avg_intercept_y_vs_plate": "Intercept Y vs Plate",
-        "avg_intercept_y_vs_batter": "Intercept Y vs Batter",
-        "avg_batter_y_position": "Batter Y Pos",
-        "avg_batter_x_position": "Batter X Pos"
-    }
 
     rename_map = {
         "Team": "Team",
@@ -264,8 +303,8 @@ with tab_main:
             hide_index=True
         )
 
-# ---------------- Player tab: Player Detail view ----------------
-with tab_player:
+# ---------------- Player tab content ----------------
+elif page == "Player":
     st.markdown(
         """
         <h2 style="text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; letter-spacing:0.01em; color:#2a3757;">
@@ -275,26 +314,25 @@ with tab_player:
         unsafe_allow_html=True
     )
 
-    # Allow deep-linking to a player via URL query param ?player=Player+Name
-    params = st.experimental_get_query_params()
-    qp_player = None
-    if "player" in params and len(params["player"]) > 0:
-        try:
-            qp_player = unquote(params["player"][0])
-        except Exception:
-            qp_player = params["player"][0]
-
+    # Build player options from filtered df
     player_options = sorted(df_filtered["Name"].unique())
+
+    # Determine default player: from query param or first in list
     default_index = 0
     if qp_player and qp_player in player_options:
         default_index = player_options.index(qp_player)
 
+    # Use selectbox for player selection; when changed, update query params so link clicks / back-forward work
     player_select = st.selectbox(
         "Select a Player",
         player_options,
         key="player_select",
-        index=default_index
+        index=default_index,
     )
+    # Keep query in sync when user changes selection manually
+    if st.session_state.get("player_select") and (qp_player != st.session_state["player_select"]):
+        set_player_query(st.session_state["player_select"])
+
     player_row = df[df["Name"] == player_select].iloc[0]
 
     headshot_size = 96
@@ -652,6 +690,7 @@ with tab_player:
             # Order by pct_of_abs descending so largest importance at top
             df_plot_top = df_plot_top.sort_values("pct_of_abs", ascending=False).reset_index(drop=True)
 
+            # Use the module-level FEATURE_LABELS mapping
             y = df_plot_top["feature"].map(lambda x: FEATURE_LABELS.get(x, x)).tolist()
             x_vals = df_plot_top["shap_value"].astype(float).tolist()
             pct_vals = df_plot_top["pct_of_abs"].astype(float).tolist()
@@ -696,7 +735,7 @@ with tab_player:
                 "shap_value": "Contribution",
                 "pct_of_abs": "PctImportance"
             })
-            # Round 'Value' to 2 decimal points as requested
+            # Round 'Value' to 2 decimal points
             display_df["Value"] = display_df["Value"].apply(lambda v: f"{v:.2f}" if pd.notna(v) else "NaN")
             display_df["Contribution"] = display_df["Contribution"].apply(lambda v: f"{v:.3f}")
             display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
@@ -704,7 +743,6 @@ with tab_player:
             st.dataframe(display_df, use_container_width=True, hide_index=True)
 
     # ------------------ Mechanical similarity cluster (PLAYER-SPECIFIC) ------------------
-    # This block MUST be inside the player tab. It was previously leaking into the Glossary tab.
     name_col = "Name"
     TOP_N = 10
 
@@ -835,9 +873,8 @@ with tab_player:
 
                 sim_pct_text = f"{pct:.1%}"
 
-                # Make the player name a clickable link that deep-links to the player page via query param.
-                # The link points to the same page with ?player=Player+Name (URL-encoded).
-                player_link = f"?player={quote(sim['name'])}"
+                # Link will set both player and page query params so the app will show Player page by default on navigation.
+                player_link = f"?player={quote(sim['name'])}&page=Player"
 
                 st.markdown(
                     f"""
@@ -874,9 +911,9 @@ with tab_player:
                 plt.yticks(fontsize=9)
                 plt.tight_layout()
                 st.pyplot(fig)
-                
-# ---------------- Glossary tab ----------------
-with tab_glossary:
+
+# ---------------- Glossary tab content ----------------
+else:  # Glossary
     glossary = {
         "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter's swing is compared to the league average. A score of 100 is average, while every 10 points is one standard deviation.",
         "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters who show both efficient mechanics and physical attributes that suggest future growth.",
@@ -939,3 +976,28 @@ with tab_glossary:
         st.info("No matching terms found.")
 
     st.markdown("</div>", unsafe_allow_html=True)
+
+# --- Add a small JS helper so clicking similarity links updates URL and stays in same tab.
+components.html(
+    """
+    <script>
+    (function() {
+        document.addEventListener('click', function(e) {
+            try {
+                var el = e.target;
+                while (el && el.tagName !== 'A' && el !== document.body) el = el.parentElement;
+                if (!el || el.tagName !== 'A') return;
+                var href = el.getAttribute('href') || '';
+                if (href.indexOf('?player=') !== -1 && href.indexOf('page=Player') !== -1) {
+                    // same-tab navigation: update location to the target URL (this triggers Streamlit to reload)
+                    e.preventDefault();
+                    window.location.assign(href);
+                }
+            } catch (err) {
+                // noop
+            }
+        }, true);
+    })();
+    """,
+    height=0
+)
