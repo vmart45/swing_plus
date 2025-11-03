@@ -209,20 +209,18 @@ with tab_main:
 
     numeric_cols = [c for c in ["Swing+", "ProjSwing+", "PowerIndex+"] if c in df_to_show.columns]
 
-    # create a simple numeric renderer (bold numbers, no bars)
     bold_number_js = JsCode("""
     class BoldNumber {
       init(params) {
         this.eGui = document.createElement('div');
         const v = params.value;
         const display = (v === null || v === undefined || isNaN(v)) ? '' : Number(v).toFixed(2);
-        this.eGui.innerHTML = `<div style="font-weight:800;color:#1F3A57;padding:6px 8px;text-align:right;">${display}</div>`;
+        this.eGui.innerHTML = `<div style="font-weight:800;color:#1F3A57;padding:8px 12px;text-align:right;">${display}</div>`;
       }
       getGui(){ return this.eGui; }
     }
     """)
 
-    # team renderer (logo + code)
     team_js = JsCode("""
     class TeamCell {
       init(params) {
@@ -231,9 +229,9 @@ with tab_main:
         const map = params.context && params.context.team_logo_map ? params.context.team_logo_map : {};
         const url = map[team] || '';
         this.eGui.innerHTML = `
-          <div style="display:flex;align-items:center;gap:8px;">
-            ${url ? `<img src="${url}" style="height:28px;width:28px;border-radius:6px;object-fit:cover;"/>` : ''}
-            <div style="font-weight:700;color:#183153;">${team || ''}</div>
+          <div style="display:flex;align-items:center;gap:12px;padding:6px;">
+            ${url ? `<img src="${url}" style="height:34px;width:34px;border-radius:6px;object-fit:cover;"/>` : ''}
+            <div style="font-weight:800;color:#183153;font-size:14px;">${team || ''}</div>
           </div>
         `;
       }
@@ -243,17 +241,22 @@ with tab_main:
 
     if AGGRID_AVAILABLE:
         gb = GridOptionsBuilder.from_dataframe(df_to_show)
-        gb.configure_default_column(filter=True, sortable=True, resizable=True, suppressMenu=False, wrapText=False, minWidth=80)
-        for col in numeric_cols:
-            gb.configure_column(col, cellRenderer=bold_number_js, width=140)
+        gb.configure_default_column(filter=True, sortable=True, resizable=True, suppressMenu=False, wrapText=False, minWidth=120)
+        # Use larger header and spacing so column names remain visible and not truncated
+        gb.configure_grid_options(headerHeight=56, rowHeight=56, enableBrowserTooltips=True)
+        # Set sensible widths for key columns and keep columns scrollable (don't force-fit)
+        if "Name" in df_to_show.columns:
+            gb.configure_column("Name", minWidth=220, suppressSizeToFit=False)
         if "Team" in df_to_show.columns:
-            gb.configure_column("Team", cellRenderer=team_js, width=140)
-        # don't force fit columns; allow horizontal scroll so headers remain readable
-        gb.configure_grid_options(domLayout='normal', rowHeight=44)
+            gb.configure_column("Team", cellRenderer=team_js, width=160, minWidth=140)
+        for col in numeric_cols:
+            gb.configure_column(col, cellRenderer=bold_number_js, width=160, minWidth=140)
+        # Let other columns be wider by default to avoid smushing
+        gb.configure_default_column(minWidth=120, tooltipField=None)
+        # Provide context (logos)
+        gb.configure_grid_options(context={"team_logo_map": image_dict})
         gb.configure_selection(selection_mode="single", use_checkbox=False)
         gb.configure_pagination(paginationAutoPageSize=False, paginationPageSize=10)
-        # pass logos in context
-        gb.configure_grid_options(context={"team_logo_map": image_dict})
         gridOptions = gb.build()
         grid_response = AgGrid(
             df_to_show,
@@ -263,7 +266,7 @@ with tab_main:
             data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
             fit_columns_on_grid_load=False,
             allow_unsafe_jscode=True,
-            height=520,
+            height=620,
             theme="material"
         )
         selected = grid_response.get("selected_rows", [])
@@ -280,7 +283,7 @@ with tab_main:
         display_preview = df_to_show.head(200).copy()
         for c in [c for c in ["Swing+", "ProjSwing+", "PowerIndex+"] if c in display_preview.columns]:
             display_preview[c] = pd.to_numeric(display_preview[c], errors="coerce").round(2)
-        st.dataframe(display_preview, use_container_width=True, height=520)
+        st.dataframe(display_preview, use_container_width=True, height=620)
         visible_names = df_to_show["Name"].tolist()
         if "player_select" not in st.session_state:
             st.session_state["player_select"] = visible_names[0] if visible_names else None
@@ -312,14 +315,14 @@ with tab_main:
         df_top_swing = top_swing[leaderboard_cols].rename(columns=rename_map if isinstance(rename_map, dict) else {})
         if AGGRID_AVAILABLE:
             gb2 = GridOptionsBuilder.from_dataframe(df_top_swing)
-            gb2.configure_default_column(filter=False, sortable=True, resizable=True, minWidth=80)
+            gb2.configure_default_column(filter=False, sortable=True, resizable=True, minWidth=120)
+            gb2.configure_grid_options(headerHeight=54, rowHeight=56)
             if "Team" in df_top_swing.columns:
-                gb2.configure_column("Team", cellRenderer=team_js, width=140)
+                gb2.configure_column("Team", cellRenderer=team_js, width=160, minWidth=140)
             if "Swing+" in df_top_swing.columns:
                 gb2.configure_column("Swing+", cellRenderer=bold_number_js, width=160)
             gb2.configure_grid_options(context={"team_logo_map": image_dict})
             gb2.configure_selection(selection_mode="single", use_checkbox=False)
-            gb2.configure_grid_options(rowHeight=54)
             AgGrid(
                 df_top_swing,
                 gridOptions=gb2.build(),
@@ -328,7 +331,7 @@ with tab_main:
                 data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
                 fit_columns_on_grid_load=False,
                 allow_unsafe_jscode=True,
-                height=360,
+                height=420,
                 theme="material"
             )
         else:
@@ -348,14 +351,14 @@ with tab_main:
         df_top_proj = top_proj[leaderboard_cols].rename(columns=rename_map if isinstance(rename_map, dict) else {})
         if AGGRID_AVAILABLE:
             gb3 = GridOptionsBuilder.from_dataframe(df_top_proj)
-            gb3.configure_default_column(filter=False, sortable=True, resizable=True, minWidth=80)
+            gb3.configure_default_column(filter=False, sortable=True, resizable=True, minWidth=120)
+            gb3.configure_grid_options(headerHeight=54, rowHeight=56)
             if "Team" in df_top_proj.columns:
-                gb3.configure_column("Team", cellRenderer=team_js, width=140)
+                gb3.configure_column("Team", cellRenderer=team_js, width=160, minWidth=140)
             if "ProjSwing+" in df_top_proj.columns:
                 gb3.configure_column("ProjSwing+", cellRenderer=bold_number_js, width=160)
             gb3.configure_grid_options(context={"team_logo_map": image_dict})
             gb3.configure_selection(selection_mode="single", use_checkbox=False)
-            gb3.configure_grid_options(rowHeight=54)
             AgGrid(
                 df_top_proj,
                 gridOptions=gb3.build(),
@@ -364,7 +367,7 @@ with tab_main:
                 data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
                 fit_columns_on_grid_load=False,
                 allow_unsafe_jscode=True,
-                height=360,
+                height=420,
                 theme="material"
             )
         else:
