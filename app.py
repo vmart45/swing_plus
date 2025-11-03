@@ -152,11 +152,50 @@ if "batted_ball_events" in df.columns:
 main_cmap = "RdYlBu_r"
 elite_cmap = "Reds"
 
-# Create top-level tabs: Main (metrics + leaderboards), Player (detail), Glossary
-tab_main, tab_player, tab_glossary = st.tabs(["Main", "Player", "Glossary"])
+# --- New navigation approach:
+# Use a radio (or horizontal buttons) to control top-level page so we can programmatically select Player when ?player= is present.
+# Read query params to set defaults.
+params = st.experimental_get_query_params()
+qp_player = None
+if "player" in params and len(params["player"]) > 0:
+    try:
+        qp_player = unquote(params["player"][0])
+    except Exception:
+        qp_player = params["player"][0]
 
-# ---------------- Main tab: Metrics table and leaderboards ----------------
-with tab_main:
+# If "page" query param present, respect it. Otherwise, if player param present, default to Player page.
+qp_page = None
+if "page" in params and len(params["page"]) > 0:
+    try:
+        qp_page = unquote(params["page"][0])
+    except Exception:
+        qp_page = params["page"][0]
+
+page_options = ["Main", "Player", "Glossary"]
+default_page = 0
+if qp_page and qp_page in page_options:
+    default_page = page_options.index(qp_page)
+elif qp_player:
+    default_page = page_options.index("Player")
+
+# Render top-level navigation as horizontal radio at top of the app
+st.markdown("<div style='display:flex;justify-content:center;margin-bottom:6px;'>", unsafe_allow_html=True)
+page = st.radio("", page_options, index=default_page, horizontal=True, key="top_nav")
+st.markdown("</div>", unsafe_allow_html=True)
+
+# Helper to update query params when user selects player via click or selectionbox
+def set_player_query(player_name):
+    try:
+        st.experimental_set_query_params(player=player_name, page="Player")
+    except Exception:
+        # fallback: set only player
+        try:
+            st.experimental_set_query_params(player=player_name)
+        except Exception:
+            pass
+
+# ---------------- Main tab content ----------------
+if page == "Main":
     st.markdown(
         """
         <h2 style="text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; letter-spacing:0.01em; color:#2a3757;">
@@ -264,8 +303,8 @@ with tab_main:
             hide_index=True
         )
 
-# ---------------- Player tab: Player Detail view ----------------
-with tab_player:
+# ---------------- Player tab content ----------------
+elif page == "Player":
     st.markdown(
         """
         <h2 style="text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; letter-spacing:0.01em; color:#2a3757;">
@@ -275,26 +314,26 @@ with tab_player:
         unsafe_allow_html=True
     )
 
-    # Allow deep-linking to a player via URL query param ?player=Player+Name
-    params = st.experimental_get_query_params()
-    qp_player = None
-    if "player" in params and len(params["player"]) > 0:
-        try:
-            qp_player = unquote(params["player"][0])
-        except Exception:
-            qp_player = params["player"][0]
-
+    # Build player options from filtered df
     player_options = sorted(df_filtered["Name"].unique())
+
+    # Determine default player: from query param or first in list
     default_index = 0
     if qp_player and qp_player in player_options:
         default_index = player_options.index(qp_player)
 
+    # Use selectbox for player selection; when changed, update query params so link clicks / back-forward work
     player_select = st.selectbox(
         "Select a Player",
         player_options,
         key="player_select",
-        index=default_index
+        index=default_index,
+        on_change=None
     )
+    # Keep query in sync when user changes selection manually
+    if st.session_state.get("player_select") and (qp_player != st.session_state["player_select"]):
+        set_player_query(st.session_state["player_select"])
+
     player_row = df[df["Name"] == player_select].iloc[0]
 
     headshot_size = 96
@@ -835,16 +874,15 @@ with tab_player:
 
                 sim_pct_text = f"{pct:.1%}"
 
-                # Make the player name a clickable link that deep-links to the player page via query param.
-                # The link points to the same page with ?player=Player+Name (URL-encoded) and opens in the same tab.
-                player_link = f"?player={quote(sim['name'])}"
+                # Link will set both player and page query params so the app will show Player page by default on navigation.
+                player_link = f"?player={quote(sim['name'])}&page=Player"
 
                 st.markdown(
                     f"""
                     <div class="sim-item">
                         <div class="sim-rank">{idx}</div>
                         <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                        <div class="sim-name-compact"><a class="sim-link" href="{player_link}" target="_self" rel="noopener noreferrer">{sim['name']}</a></div>
+                        <div class="sim-name-compact"><a class="sim-link" href="{player_link}">{sim['name']}</a></div>
                         <div class="sim-score-compact">{sim_pct_text}</div>
                         <div class="sim-bar-mini" aria-hidden="true">
                             <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
@@ -875,8 +913,8 @@ with tab_player:
                 plt.tight_layout()
                 st.pyplot(fig)
 
-# ---------------- Glossary tab ----------------
-with tab_glossary:
+# ---------------- Glossary tab content ----------------
+else:  # Glossary
     glossary = {
         "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter's swing is compared to the league average. A score of 100 is average, while every 10 points is one standard deviation.",
         "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters who show both efficient mechanics and physical attributes that suggest future growth.",
@@ -940,91 +978,31 @@ with tab_glossary:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# Inject JavaScript at the end of the page so it runs after Streamlit has rendered the tabs.
-# This script:
-# - When a link with ?player=... is clicked, it will update the location.search (same-tab navigation).
-# - On page load it will check for ?player=... and click the "Player" tab after Streamlit renders the tab buttons.
+# --- Add a small JS helper so clicking similarity links updates URL and stays in same tab.
+# Because we now control top-level page via the "page" query param and the radio control reads that on load,
+# clicking a link with ?player=Name&page=Player will reload and show Player by default.
+# This JS simply intercepts clicks and uses pushState to avoid opening a new tab in some environments.
 components.html(
     """
     <script>
-    (function(){
-        try {
-            // Intercept clicks on anchor links that include ?player=... so they navigate in the same tab
-            document.addEventListener('click', function(e) {
+    (function() {
+        document.addEventListener('click', function(e) {
+            try {
                 var el = e.target;
-                // climb up until anchor or body
-                while (el && el.tagName !== 'A' && el !== document.body) {
-                    el = el.parentElement;
-                }
+                while (el && el.tagName !== 'A' && el !== document.body) el = el.parentElement;
                 if (!el || el.tagName !== 'A') return;
                 var href = el.getAttribute('href') || '';
-                if (href.indexOf('?player=') !== -1) {
+                if (href.indexOf('?player=') !== -1 && href.indexOf('page=Player') !== -1) {
+                    // same-tab navigation: update location to the target URL (this triggers Streamlit to reload)
                     e.preventDefault();
-                    window.location.href = href;
+                    // Use assign to ensure Streamlit sees new query params and reloads accordingly
+                    window.location.assign(href);
                 }
-            }, true);
-        } catch (e) {
-            // noop
-        }
-
-        try {
-            const params = new URLSearchParams(window.location.search);
-            const p = params.get('player');
-            if (p) {
-                // Aggressively click Player tab as soon as possible
-                let clicked = false;
-                
-                // Immediate attempt
-                const attemptClick = () => {
-                    if (clicked) return true;
-                    const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
-                    if (tabs && tabs.length >= 2) {
-                        const playerTab = tabs[1]; // Player is second tab (index 1)
-                        if (playerTab) {
-                            playerTab.click();
-                            clicked = true;
-                            return true;
-                        }
-                    }
-                    return false;
-                };
-                
-                // Try immediately
-                attemptClick();
-                
-                // If not successful, use both MutationObserver and rapid polling
-                if (!clicked) {
-                    // Rapid polling for first 500ms
-                    let pollCount = 0;
-                    const rapidPoll = setInterval(() => {
-                        if (attemptClick() || pollCount++ > 50) {
-                            clearInterval(rapidPoll);
-                        }
-                    }, 10);
-                    
-                    // MutationObserver as backup
-                    const observer = new MutationObserver(() => {
-                        if (attemptClick()) {
-                            observer.disconnect();
-                        }
-                    });
-                    
-                    observer.observe(document.body, {
-                        childList: true,
-                        subtree: true
-                    });
-                    
-                    // Cleanup after 3 seconds
-                    setTimeout(() => {
-                        observer.disconnect();
-                    }, 3000);
-                }
+            } catch (err) {
+                // noop
             }
-        } catch (e) {
-            // noop
-        }
+        }, true);
     })();
-    </script>
     """,
-    height=0,
+    height=0
 )
