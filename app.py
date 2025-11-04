@@ -1,11 +1,16 @@
 import pandas as pd
 import streamlit as st
 import os
+from PIL import Image
 import requests
+from io import BytesIO
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics.pairwise import cosine_similarity
 import matplotlib.pyplot as plt
 import seaborn as sns
+import matplotlib
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 import numpy as np
 import pickle
 import joblib
@@ -31,6 +36,7 @@ st.markdown(
 
 DATA_PATH = "ProjSwingPlus_Output_with_team.csv"
 MODEL_PATH = "swingplus_model.pkl"
+DOC_FILENAME = "SwingPlus_Documentation.pdf"
 DOC_RAW_URL = "https://raw.githubusercontent.com/vmart45/swing_plus/14381a10958c94c746c86b971b07136f4557f855/SwingPlus_Documentation.pdf"
 
 if not os.path.exists(DATA_PATH):
@@ -49,13 +55,18 @@ def load_data(path):
 
 df = load_data(DATA_PATH)
 
-# handle legacy column names
+# =====================================================
+# Fix potential renamed column: avg_batter_position -> avg_batter_x_position
+# If the CSV contains avg_batter_position (old name) but code expects avg_batter_x_position,
+# create the expected column so downstream code works without changes.
+# Also handle the inverse if somehow only avg_batter_x_position exists but code expects avg_batter_position.
+# =====================================================
 if "avg_batter_position" in df.columns and "avg_batter_x_position" not in df.columns:
     df["avg_batter_x_position"] = df["avg_batter_position"]
 elif "avg_batter_x_position" in df.columns and "avg_batter_position" not in df.columns:
+    # keep both for safety
     df["avg_batter_position"] = df["avg_batter_x_position"]
 
-# MLB team images for logos
 mlb_teams = [
     {"team": "AZ", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/ari.png&h=500&w=500"},
     {"team": "ATL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/atl.png&h=500&w=500"},
@@ -97,6 +108,19 @@ extra_cols = [
     "avg_intercept_y_vs_plate", "avg_intercept_y_vs_batter", "avg_batter_y_position", "avg_batter_x_position"
 ]
 metric_extras = ["est_woba", "xwOBA_pred"]
+
+# FEATURE_LABELS at module level for consistent mapping
+FEATURE_LABELS = {
+    "avg_bat_speed": "Avg Bat Speed (mph)",
+    "swing_length": "Swing Length (m)",
+    "attack_angle": "Attack Angle (°)",
+    "swing_tilt": "Swing Tilt (°)",
+    "attack_direction": "Attack Direction",
+    "avg_intercept_y_vs_plate": "Intercept Y vs Plate",
+    "avg_intercept_y_vs_batter": "Intercept Y vs Batter",
+    "avg_batter_y_position": "Batter Y Pos",
+    "avg_batter_x_position": "Batter X Pos"
+}
 
 if "id" in df.columns:
     core_cols = ["id"] + core_cols
@@ -141,20 +165,20 @@ if "batted_ball_events" in df.columns:
 main_cmap = "RdYlBu_r"
 elite_cmap = "Reds"
 
-# FEATURE_LABELS at module level for consistent mapping
-FEATURE_LABELS = {
-    "avg_bat_speed": "Avg Bat Speed (mph)",
-    "swing_length": "Swing Length (m)",
-    "attack_angle": "Attack Angle (°)",
-    "swing_tilt": "Swing Tilt (°)",
-    "attack_direction": "Attack Direction",
-    "avg_intercept_y_vs_plate": "Intercept Y vs Plate",
-    "avg_intercept_y_vs_batter": "Intercept Y vs Batter",
-    "avg_batter_y_position": "Batter Y Pos",
-    "avg_batter_x_position": "Batter X Pos"
-}
+# Define mechanical_features early to avoid NameError and to reuse across tabs
+mechanical_features = [
+    "avg_bat_speed",
+    "swing_tilt",
+    "attack_angle",
+    "attack_direction",
+    "avg_intercept_y_vs_plate",
+    "avg_intercept_y_vs_batter",
+    "avg_batter_y_position",
+    "avg_batter_x_position",
+    "swing_length"
+]
 
-# Load model & explainer if available
+# ------------------- Load Swing+ model and create SHAP explainer -------------------
 model = None
 explainer = None
 model_loaded = False
@@ -183,7 +207,6 @@ else:
     model_loaded = False
     model_error = f"Model file not found at {MODEL_PATH}"
 
-# helper: prepare model input row for SHAP
 def prepare_model_input_for_player(player_row, feature_list_fallback, model_obj, df_reference=None):
     expected = None
     try:
@@ -255,7 +278,6 @@ def compute_shap(player_row, mech_features_available):
     except Exception:
         return None, None, None
 
-# helper: compute scaled vectors and similarity metrics
 @st.cache_data
 def get_scaler_and_scaled_df(features):
     scaler = StandardScaler()
@@ -265,11 +287,10 @@ def get_scaler_and_scaled_df(features):
     return scaler, df_scaled
 
 def compute_cosine_similarity_between_rows(vecA, vecB):
-    # vecA, vecB are 1D arrays
     sim = np.dot(vecA, vecB) / (np.linalg.norm(vecA) * np.linalg.norm(vecB) + 1e-12)
     return float(sim)
 
-# Top-level tabs: we'll use a "page" radio so we can programmatically navigate via query params
+# Create top-level tabs via page radio so query param navigation works
 params = st.experimental_get_query_params()
 qp_player = None
 qp_player_b = None
@@ -312,7 +333,6 @@ st.markdown("<div style='display:flex;justify-content:center;margin-bottom:6px;'
 page = st.radio("", page_options, index=default_page, horizontal=True, key="top_nav")
 st.markdown("</div>", unsafe_allow_html=True)
 
-# helper to set query params for compare page
 def open_compare_in_same_tab(playerA, playerB):
     try:
         st.experimental_set_query_params(playerA=playerA, playerB=playerB, page="Compare")
@@ -322,7 +342,7 @@ def open_compare_in_same_tab(playerA, playerB):
         except Exception:
             pass
 
-# ---------------- Main tab ----------------
+# ---------------- Main tab: Metrics table and leaderboards ----------------
 if page == "Main":
     st.markdown(
         """
@@ -350,6 +370,7 @@ if page == "Main":
         "est_woba": "xwOBA",
         "xwOBA_pred": "Predicted xwOBA"
     }
+    # extend rename_map with friendly names
     for k, v in FEATURE_LABELS.items():
         if k in df.columns:
             rename_map[k] = v
@@ -378,6 +399,7 @@ if page == "Main":
     )
 
     col1, col2 = st.columns(2)
+
     with col1:
         st.markdown(
             """
@@ -396,6 +418,7 @@ if page == "Main":
             use_container_width=True,
             hide_index=True
         )
+
     with col2:
         st.markdown(
             """
@@ -415,7 +438,7 @@ if page == "Main":
             hide_index=True
         )
 
-# ---------------- Player tab ----------------
+# ---------------- Player tab: Player Detail view ----------------
 elif page == "Player":
     st.markdown(
         """
@@ -426,16 +449,31 @@ elif page == "Player":
         unsafe_allow_html=True
     )
 
+    # Allow deep-linking to a player via URL query param ?player=Player+Name
+    params = st.experimental_get_query_params()
+    qp_player = None
+    if "player" in params and len(params["player"]) > 0:
+        try:
+            qp_player = unquote(params["player"][0])
+        except Exception:
+            qp_player = params["player"][0]
+
+    player_options = sorted(df_filtered["Name"].unique())
+    default_index = 0
+    if qp_player and qp_player in player_options:
+        default_index = player_options.index(qp_player)
+
     player_select = st.selectbox(
         "Select a Player",
-        sorted(df_filtered["Name"].unique()),
-        index=sorted(df_filtered["Name"].unique()).index(qp_player) if qp_player in sorted(df_filtered["Name"].unique()) else 0,
-        key="player_select"
+        player_options,
+        key="player_select",
+        index=default_index
     )
     player_row = df[df["Name"] == player_select].iloc[0]
 
     headshot_size = 96
     logo_size = 80
+
     team_abb = player_row["Team"] if "Team" in player_row and pd.notnull(player_row["Team"]) else ""
     logo_url = image_dict.get(team_abb, "")
 
@@ -456,7 +494,10 @@ elif page == "Player":
             f'box-shadow:0 1px 6px rgba(0,0,0,0.06);margin-right:18px;" alt="headshot"/>'
         )
 
-    logo_html = f'<img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;margin-left:46px;background:transparent;border-radius:0;" alt="logo"/>' if logo_url else ""
+    logo_html = ""
+    if logo_url:
+        logo_html = f'<img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;margin-left:46px;background:transparent;border-radius:0;" alt="logo"/>'
+
     player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
 
     player_bio = ""
@@ -513,7 +554,6 @@ elif page == "Player":
 
     st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
-    # compute ranks for display
     total_players = len(df)
     df["Swing+_rank"] = df["Swing+"].rank(ascending=False, method="min").astype(int)
     df["ProjSwing+_rank"] = df["ProjSwing+"].rank(ascending=False, method="min").astype(int)
@@ -523,11 +563,14 @@ elif page == "Player":
     p_proj_rank = df.loc[df["Name"] == player_select, "ProjSwing+_rank"].iloc[0]
     p_power_rank = df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]
 
+    # New plus_color: color by rank (1 = reddest, max = bluest)
     def plus_color_by_rank(rank, total, start_hex="#D32F2F", end_hex="#3B82C4"):
+        # clamp
         if total <= 1:
             ratio = 0.0
         else:
-            ratio = (rank - 1) / (total - 1)
+            ratio = (rank - 1) / (total - 1)  # 0 => best (rank 1), 1 => worst
+        # We want rank=1 -> red (start_hex), rank=total -> blue (end_hex)
         def hex_to_rgb(h):
             h = h.lstrip("#")
             return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
@@ -540,6 +583,7 @@ elif page == "Player":
         rb = sb + (eb - sb) * ratio
         return rgb_to_hex((rr, rg, rb))
 
+    # Use colors computed from ranks so best players (rank=1) are redder, worst are bluer.
     swing_color = plus_color_by_rank(p_swing_rank, total_players)
     proj_color = plus_color_by_rank(p_proj_rank, total_players)
     power_color = plus_color_by_rank(p_power_rank, total_players)
@@ -567,70 +611,325 @@ elif page == "Player":
         unsafe_allow_html=True
     )
 
-    # determine mechanical features available
-    mechanical_features = [
-        "avg_bat_speed", "swing_tilt", "attack_angle", "attack_direction",
-        "avg_intercept_y_vs_plate", "avg_intercept_y_vs_batter", "avg_batter_y_position",
-        "avg_batter_x_position", "swing_length"
-    ]
+    video_url = f"https://builds.mlbstatic.com/baseballsavant.mlb.com/swing-path/splendid-splinter/cut/{player_id}-2025-{bat_side}.mp4"
+
+    DEFAULT_ONEIL_CRUZ_IDS = ['665833-2025-L', '665833-2025-R', '665833-2025-S']
+    default_name = "Oneil Cruz"
+    showing_default = f'{player_id}-2025-{bat_side}' in DEFAULT_ONEIL_CRUZ_IDS
+
+    if showing_default:
+        video_note = (
+            f"No custom video data available for this player — showing a default example ({default_name})."
+        )
+    else:
+        video_note = (
+            "Below is the Baseball Savant Swing Path / Attack Angle visualization for this player."
+        )
+
+    st.markdown(
+        f"""
+        <h3 style="text-align:center; margin-top:1.3em; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
+            Baseball Savant Swing Path / Attack Angle Visualization
+        </h3>
+        <div style="text-align:center; color: #7a7a7a; font-size: 0.99em; margin-bottom:10px">
+            {video_note}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        f"""
+        <div id="savantviz-anchor"></div>
+        <div style="display: flex; justify-content: center;">
+            <video id="player-savant-video" width="900" height="480" style="border-radius:9px; box-shadow:0 2px 12px #0002;" autoplay muted playsinline key="{player_id}-{bat_side}">
+                <source src="{video_url}" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
     mech_features_available = [f for f in mechanical_features if f in df.columns]
 
-    # compute similarity cluster and list top similar players with a 'Compare' button
-    if len(mech_features_available) >= 2:
-        df_mech = df.dropna(subset=mech_features_available + ["Name"]).reset_index(drop=True)
-        if player_select in df_mech["Name"].values and len(df_mech) > 1:
-            scaler, df_scaled = get_scaler_and_scaled_df(mech_features_available)
-            X_scaled = scaler.transform(df_mech[mech_features_available])
+    # Compute SHAP values for the selected player (Swing+ only)
+    shap_df = None
+    shap_base = None
+    shap_pred = None
+    shap_values_arr = None
+
+    if model_loaded and explainer is not None and len(mech_features_available) >= 2:
+        try:
+            X_player = prepare_model_input_for_player(player_row, mech_features_available, model, df_reference=df)
+
+            try:
+                expected_names = None
+                if hasattr(model, "feature_name_") and model.feature_name_ is not None:
+                    expected_names = list(model.feature_name_)
+                elif hasattr(model, "booster_") and hasattr(model.booster_, "feature_name"):
+                    expected_names = list(model.booster_.feature_name())
+                elif hasattr(model, "get_booster") and hasattr(model.get_booster(), "feature_name"):
+                    expected_names = list(model.get_booster().feature_name())
+                if expected_names is not None and X_player.shape[1] != len(expected_names):
+                    model_error = f"Prepared input has {X_player.shape[1]} features but model expects {len(expected_names)} features."
+                    raise ValueError(model_error)
+            except Exception:
+                pass
+
+            try:
+                shap_pred = float(model.predict(X_player)[0])
+            except Exception:
+                shap_pred = float(model.predict(X_player.values.reshape(1, -1))[0])
+
+            try:
+                shap_values = explainer(X_player)
+            except Exception:
+                shap_values = explainer(X_player.values)
+
+            if hasattr(shap_values, "values"):
+                shap_values_arr = np.array(shap_values.values).flatten()
+                shap_base = float(shap_values.base_values) if np.size(shap_values.base_values) == 1 else float(shap_values.base_values.flatten()[0])
+            else:
+                shap_values_arr = np.array(shap_values).flatten()
+                shap_base = None
+
+            shap_df = pd.DataFrame({
+                "feature": X_player.columns.tolist(),
+                "raw": [float(X_player.iloc[0][f]) if pd.notna(X_player.iloc[0][f]) else np.nan for f in X_player.columns],
+                "shap_value": shap_values_arr
+            })
+            shap_df["abs_shap"] = np.abs(shap_df["shap_value"])
+            total_abs = shap_df["abs_shap"].sum() if shap_df["abs_shap"].sum() != 0 else 1.0
+            shap_df["pct_of_abs"] = shap_df["abs_shap"] / total_abs
+            shap_df = shap_df.sort_values("abs_shap", ascending=False).reset_index(drop=True)
+
+        except Exception as e:
+            shap_df = None
+            model_error = str(e)
+
+    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <h3 style="text-align:center; margin-top:6px; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
+            Swing+ Feature Contributions (SHAP)
+        </h3>
+        <div style="text-align:center; color:#6b7280; margin-bottom:6px; font-size:0.95em;">
+            How each mechanical feature moved the model's Swing+ prediction for this player.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    col1, col2 = st.columns([1, 1])
+
+    shap_pred_label = f"{shap_pred:.2f}" if (shap_pred is not None and not pd.isna(shap_pred)) else "N/A"
+    swing_actual_label = f"{player_row['Swing+']:.2f}" if (player_row.get("Swing+") is not None and not pd.isna(player_row.get("Swing+"))) else "N/A"
+    base_label = f"{shap_base:.2f}" if (shap_base is not None and not pd.isna(shap_base)) else "N/A"
+
+    with col1:
+        st.markdown(f"<div style='text-align:center;font-weight:700;color:#183153;'>Model prediction: {shap_pred_label} &nbsp; | &nbsp; Actual Swing+: {swing_actual_label}</div>", unsafe_allow_html=True)
+        if not model_loaded or explainer is None or shap_df is None or len(shap_df) == 0:
+            st.info("Swing+ model or SHAP explainer not available. Ensure swingplus_model.pkl is a supported model/pipeline.")
+            if model_error:
+                st.caption(f"Model load error: {model_error}")
+        else:
+            TOP_SHOW = min(8, len(shap_df))
+            df_plot_top = shap_df.head(TOP_SHOW).copy()
+            # Order by pct_of_abs descending so largest importance at top
+            df_plot_top = df_plot_top.sort_values("pct_of_abs", ascending=False).reset_index(drop=True)
+
+            y = df_plot_top["feature"].map(lambda x: FEATURE_LABELS.get(x, x)).tolist()
+            x_vals = df_plot_top["shap_value"].astype(float).tolist()
+            pct_vals = df_plot_top["pct_of_abs"].astype(float).tolist()
+            colors = ["#D8573C" if float(v) > 0 else "#3B82C4" for v in x_vals]
+
+            # Keep text inside bars and show both contribution and percentage
+            text_labels = [f"{val:.3f}  ({pct:.0%})" for val, pct in zip(x_vals, pct_vals)]
+
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                x=x_vals,
+                y=y,
+                orientation='h',
+                marker_color=colors,
+                hoverinfo='text',
+                hovertext=[f"Contribution: {v:.3f}<br>Importance: {p:.0%}" for v, p in zip(x_vals, pct_vals)],
+                text=text_labels,
+                textposition='inside',
+                insidetextanchor='middle'
+            ))
+            fig.update_layout(
+                margin=dict(l=160, r=24, t=12, b=60),
+                xaxis_title="SHAP contribution to Swing+ (signed)",
+                yaxis=dict(autorange="reversed"),
+                height=420,
+                showlegend=False,
+                font=dict(size=11)
+            )
+            st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
+
+    with col2:
+        st.markdown(f"<div style='text-align:center;font-weight:700;color:#183153;'>Model baseline: {base_label}</div>", unsafe_allow_html=True)
+        if shap_df is None or len(shap_df) == 0:
+            st.write("No SHAP data to show.")
+        else:
+            display_df = shap_df.copy()
+            display_df["feature_label"] = display_df["feature"].map(lambda x: FEATURE_LABELS.get(x, x))
+            display_df = display_df.sort_values("abs_shap", ascending=False).head(12)
+            display_df = display_df[["feature_label", "raw", "shap_value", "pct_of_abs"]].rename(columns={
+                "feature_label": "Feature",
+                "raw": "Value",
+                "shap_value": "Contribution",
+                "pct_of_abs": "PctImportance"
+            })
+            # Round 'Value' to 2 decimal points as requested
+            display_df["Value"] = display_df["Value"].apply(lambda v: f"{v:.2f}" if pd.notna(v) else "NaN")
+            display_df["Contribution"] = display_df["Contribution"].apply(lambda v: f"{v:.3f}")
+            display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
+            display_df = display_df.reset_index(drop=True)
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+    # ------------------ Mechanical similarity cluster (PLAYER-SPECIFIC) ------------------
+    name_col = "Name"
+    TOP_N = 10
+
+    mech_features_available = [f for f in mechanical_features if f in df.columns]
+    if len(mech_features_available) >= 2 and name_col in df.columns:
+        df_mech = df.dropna(subset=mech_features_available + [name_col]).reset_index(drop=True)
+        if player_select in df_mech[name_col].values and len(df_mech) > TOP_N:
+            scaler = StandardScaler()
+            X_scaled = scaler.fit_transform(df_mech[mech_features_available])
             similarity_matrix = cosine_similarity(X_scaled)
-            similarity_df = pd.DataFrame(similarity_matrix, index=df_mech["Name"], columns=df_mech["Name"])
+            similarity_df = pd.DataFrame(similarity_matrix, index=df_mech[name_col], columns=df_mech[name_col])
 
             similar_players = (
                 similarity_df.loc[player_select]
                 .sort_values(ascending=False)
-                .iloc[1:11]
+                .iloc[1:TOP_N+1]
             )
 
+            top_names = [player_select] + list(similar_players.index)
             sim_rows = []
             for sim_name in similar_players.index:
-                sim_row = df_mech[df_mech["Name"] == sim_name].iloc[0]
-                sim_score = similar_players[sim_name]
-                if "id" in sim_row and pd.notnull(sim_row["id"]):
-                    sim_id = str(int(sim_row["id"]))
+                sim_row = df_mech[df_mech[name_col] == sim_name]
+                if "id" in sim_row.columns and pd.notnull(sim_row.iloc[0]["id"]):
+                    sim_id = str(int(sim_row.iloc[0]["id"]))
                     sim_headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{sim_id}/headshot/silo/current.png"
                 else:
                     sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-                sim_rows.append({"name": sim_name, "headshot_url": sim_headshot_url, "score": sim_score})
+                sim_score = similar_players[sim_name]
+                sim_rows.append({
+                    "name": sim_name,
+                    "headshot_url": sim_headshot_url,
+                    "score": sim_score
+                })
 
             st.markdown(
                 """
                 <style>
-                .sim-container { width: 100%; max-width: 1160px; margin: 12px auto 10px auto; display: flex; flex-direction: column; align-items: center; }
-                .sim-list { width: 100%; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-                .sim-item { display: flex; align-items: center; background: #ffffff; border-radius: 12px; padding: 10px 14px; gap: 12px; width: 100%; border: 1px solid #eef4f8; box-shadow: 0 6px 18px rgba(15,23,42,0.04); }
-                .sim-rank { font-size: 1em; font-weight: 700; color: #183153; min-width: 36px; text-align: center; }
-                .sim-headshot-compact { height: 48px; width: 48px; border-radius: 8px; object-fit: cover; box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
-                .sim-name-compact { flex: 1; font-size: 1em; color: #183153; }
-                .sim-score-compact { font-size: 0.98em; font-weight: 700; color: #333; margin-right: 12px; min-width: 72px; text-align: right; }
-                .sim-bar-mini { width: 220px; height: 10px; background: #f4f7fa; border-radius: 999px; overflow: hidden; margin-left: 8px; }
-                .sim-bar-fill { height: 100%; border-radius: 999px; transition: width 0.5s ease; }
-                .sim-compare-btn { background:#0b6efd;color:white;padding:6px 10px;border-radius:8px;text-decoration:none;font-weight:700; }
-                @media (max-width: 1100px) { .sim-container { max-width: 92%; } .sim-bar-mini { width: 160px; height: 8px; } .sim-headshot-compact { height: 40px; width: 40px; } }
+                .sim-container {
+                    width: 100%;
+                    max-width: 1160px;
+                    margin: 12px auto 10px auto;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                }
+                .sim-list {
+                    width: 100%;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                    align-items: center;
+                }
+                .sim-item {
+                    display: flex;
+                    align-items: center;
+                    background: #ffffff;
+                    border-radius: 12px;
+                    padding: 10px 14px;
+                    gap: 12px;
+                    width: 100%;
+                    border: 1px solid #eef4f8;
+                    box-shadow: 0 6px 18px rgba(15,23,42,0.04);
+                }
+                .sim-rank {
+                    font-size: 1em;
+                    font-weight: 700;
+                    color: #183153;
+                    min-width: 36px;
+                    text-align: center;
+                }
+                .sim-headshot-compact {
+                    height: 48px;
+                    width: 48px;
+                    border-radius: 8px;
+                    object-fit: cover;
+                    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+                }
+                .sim-name-compact {
+                    flex: 1;
+                    font-size: 1em;
+                    color: #183153;
+                }
+                .sim-score-compact {
+                    font-size: 0.98em;
+                    font-weight: 700;
+                    color: #333;
+                    margin-right: 12px;
+                    min-width: 72px;
+                    text-align: right;
+                }
+                .sim-bar-mini {
+                    width: 220px;
+                    height: 10px;
+                    background: #f4f7fa;
+                    border-radius: 999px;
+                    overflow: hidden;
+                    margin-left: 8px;
+                }
+                .sim-bar-fill {
+                    height: 100%;
+                    border-radius: 999px;
+                    transition: width 0.5s ease;
+                }
+                .sim-compare-btn {
+                    background: linear-gradient(90deg,#0b6efd,#0056d6);
+                    color: #fff;
+                    padding: 8px 12px;
+                    border-radius: 10px;
+                    text-decoration: none;
+                    font-weight: 800;
+                    box-shadow: 0 4px 12px rgba(11,110,253,0.18);
+                    border: none;
+                    cursor: pointer;
+                }
+                .sim-compare-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(11,110,253,0.22); }
+                @media (max-width: 1100px) {
+                    .sim-container { max-width: 92%; }
+                    .sim-bar-mini { width: 160px; height: 8px; }
+                    .sim-headshot-compact { height: 40px; width: 40px; }
+                }
                 </style>
                 """,
                 unsafe_allow_html=True
             )
 
-            st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top 10 mechanically similar players to <span style="font-weight:800;">{player_select}</span></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to <span style="font-weight:800;">{player_select}</span></div>', unsafe_allow_html=True)
             st.markdown('<div class="sim-list">', unsafe_allow_html=True)
 
             for idx, sim in enumerate(sim_rows, 1):
                 pct = max(0.0, min(1.0, float(sim['score'])))
                 width_pct = int(round(pct * 100))
+
                 start_color = "#D32F2F"
                 end_color = "#FFB648"
+
                 sim_pct_text = f"{pct:.1%}"
-                # Create an anchor that triggers same-tab compare: set query params to page=Compare & playerA=player_select & playerB=sim['name']
+
                 href = f"?playerA={quote(player_select)}&playerB={quote(sim['name'])}&page=Compare"
+
                 st.markdown(
                     f"""
                     <div class="sim-item">
@@ -651,7 +950,7 @@ elif page == "Player":
 
             st.markdown('</div></div>', unsafe_allow_html=True)
 
-# ---------------- Compare tab (player vs player) ----------------
+# ---------------- Compare tab ----------------
 elif page == "Compare":
     st.markdown(
         """
@@ -662,7 +961,6 @@ elif page == "Compare":
         unsafe_allow_html=True
     )
 
-    # Build player options
     player_options = sorted(df_filtered["Name"].unique())
     if not player_options:
         st.info("No players available for comparison with current filters.")
@@ -679,30 +977,25 @@ elif page == "Compare":
         with col_b:
             playerB = st.selectbox("Player B", player_options, index=default_b_idx, key="compare_player_b")
 
-        # sync query params when manual select changes
         if st.button("Open comparison (update URL)"):
             open_compare_in_same_tab(playerA, playerB)
             st.experimental_rerun()
 
-        # guard: if same player selected show message
         if playerA == playerB:
             st.warning("Select two different players to compare.")
         else:
             rowA = df[df["Name"] == playerA].iloc[0]
             rowB = df[df["Name"] == playerB].iloc[0]
 
-            # header cards with similarity
             mech_features_available = [f for f in mechanical_features if f in df.columns]
             if len(mech_features_available) >= 2:
                 scaler, df_scaled = get_scaler_and_scaled_df(mech_features_available)
-                # extract scaled rows matching the global df index
                 try:
                     idxA = df[df["Name"] == playerA].index[0]
                     idxB = df[df["Name"] == playerB].index[0]
                     vecA = df_scaled.loc[idxA, mech_features_available].values
                     vecB = df_scaled.loc[idxB, mech_features_available].values
                 except Exception:
-                    # fallback to scaling single rows
                     vecA = scaler.transform(df[df["Name"] == playerA][mech_features_available].astype(float))[0]
                     vecB = scaler.transform(df[df["Name"] == playerB][mech_features_available].astype(float))[0]
                 cosine_sim = compute_cosine_similarity_between_rows(vecA, vecB)
@@ -711,7 +1004,6 @@ elif page == "Compare":
                 cosine_sim = None
                 sim_pct = "N/A"
 
-            # top header
             col1, col2, col3 = st.columns([1, 1, 1])
             with col1:
                 teamA = rowA["Team"] if "Team" in rowA and pd.notnull(rowA["Team"]) else ""
@@ -738,25 +1030,18 @@ elif page == "Compare":
 
             st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
-            # Quick stat strip
             stats = ["Age", "Swing+", "ProjSwing+", "PowerIndex+"]
-            left_cols = st.columns(len(stats))
+            cols_stats = st.columns(len(stats)*2)
             for i, stat in enumerate(stats):
                 valA = rowA.get(stat, "N/A")
-                valB = rowB.get(stat, "N/A")
-                left_cols[i].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valA}</div><div style="color:#64748b;">{stat} (A)</div></div>', unsafe_allow_html=True)
-            st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-            right_cols = st.columns(len(stats))
+                cols_stats[i].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valA}</div><div style="color:#64748b;">{stat} (A)</div></div>', unsafe_allow_html=True)
             for i, stat in enumerate(stats):
-                valA = rowA.get(stat, "N/A")
                 valB = rowB.get(stat, "N/A")
-                right_cols[i].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valB}</div><div style="color:#64748b;">{stat} (B)</div></div>', unsafe_allow_html=True)
+                cols_stats[i+len(stats)].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valB}</div><div style="color:#64748b;">{stat} (B)</div></div>', unsafe_allow_html=True)
 
             st.markdown("<hr />", unsafe_allow_html=True)
 
-            # Feature diff table
             if len(mech_features_available) >= 2:
-                # prepare values
                 feats = mech_features_available
                 mean_series = df[feats].mean()
                 std_series = df[feats].std().replace(0, 1e-9)
@@ -770,20 +1055,15 @@ elif page == "Compare":
                 pctA = pctile.loc[rowA.name]
                 pctB = pctile.loc[rowB.name]
 
-                # compute SHAPs
                 shapA, predA, baseA = compute_shap(rowA, feats)
                 shapB, predB, baseB = compute_shap(rowB, feats)
 
-                # importance (mean abs shap across dataset) fallback: use model.feature_importances_ if available
                 if model_loaded and explainer is not None and shapA is not None:
-                    # compute mean abs shap per feature across dataset approximated by sampling first N rows
                     try:
                         sampleX = df[feats].head(200).copy()
                         sampleX = sampleX.fillna(sampleX.mean())
-                        vals = sampleX
-                        # compute SHAP for sample using the explainer if possible
                         try:
-                            samp_shap = explainer(vals)
+                            samp_shap = explainer(sampleX)
                             if hasattr(samp_shap, "values"):
                                 mean_abs_shap = np.mean(np.abs(samp_shap.values), axis=0)
                                 importance = pd.Series(mean_abs_shap, index=feats)
@@ -809,12 +1089,10 @@ elif page == "Compare":
                 st.markdown("### Feature-level comparison")
                 st.dataframe(table_df.style.format(precision=3), use_container_width=True, hide_index=True)
 
-                # SHAP comparison chart (side-by-side horizontal bars)
                 st.markdown("### Model (SHAP) contributions (if model available)")
                 if shapA is None or shapB is None:
                     st.info("Model SHAP not available for one or both players.")
                 else:
-                    # order features by importance descending
                     order = importance.sort_values(ascending=False).index.tolist()
                     shapA_ord = shapA[order]
                     shapB_ord = shapB[order]
@@ -839,7 +1117,6 @@ elif page == "Compare":
                     fig.update_layout(barmode='group', height=420, margin=dict(l=180, r=24, t=24, b=60))
                     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-                # Radar chart of normalized values (percentile)
                 st.markdown("### Radar: normalized percentiles")
                 try:
                     pctA_vals = pctA[feats].values
@@ -853,7 +1130,6 @@ elif page == "Compare":
                 except Exception:
                     st.info("Radar chart not available due to data issues.")
 
-                # Distribution plot for a selected feature
                 st.markdown("### Distribution for a selected feature")
                 sel_feat = st.selectbox("Choose feature for distribution", feats, index=0)
                 fig2, ax2 = plt.subplots(figsize=(6, 3.2))
@@ -867,9 +1143,7 @@ elif page == "Compare":
                 except Exception:
                     st.info("Distribution plot not available for this feature.")
 
-                # textual explanation summary
                 st.markdown("### Automated summary")
-                # compute top contributors to similarity (small z_diff & high importance)
                 weighted_score = (1 - (z_diff / (z_diff.max() + 1e-9))).clip(0, 1) * importance
                 top_sim_idxs = weighted_score.sort_values(ascending=False).head(3).index.tolist()
                 top_diff_idxs = (z_diff * importance).sort_values(ascending=False).head(3).index.tolist()
@@ -937,7 +1211,7 @@ else:
                     """, unsafe_allow_html=True)
         st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
 
-# small JS helper injected to ensure Compare links do same-tab navigation
+# Inject JS helper to ensure Compare links do same-tab navigation
 components.html(
     """
     <script>
@@ -950,11 +1224,8 @@ components.html(
                 var href = el.getAttribute('href') || '';
                 if (href.indexOf('?playerA=') !== -1 || href.indexOf('?player=') !== -1) {
                     e.preventDefault();
-                    // push state and reload so Streamlit reads query params and navigates within same tab
                     var newUrl = href.startsWith('?') ? window.location.pathname + href : href;
-                    try {
-                        history.pushState(null, '', newUrl);
-                    } catch (err) {}
+                    try { history.pushState(null, '', newUrl); } catch (err) {}
                     setTimeout(function(){ window.location.reload(); }, 40);
                 }
             } catch (err) {}
