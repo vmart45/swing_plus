@@ -1,3 +1,12 @@
+# Updated app.py — applied UI fixes requested by user:
+# - Removed team logo from the Player page (it was added accidentally).
+# - Kept team logos on the Compare page but removed white border / box around logos.
+# - Made the "Compare" button in similarity list a simple white background with black text + subtle border.
+# - Added a checkbox (default: unchecked) on the Player page to show/hide the mechanical similarity cluster heatmap (placed below the Top N list).
+# - Heatmap uses annotated cells (2 decimal places), a colorbar labeled "Cosine Similarity", and a diverging colormap similar to the example.
+# - Kept earlier fixes: rounding metrics, radar color change, distribution dropdown labels, moving "Summary" above feature-level comparison.
+# NOTE: This is the full updated script per your request.
+
 import pandas as pd
 import streamlit as st
 import os
@@ -479,11 +488,9 @@ elif page == "Player":
     player_row = df[df["Name"] == player_select].iloc[0]
 
     headshot_size = 96
-    logo_size = 64
+    logo_size = 80
 
-    team_abb = player_row["Team"] if "Team" in player_row and pd.notnull(player_row["Team"]) else ""
-    logo_url = image_dict.get(team_abb, "")
-
+    # On Player page we revert to original behavior: no team logo displayed (user requested only Compare page logo).
     headshot_html = ""
     if "id" in player_row and pd.notnull(player_row["id"]):
         player_id = str(int(player_row["id"]))
@@ -500,11 +507,6 @@ elif page == "Player":
             f'style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;'
             f'box-shadow:0 1px 6px rgba(0,0,0,0.06);margin-right:18px;" alt="headshot"/>'
         )
-
-    # show team logo below name (instead of "Team" text)
-    logo_html = ""
-    if logo_url:
-        logo_html = f'<div style="margin-top:10px;"><img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;background:transparent;border-radius:6px;box-shadow:0 1px 6px rgba(0,0,0,0.06);" alt="logo"/></div>'
 
     player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
 
@@ -553,7 +555,6 @@ elif page == "Player":
             <div style="display:flex;flex-direction:column;align-items:center;">
                 {player_name_html}
                 {"<span style='font-size:0.98em;color:#495366;margin-top:7px;margin-bottom:0;font-weight:500;letter-spacing:0.02em;opacity:0.82;'>" + player_bio + "</span>" if player_bio else ""}
-                {logo_html}
             </div>
         </div>
         """,
@@ -619,45 +620,51 @@ elif page == "Player":
         unsafe_allow_html=True
     )
 
-    video_url = f"https://builds.mlbstatic.com/baseballsavant.mlb.com/swing-path/splendid-splinter/cut/{player_id}-2025-{bat_side}.mp4"
+    video_url = None
+    if "id" in player_row and pd.notnull(player_row["id"]):
+        player_id = str(int(player_row["id"]))
+        video_url = f"https://builds.mlbstatic.com/baseballsavant.mlb.com/swing-path/splendid-splinter/cut/{player_id}-2025-{bat_side}.mp4"
 
     DEFAULT_ONEIL_CRUZ_IDS = ['665833-2025-L', '665833-2025-R', '665833-2025-S']
     default_name = "Oneil Cruz"
-    showing_default = f'{player_id}-2025-{bat_side}' in DEFAULT_ONEIL_CRUZ_IDS
+    showing_default = False
+    if video_url:
+        showing_default = f'{player_id}-2025-{bat_side}' in DEFAULT_ONEIL_CRUZ_IDS
 
-    if showing_default:
-        video_note = (
-            f"No custom video data available for this player — showing a default example ({default_name})."
+    if video_url:
+        if showing_default:
+            video_note = (
+                f"No custom video data available for this player — showing a default example ({default_name})."
+            )
+        else:
+            video_note = (
+                "Below is the Baseball Savant Swing Path / Attack Angle visualization for this player."
+            )
+
+        st.markdown(
+            f"""
+            <h3 style="text-align:center; margin-top:1.3em; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
+                Baseball Savant Swing Path / Attack Angle Visualization
+            </h3>
+            <div style="text-align:center; color: #7a7a7a; font-size: 0.99em; margin-bottom:10px">
+                {video_note}
+            </div>
+            """,
+            unsafe_allow_html=True
         )
-    else:
-        video_note = (
-            "Below is the Baseball Savant Swing Path / Attack Angle visualization for this player."
+
+        st.markdown(
+            f"""
+            <div id="savantviz-anchor"></div>
+            <div style="display: flex; justify-content: center;">
+                <video id="player-savant-video" width="900" height="480" style="border-radius:9px; box-shadow:0 2px 12px #0002;" autoplay muted playsinline key="{player_id}-{bat_side}">
+                    <source src="{video_url}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+            """,
+            unsafe_allow_html=True
         )
-
-    st.markdown(
-        f"""
-        <h3 style="text-align:center; margin-top:1.3em; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
-            Baseball Savant Swing Path / Attack Angle Visualization
-        </h3>
-        <div style="text-align:center; color: #7a7a7a; font-size: 0.99em; margin-bottom:10px">
-            {video_note}
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        f"""
-        <div id="savantviz-anchor"></div>
-        <div style="display: flex; justify-content: center;">
-            <video id="player-savant-video" width="900" height="480" style="border-radius:9px; box-shadow:0 2px 12px #0002;" autoplay muted playsinline key="{player_id}-{bat_side}">
-                <source src="{video_url}" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
 
     mech_features_available = [f for f in mechanical_features if f in df.columns]
 
@@ -833,18 +840,7 @@ elif page == "Player":
                     "score": sim_score
                 })
 
-            # Heatmap of the similarity for the top group (include player at top)
-            try:
-                heat_names = [player_select] + list(similar_players.index)
-                heat_idx = [df_mech[df_mech[name_col] == n].index[0] for n in heat_names]
-                heat_mat = similarity_matrix[np.ix_(heat_idx, heat_idx)]
-                fig_h, axh = plt.subplots(figsize=(6, 4))
-                sns.heatmap(heat_mat, xticklabels=heat_names, yticklabels=heat_names, cmap="vlag", center=0, annot=False, ax=axh)
-                axh.set_title("Mechanical similarity (cosine) — top similar players")
-                st.pyplot(fig_h)
-            except Exception:
-                pass
-
+            # Show the top-N similar players list (unchanged) and provide a checkbox to toggle the cluster heatmap (default: hidden)
             st.markdown(
                 """
                 <style>
@@ -914,18 +910,18 @@ elif page == "Player":
                     border-radius: 999px;
                     transition: width 0.5s ease;
                 }
+                /* Compare button: simple white background with black text and subtle border */
                 .sim-compare-btn {
-                    background: linear-gradient(90deg,#FF7A1A,#FFB648);
-                    color: #fff;
+                    background: #ffffff;
+                    color: #000000;
                     padding: 8px 12px;
                     border-radius: 10px;
                     text-decoration: none;
                     font-weight: 800;
-                    box-shadow: 0 4px 12px rgba(255,122,26,0.18);
-                    border: none;
+                    border: 1px solid #d1d5db;
                     cursor: pointer;
                 }
-                .sim-compare-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(255,122,26,0.22); }
+                .sim-compare-btn:hover { background: #f3f4f6; transform: translateY(-1px); }
                 @media (max-width: 1100px) {
                     .sim-container { max-width: 92%; }
                     .sim-bar-mini { width: 160px; height: 8px; }
@@ -969,6 +965,39 @@ elif page == "Player":
                 )
 
             st.markdown('</div></div>', unsafe_allow_html=True)
+
+            # Checkbox to show/hide the cluster heatmap (default: hidden)
+            show_cluster = st.checkbox("Show mechanical similarity cluster heatmap", value=False, key="show_cluster_heatmap")
+            if show_cluster:
+                try:
+                    heat_names = [player_select] + list(similar_players.index)
+                    # build indices within df_mech to extract corresponding rows from similarity_matrix
+                    heat_idx = [df_mech[df_mech[name_col] == n].index[0] for n in heat_names]
+                    heat_mat = similarity_matrix[np.ix_(heat_idx, heat_idx)]
+
+                    # Plot heatmap with annotations and colorbar
+                    fig_h, axh = plt.subplots(figsize=(8, 6))
+                    sns.heatmap(
+                        heat_mat,
+                        xticklabels=heat_names,
+                        yticklabels=heat_names,
+                        cmap="RdYlBu_r",
+                        vmin=0.0,
+                        vmax=1.0,
+                        annot=True,
+                        fmt=".2f",
+                        annot_kws={"fontsize": 9},
+                        square=True,
+                        cbar_kws={"shrink": 0.6, "label": "Cosine Similarity"},
+                        ax=axh
+                    )
+                    axh.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=16, pad=12)
+                    axh.set_xlabel("Name")
+                    axh.set_ylabel("Name")
+                    plt.tight_layout()
+                    st.pyplot(fig_h)
+                except Exception as e:
+                    st.info("Could not render cluster heatmap due to data issues.")
 
 # ---------------- Compare tab ----------------
 elif page == "Compare":
@@ -1032,7 +1061,8 @@ elif page == "Compare":
                     imgA = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{pid}/headshot/silo/current.png"
                 else:
                     imgA = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-                logo_html_a = f'<div style="margin-top:8px;"><img src="{logoA}" style="height:40px;width:40px;border-radius:6px;box-shadow:0 1px 6px rgba(0,0,0,0.06);"></div>' if logoA else ""
+                # team logo on compare page — remove white border / box
+                logo_html_a = f'<div style="margin-top:8px;"><img src="{logoA}" style="height:40px;width:40px;border-radius:6px;box-shadow:none;background:transparent;border:none;"></div>' if logoA else ""
                 st.markdown(f'<div style="text-align:center;"><img src="{imgA}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{playerA}</div>{logo_html_a}</div>', unsafe_allow_html=True)
             with col2:
                 st.markdown(f'<div style="text-align:center;padding:8px;border-radius:10px;"><div style="font-size:1.25em;font-weight:800;color:#0b6efd;">Similarity</div><div style="font-size:1.6em;font-weight:800;color:#183153;margin-top:6px;">{sim_pct}</div></div>', unsafe_allow_html=True)
@@ -1045,7 +1075,7 @@ elif page == "Compare":
                     imgB = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{pid}/headshot/silo/current.png"
                 else:
                     imgB = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-                logo_html_b = f'<div style="margin-top:8px;"><img src="{logoB}" style="height:40px;width:40px;border-radius:6px;box-shadow:0 1px 6px rgba(0,0,0,0.06);"></div>' if logoB else ""
+                logo_html_b = f'<div style="margin-top:8px;"><img src="{logoB}" style="height:40px;width:40px;border-radius:6px;box-shadow:none;background:transparent;border:none;"></div>' if logoB else ""
                 st.markdown(f'<div style="text-align:center;"><img src="{imgB}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{playerB}</div>{logo_html_b}</div>', unsafe_allow_html=True)
 
             st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
@@ -1187,19 +1217,19 @@ elif page == "Compare":
 # ---------------- Glossary tab ----------------
 else:
     glossary = {
-        "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter's swing is compared to the league average. A score of 100 is average, while every 10 points is one standard deviation.",
-        "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters who show both efficient mechanics and physical attributes that suggest future growth.",
-        "PowerIndex+": "A normalized measure of raw swing-driven power potential, built from metrics like bat speed, swing length, and attack angle. It represents how much force and lift a hitter's swing can generate relative to peers.",
-        "xwOBA (Expected Weighted On-Base Average)": "An advanced Statcast metric estimating a hitter's overall offensive quality based on exit velocity and launch angle. It reflects what a player's outcomes should be given batted-ball quality.",
-        "Predicted xwOBA": "A model-generated estimate of expected offensive production using a player's swing or biomechanical data (rather than batted-ball outcomes). It predicts what a player's xwOBA might look like given their swing profile.",
+        "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter's swing is compared to the league average. A score of 100 is average, while every 10 points above or below represents one standard deviation.",
+        "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters who pair efficient mechanics with physical traits that project to higher production.",
+        "PowerIndex+": "A normalized measure of raw swing-driven power potential, built from metrics like bat speed, swing length, and attack angle. It represents how much force and lift a hitter's swing is likely to generate.",
+        "xwOBA (Expected Weighted On-Base Average)": "An advanced Statcast metric estimating a hitter's overall offensive quality based on exit velocity and launch angle. It reflects what a player's outcomes should be, on average.",
+        "Predicted xwOBA": "A model-generated estimate of expected offensive production using a player's swing or biomechanical data (rather than batted-ball outcomes). It predicts what a player's xwOBA might be given their mechanics.",
         "Avg Bat Speed": "The average velocity of the bat head at the point of contact, measured in miles per hour. Higher bat speed typically translates to higher exit velocity and more power potential.",
         "Avg Swing Length": "The average distance the bat travels from launch to contact. Longer swings can generate more leverage and power but may reduce contact consistency.",
-        "Avg Attack Angle": "The vertical angle of the bat's path at contact, measured relative to the ground. Positive values indicate an upward swing plane; moderate positive angles (around 10–20°) often correlate with better launch angles for power.",
-        "Avg Swing Tilt": "The overall body tilt or lateral bend during the swing. It reflects how the hitter's upper body moves through the swing plane, often influencing contact quality and pitch coverage.",
-        "Avg Attack Direction": "The horizontal direction of the bat's movement at contact — whether the swing path moves toward right field (positive) or left field (negative). It captures how the swing path favors certain batted-ball directions.",
-        "Avg Intercept Y vs. Plate": "The vertical position (height) at which the bat's swing plane crosses the plate area. It helps identify how 'flat' or 'steep' a hitter's swing path is through the strike zone.",
-        "Avg Intercept Y vs. Batter": "The same intercept concept, but relative to the hitter's body position instead of the plate. It contextualizes swing height based on a hitter's individual setup and posture.",
-        "Avg Batter Y Pos": "The average vertical position of the hitter's body (typically the torso or bat knob) at the moment of contact. It helps quantify a hitter's posture and body control through the swing.",
+        "Avg Attack Angle": "The vertical angle of the bat's path at contact, measured relative to the ground. Positive values indicate an upward swing plane.",
+        "Avg Swing Tilt": "The overall body tilt or lateral bend during the swing. It reflects how the hitter's upper body moves through the swing plane.",
+        "Avg Attack Direction": "The horizontal direction of the bat's movement at contact — whether the swing path moves toward right field (positive) or left field (negative).",
+        "Avg Intercept Y vs. Plate": "The vertical position (height) at which the bat's swing plane crosses the plate area. It helps identify how 'flat' or 'steep' a hitter's swing path is through the zone.",
+        "Avg Intercept Y vs. Batter": "The same intercept concept, but relative to the hitter's body position instead of the plate. It contextualizes swing height based on a hitter's individual setup.",
+        "Avg Batter Y Pos": "The average vertical position of the hitter's body (typically the torso or bat knob) at the moment of contact. It helps quantify a hitter's posture and body control through contact.",
         "Avg Batter X Pos": "The average horizontal position of the bat or hands at contact, relative to the center of the plate. This reflects how far out in front or deep in the zone the hitter tends to make contact."
     }
 
