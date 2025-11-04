@@ -411,10 +411,14 @@ if page == "Main":
         )
         top_swing = df_filtered.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
         leaderboard_cols = [c for c in ["Name", "Team", "Age", "Swing+", "ProjSwing+", "PowerIndex+"] if c in top_swing.columns]
+        # format numbers to 2 decimals where relevant
+        top_swing_display = top_swing.copy()
+        for col in ["Swing+", "ProjSwing+", "PowerIndex+"]:
+            if col in top_swing_display.columns:
+                top_swing_display[col] = top_swing_display[col].apply(lambda v: f"{v:.2f}" if pd.notna(v) else v)
         st.dataframe(
-            top_swing[leaderboard_cols]
-            .style.background_gradient(subset=["Swing+"], cmap=elite_cmap)
-            .format(precision=1),
+            top_swing_display[leaderboard_cols]
+            .style.background_gradient(subset=["Swing+"], cmap=elite_cmap),
             use_container_width=True,
             hide_index=True
         )
@@ -430,10 +434,13 @@ if page == "Main":
         )
         top_proj = df_filtered.sort_values("ProjSwing+", ascending=False).head(10).reset_index(drop=True)
         leaderboard_cols = [c for c in ["Name", "Team", "Age", "ProjSwing+", "Swing+", "PowerIndex+"] if c in top_proj.columns]
+        top_proj_display = top_proj.copy()
+        for col in ["Swing+", "ProjSwing+", "PowerIndex+"]:
+            if col in top_proj_display.columns:
+                top_proj_display[col] = top_proj_display[col].apply(lambda v: f"{v:.2f}" if pd.notna(v) else v)
         st.dataframe(
-            top_proj[leaderboard_cols]
-            .style.background_gradient(subset=["ProjSwing+"], cmap=elite_cmap)
-            .format(precision=1),
+            top_proj_display[leaderboard_cols]
+            .style.background_gradient(subset=["ProjSwing+"], cmap=elite_cmap),
             use_container_width=True,
             hide_index=True
         )
@@ -472,7 +479,7 @@ elif page == "Player":
     player_row = df[df["Name"] == player_select].iloc[0]
 
     headshot_size = 96
-    logo_size = 80
+    logo_size = 64
 
     team_abb = player_row["Team"] if "Team" in player_row and pd.notnull(player_row["Team"]) else ""
     logo_url = image_dict.get(team_abb, "")
@@ -494,9 +501,10 @@ elif page == "Player":
             f'box-shadow:0 1px 6px rgba(0,0,0,0.06);margin-right:18px;" alt="headshot"/>'
         )
 
+    # show team logo below name (instead of "Team" text)
     logo_html = ""
     if logo_url:
-        logo_html = f'<img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;margin-left:46px;background:transparent;border-radius:0;" alt="logo"/>'
+        logo_html = f'<div style="margin-top:10px;"><img src="{logo_url}" style="height:{logo_size}px;width:{logo_size}px;vertical-align:middle;background:transparent;border-radius:6px;box-shadow:0 1px 6px rgba(0,0,0,0.06);" alt="logo"/></div>'
 
     player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
 
@@ -545,8 +553,8 @@ elif page == "Player":
             <div style="display:flex;flex-direction:column;align-items:center;">
                 {player_name_html}
                 {"<span style='font-size:0.98em;color:#495366;margin-top:7px;margin-bottom:0;font-weight:500;letter-spacing:0.02em;opacity:0.82;'>" + player_bio + "</span>" if player_bio else ""}
+                {logo_html}
             </div>
-            {logo_html}
         </div>
         """,
         unsafe_allow_html=True
@@ -592,17 +600,17 @@ elif page == "Player":
         f"""
         <div style="display: flex; justify-content: center; gap: 32px; margin-top: 0px; margin-bottom: 28px;">
           <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
-            <div style="font-size: 2.2em; font-weight: 700; color: {swing_color};">{player_row['Swing+']:.1f}</div>
+            <div style="font-size: 2.2em; font-weight: 700; color: {swing_color};">{player_row['Swing+']:.2f}</div>
             <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">Swing+</div>
             <span style="background: #FFC10733; color: #B71C1C; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_swing_rank} of {total_players}</span>
           </div>
           <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
-            <div style="font-size: 2.2em; font-weight: 700; color: {proj_color};">{player_row['ProjSwing+']:.1f}</div>
+            <div style="font-size: 2.2em; font-weight: 700; color: {proj_color};">{player_row['ProjSwing+']:.2f}</div>
             <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">ProjSwing+</div>
             <span style="background: #C8E6C933; color: #1B5E20; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_proj_rank} of {total_players}</span>
           </div>
           <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
-            <div style="font-size: 2.2em; font-weight: 700; color: {power_color};">{player_row['PowerIndex+']:.1f}</div>
+            <div style="font-size: 2.2em; font-weight: 700; color: {power_color};">{player_row['PowerIndex+']:.2f}</div>
             <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">PowerIndex+</div>
             <span style="background: #B3E5FC33; color: #01579B; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_power_rank} of {total_players}</span>
           </div>
@@ -825,6 +833,18 @@ elif page == "Player":
                     "score": sim_score
                 })
 
+            # Heatmap of the similarity for the top group (include player at top)
+            try:
+                heat_names = [player_select] + list(similar_players.index)
+                heat_idx = [df_mech[df_mech[name_col] == n].index[0] for n in heat_names]
+                heat_mat = similarity_matrix[np.ix_(heat_idx, heat_idx)]
+                fig_h, axh = plt.subplots(figsize=(6, 4))
+                sns.heatmap(heat_mat, xticklabels=heat_names, yticklabels=heat_names, cmap="vlag", center=0, annot=False, ax=axh)
+                axh.set_title("Mechanical similarity (cosine) — top similar players")
+                st.pyplot(fig_h)
+            except Exception:
+                pass
+
             st.markdown(
                 """
                 <style>
@@ -895,17 +915,17 @@ elif page == "Player":
                     transition: width 0.5s ease;
                 }
                 .sim-compare-btn {
-                    background: linear-gradient(90deg,#0b6efd,#0056d6);
+                    background: linear-gradient(90deg,#FF7A1A,#FFB648);
                     color: #fff;
                     padding: 8px 12px;
                     border-radius: 10px;
                     text-decoration: none;
                     font-weight: 800;
-                    box-shadow: 0 4px 12px rgba(11,110,253,0.18);
+                    box-shadow: 0 4px 12px rgba(255,122,26,0.18);
                     border: none;
                     cursor: pointer;
                 }
-                .sim-compare-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(11,110,253,0.22); }
+                .sim-compare-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(255,122,26,0.22); }
                 @media (max-width: 1100px) {
                     .sim-container { max-width: 92%; }
                     .sim-bar-mini { width: 160px; height: 8px; }
@@ -916,7 +936,7 @@ elif page == "Player":
                 unsafe_allow_html=True
             )
 
-            st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to <span style="font-weight:800;">{player_select}</span></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to <strong>{player_select}</strong></div>')
             st.markdown('<div class="sim-list">', unsafe_allow_html=True)
 
             for idx, sim in enumerate(sim_rows, 1):
@@ -935,7 +955,7 @@ elif page == "Player":
                     <div class="sim-item">
                         <div class="sim-rank">{idx}</div>
                         <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                        <div class="sim-name-compact">{sim['name']}</div>
+                        <div class="sim-name-compact"><a href="?player={quote(sim['name'])}" style="color:#183153;text-decoration:none;font-weight:700;">{sim['name']}</a></div>
                         <div style="display:flex;align-items:center;gap:8px;">
                             <div class="sim-score-compact">{sim_pct_text}</div>
                             <div class="sim-bar-mini" aria-hidden="true">
@@ -977,9 +997,7 @@ elif page == "Compare":
         with col_b:
             playerB = st.selectbox("Player B", player_options, index=default_b_idx, key="compare_player_b")
 
-        if st.button("Open comparison (update URL)"):
-            open_compare_in_same_tab(playerA, playerB)
-            st.experimental_rerun()
+        # Removed the non-functional "Open comparison (update URL)" button per request.
 
         if playerA == playerB:
             st.warning("Select two different players to compare.")
@@ -1014,9 +1032,10 @@ elif page == "Compare":
                     imgA = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{pid}/headshot/silo/current.png"
                 else:
                     imgA = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-                st.markdown(f'<div style="text-align:center;"><img src="{imgA}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{playerA}</div><div style="color:#64748b;">{rowA.get("Team","")}</div></div>', unsafe_allow_html=True)
+                logo_html_a = f'<div style="margin-top:8px;"><img src="{logoA}" style="height:40px;width:40px;border-radius:6px;box-shadow:0 1px 6px rgba(0,0,0,0.06);"></div>' if logoA else ""
+                st.markdown(f'<div style="text-align:center;"><img src="{imgA}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{playerA}</div>{logo_html_a}</div>', unsafe_allow_html=True)
             with col2:
-                st.markdown(f'<div style="text-align:center;padding:8px;border-radius:10px;"><div style="font-size:1.25em;font-weight:800;color:#0b6efd;">Similarity</div><div style="font-size:1.6em;font-weight:800;color:#183153;margin-top:6px;">{sim_pct}</div><div style="color:#64748b;margin-top:6px;">Cosine on mechanical features</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="text-align:center;padding:8px;border-radius:10px;"><div style="font-size:1.25em;font-weight:800;color:#0b6efd;">Similarity</div><div style="font-size:1.6em;font-weight:800;color:#183153;margin-top:6px;">{sim_pct}</div></div>', unsafe_allow_html=True)
             with col3:
                 teamB = rowB["Team"] if "Team" in rowB and pd.notnull(rowB["Team"]) else ""
                 logoB = image_dict.get(teamB, "")
@@ -1026,7 +1045,8 @@ elif page == "Compare":
                     imgB = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{pid}/headshot/silo/current.png"
                 else:
                     imgB = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-                st.markdown(f'<div style="text-align:center;"><img src="{imgB}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{playerB}</div><div style="color:#64748b;">{rowB.get("Team","")}</div></div>', unsafe_allow_html=True)
+                logo_html_b = f'<div style="margin-top:8px;"><img src="{logoB}" style="height:40px;width:40px;border-radius:6px;box-shadow:0 1px 6px rgba(0,0,0,0.06);"></div>' if logoB else ""
+                st.markdown(f'<div style="text-align:center;"><img src="{imgB}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{playerB}</div>{logo_html_b}</div>', unsafe_allow_html=True)
 
             st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
@@ -1034,10 +1054,12 @@ elif page == "Compare":
             cols_stats = st.columns(len(stats)*2)
             for i, stat in enumerate(stats):
                 valA = rowA.get(stat, "N/A")
-                cols_stats[i].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valA}</div><div style="color:#64748b;">{stat} (A)</div></div>', unsafe_allow_html=True)
+                valA_disp = f"{valA:.2f}" if isinstance(valA, (int, float, np.floating, np.integer)) and not pd.isna(valA) else valA
+                cols_stats[i].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valA_disp}</div><div style="color:#64748b;">{stat} (A)</div></div>', unsafe_allow_html=True)
             for i, stat in enumerate(stats):
                 valB = rowB.get(stat, "N/A")
-                cols_stats[i+len(stats)].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valB}</div><div style="color:#64748b;">{stat} (B)</div></div>', unsafe_allow_html=True)
+                valB_disp = f"{valB:.2f}" if isinstance(valB, (int, float, np.floating, np.integer)) and not pd.isna(valB) else valB
+                cols_stats[i+len(stats)].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valB_disp}</div><div style="color:#64748b;">{stat} (B)</div></div>', unsafe_allow_html=True)
 
             st.markdown("<hr />", unsafe_allow_html=True)
 
@@ -1076,18 +1098,33 @@ elif page == "Compare":
                 else:
                     importance = pd.Series(np.ones(len(feats)), index=feats)
 
+                # Move Automated summary (renamed "Summary") to top, below metrics and above feature-level comparison
+                st.markdown("### Summary")
+                weighted_score = (1 - (z_diff / (z_diff.max() + 1e-9))).clip(0, 1) * importance
+                top_sim_idxs = weighted_score.sort_values(ascending=False).head(3).index.tolist()
+                top_diff_idxs = (z_diff * importance).sort_values(ascending=False).head(3).index.tolist()
+                bullets = []
+                if cosine_sim is not None:
+                    bullets.append(f"Overall cosine mechanical similarity: {cosine_sim*100:.1f}%.")
+                for f in top_sim_idxs:
+                    bullets.append(f"Similarity driver: {FEATURE_LABELS.get(f,f)} — both players are close in normalized space.")
+                for f in top_diff_idxs:
+                    bullets.append(f"Difference driver: {FEATURE_LABELS.get(f,f)} — notable normalized difference; check distribution.")
+                for b in bullets:
+                    st.markdown(f"- {b}")
+
+                st.markdown("### Feature-level comparison")
                 table_df = pd.DataFrame({
                     "Feature": [FEATURE_LABELS.get(f, f) for f in feats],
-                    "A (raw)": [f"{valsA[f]:.3f}" if pd.notna(valsA[f]) else "NaN" for f in feats],
-                    "B (raw)": [f"{valsB[f]:.3f}" if pd.notna(valsB[f]) else "NaN" for f in feats],
-                    "Raw diff": [f"{(valsA[f]-valsB[f]):.3f}" for f in feats],
-                    "Z diff": [f"{z_diff[f]:.3f}" for f in feats],
+                    "A (raw)": [f"{valsA[f]:.2f}" if pd.notna(valsA[f]) else "NaN" for f in feats],
+                    "B (raw)": [f"{valsB[f]:.2f}" if pd.notna(valsB[f]) else "NaN" for f in feats],
+                    "Raw diff": [f"{(valsA[f]-valsB[f]):.2f}" for f in feats],
+                    "Z diff": [f"{z_diff[f]:.2f}" for f in feats],
                     "Pct A": [f"{pctA[f]:.0%}" for f in feats],
                     "Pct B": [f"{pctB[f]:.0%}" for f in feats],
                     "Importance": [f"{importance[f]:.3f}" for f in feats]
                 })
-                st.markdown("### Feature-level comparison")
-                st.dataframe(table_df.style.format(precision=3), use_container_width=True, hide_index=True)
+                st.dataframe(table_df.style.format(precision=2), use_container_width=True, hide_index=True)
 
                 st.markdown("### Model (SHAP) contributions (if model available)")
                 if shapA is None or shapB is None:
@@ -1123,19 +1160,23 @@ elif page == "Compare":
                     pctB_vals = pctB[feats].values
                     labels_radar = [FEATURE_LABELS.get(f, f) for f in feats]
                     fig_r = go.Figure()
-                    fig_r.add_trace(go.Scatterpolar(r=pctA_vals, theta=labels_radar, fill='toself', name=playerA))
-                    fig_r.add_trace(go.Scatterpolar(r=pctB_vals, theta=labels_radar, fill='toself', name=playerB))
+                    # Change color of one of the radar plots to orange to avoid blue-on-blue
+                    fig_r.add_trace(go.Scatterpolar(r=pctA_vals, theta=labels_radar, fill='toself', name=playerA, marker_color="#FF7A1A", fillcolor="rgba(255,122,26,0.25)"))
+                    fig_r.add_trace(go.Scatterpolar(r=pctB_vals, theta=labels_radar, fill='toself', name=playerB, marker_color="#0b6efd", fillcolor="rgba(11,110,253,0.15)"))
                     fig_r.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0,1])), showlegend=True, height=450)
                     st.plotly_chart(fig_r, use_container_width=True, config={"displayModeBar": False})
                 except Exception:
                     st.info("Radar chart not available due to data issues.")
 
                 st.markdown("### Distribution for a selected feature")
-                sel_feat = st.selectbox("Choose feature for distribution", feats, index=0)
-                fig2, ax2 = plt.subplots(figsize=(6, 3.2))
+                # Fix names in dropdown to more readable text using FEATURE_LABELS
+                sel_feat_map = {FEATURE_LABELS.get(f, f): f for f in feats}
+                sel_feat_label = st.selectbox("Choose feature for distribution", list(sel_feat_map.keys()), index=0)
+                sel_feat = sel_feat_map.get(sel_feat_label, feats[0])
+                fig2, ax2 = plt.subplots(figsize=(5, 2.6))
                 try:
                     sns.kdeplot(df[sel_feat].dropna(), fill=True, ax=ax2, color="#93c5fd")
-                    ax2.axvline(valsA[sel_feat], color="#0b6efd", linestyle="--", label=f"{playerA}")
+                    ax2.axvline(valsA[sel_feat], color="#FF7A1A", linestyle="--", label=f"{playerA}")
                     ax2.axvline(valsB[sel_feat], color="#ef4444", linestyle="--", label=f"{playerB}")
                     ax2.legend()
                     ax2.set_xlabel(FEATURE_LABELS.get(sel_feat, sel_feat))
@@ -1143,37 +1184,23 @@ elif page == "Compare":
                 except Exception:
                     st.info("Distribution plot not available for this feature.")
 
-                st.markdown("### Automated summary")
-                weighted_score = (1 - (z_diff / (z_diff.max() + 1e-9))).clip(0, 1) * importance
-                top_sim_idxs = weighted_score.sort_values(ascending=False).head(3).index.tolist()
-                top_diff_idxs = (z_diff * importance).sort_values(ascending=False).head(3).index.tolist()
-                bullets = []
-                if cosine_sim is not None:
-                    bullets.append(f"Overall cosine mechanical similarity: {cosine_sim*100:.1f}%.")
-                for f in top_sim_idxs:
-                    bullets.append(f"Similarity driver: {FEATURE_LABELS.get(f,f)} — both players are close in normalized space.")
-                for f in top_diff_idxs:
-                    bullets.append(f"Difference driver: {FEATURE_LABELS.get(f,f)} — notable normalized difference; check distribution.")
-                for b in bullets:
-                    st.markdown(f"- {b}")
-
 # ---------------- Glossary tab ----------------
 else:
     glossary = {
-        "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter's swing is compared to the league average. A score of 100 is average, while every 10 points is one standard deviation.",
-        "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters who show both efficient mechanics and physical attributes that suggest future growth.",
-        "PowerIndex+": "A normalized measure of raw swing-driven power potential, built from metrics like bat speed, swing length, and attack angle. It represents how much force and lift a hitter's swing can generate relative to peers.",
-        "xwOBA (Expected Weighted On-Base Average)": "An advanced Statcast metric estimating a hitter's overall offensive quality based on exit velocity and launch angle. It reflects what a player's outcomes should be given batted-ball quality.",
-        "Predicted xwOBA": "A model-generated estimate of expected offensive production using a player's swing or biomechanical data (rather than batted-ball outcomes). It predicts what a player's xwOBA might look like given their swing profile.",
-        "Avg Bat Speed": "The average velocity of the bat head at the point of contact, measured in miles per hour. Higher bat speed typically translates to higher exit velocity and more power potential.",
+        "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter's swing is compared to the league average. A score of 100 is average, while every 10 po[...]
+        "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters w[...]
+        "PowerIndex+": "A normalized measure of raw swing-driven power potential, built from metrics like bat speed, swing length, and attack angle. It represents how much force and lift a hitter's sw[...]
+        "xwOBA (Expected Weighted On-Base Average)": "An advanced Statcast metric estimating a hitter's overall offensive quality based on exit velocity and launch angle. It reflects what a player's o[...]
+        "Predicted xwOBA": "A model-generated estimate of expected offensive production using a player's swing or biomechanical data (rather than batted-ball outcomes). It predicts what a player's xwO[...]
+        "Avg Bat Speed": "The average velocity of the bat head at the point of contact, measured in miles per hour. Higher bat speed typically translates to higher exit velocity and more power potenti[...]
         "Avg Swing Length": "The average distance the bat travels from launch to contact. Longer swings can generate more leverage and power but may reduce contact consistency.",
-        "Avg Attack Angle": "The vertical angle of the bat's path at contact, measured relative to the ground. Positive values indicate an upward swing plane; moderate positive angles (around 10–20°) often correlate with better launch angles for power.",
-        "Avg Swing Tilt": "The overall body tilt or lateral bend during the swing. It reflects how the hitter's upper body moves through the swing plane, often influencing contact quality and pitch coverage.",
-        "Avg Attack Direction": "The horizontal direction of the bat's movement at contact — whether the swing path moves toward right field (positive) or left field (negative). It captures how the swing path favors certain batted-ball directions.",
-        "Avg Intercept Y vs. Plate": "The vertical position (height) at which the bat's swing plane crosses the plate area. It helps identify how 'flat' or 'steep' a hitter's swing path is through the strike zone.",
-        "Avg Intercept Y vs. Batter": "The same intercept concept, but relative to the hitter's body position instead of the plate. It contextualizes swing height based on a hitter's individual setup and posture.",
-        "Avg Batter Y Pos": "The average vertical position of the hitter's body (typically the torso or bat knob) at the moment of contact. It helps quantify a hitter's posture and body control through the swing.",
-        "Avg Batter X Pos": "The average horizontal position of the bat or hands at contact, relative to the center of the plate. This reflects how far out in front or deep in the zone the hitter tends to make contact."
+        "Avg Attack Angle": "The vertical angle of the bat's path at contact, measured relative to the ground. Positive values indicate an upward swing plane; moderate positive angles (around 10–20�[...]
+        "Avg Swing Tilt": "The overall body tilt or lateral bend during the swing. It reflects how the hitter's upper body moves through the swing plane, often influencing contact quality and pitch co[...]
+        "Avg Attack Direction": "The horizontal direction of the bat's movement at contact — whether the swing path moves toward right field (positive) or left field (negative). It captures how the [...]
+        "Avg Intercept Y vs. Plate": "The vertical position (height) at which the bat's swing plane crosses the plate area. It helps identify how 'flat' or 'steep' a hitter's swing path is through the[...]
+        "Avg Intercept Y vs. Batter": "The same intercept concept, but relative to the hitter's body position instead of the plate. It contextualizes swing height based on a hitter's individual setup [...]
+        "Avg Batter Y Pos": "The average vertical position of the hitter's body (typically the torso or bat knob) at the moment of contact. It helps quantify a hitter's posture and body control throug[...]
+        "Avg Batter X Pos": "The average horizontal position of the bat or hands at contact, relative to the center of the plate. This reflects how far out in front or deep in the zone the hitter tend[...]
     }
 
     st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
