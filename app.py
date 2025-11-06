@@ -2,8 +2,8 @@
 # - Removed team logo from the Player page (it was added accidentally).
 # - Kept team logos on the Compare page but removed white border / box around logos.
 # - Made the "Compare" button in similarity list a simple white background with black text + subtle border.
-# - Added a checkbox (default: unchecked) on the Player page to show/hide the mechanical similarity cluster heatmap (placed below the Top N list).
-# - Heatmap uses annotated cells (2 decimal places), a colorbar labeled "Cosine Similarity", and a diverging colormap similar to the example.
+# - Replaced the Player-page similarity cluster control with an expander (click-to-open) so the heatmap is hidden until expanded.
+# - For the Compare tab distribution, the plot size remains the same but is placed inside an expander (click-to-open) so it doesn't take screen space until requested.
 # - Kept earlier fixes: rounding metrics, radar color change, distribution dropdown labels, moving "Summary" above feature-level comparison.
 # NOTE: This is the full updated script per your request.
 
@@ -840,7 +840,7 @@ elif page == "Player":
                     "score": sim_score
                 })
 
-            # Show the top-N similar players list (unchanged) and provide a dropdown to toggle the cluster heatmap (default: hidden)
+            # Show the top-N similar players list (unchanged) and provide an expander to toggle the cluster heatmap (default: collapsed)
             st.markdown(
                 """
                 <style>
@@ -966,9 +966,8 @@ elif page == "Player":
 
             st.markdown('</div></div>', unsafe_allow_html=True)
 
-            # Dropdown to show/hide the cluster heatmap (default: Hidden)
-            show_cluster_option = st.selectbox("Mechanical similarity cluster", ["Hidden", "Show heatmap"], index=0, key="show_cluster_heatmap")
-            if show_cluster_option == "Show heatmap":
+            # Use an expander (click-to-open) for the cluster heatmap so it stays out of the way until requested
+            with st.expander("Mechanical similarity cluster (click to expand)", expanded=False):
                 try:
                     heat_names = [player_select] + list(similar_players.index)
                     # build indices within df_mech to extract corresponding rows from similarity_matrix
@@ -1201,21 +1200,21 @@ elif page == "Compare":
                 st.markdown("### Distribution for a selected feature")
                 # Fix names in dropdown to more readable text using FEATURE_LABELS
                 sel_feat_map = {FEATURE_LABELS.get(f, f): f for f in feats}
-                sel_feat_label = st.selectbox("Choose feature for distribution", list(sel_feat_map.keys()), index=0)
-                sel_feat = sel_feat_map.get(sel_feat_label, feats[0])
-                # Make distribution plot smaller to occupy less vertical space
-                fig2, ax2 = plt.subplots(figsize=(4, 1.6))
-                try:
-                    sns.kdeplot(df[sel_feat].dropna(), fill=True, ax=ax2, color="#93c5fd")
-                    ax2.axvline(valsA[sel_feat], color="#FF7A1A", linestyle="--", label=f"{playerA}")
-                    ax2.axvline(valsB[sel_feat], color="#ef4444", linestyle="--", label=f"{playerB}")
-                    ax2.legend(fontsize=8)
-                    ax2.set_xlabel(FEATURE_LABELS.get(sel_feat, sel_feat))
-                    ax2.tick_params(axis='both', which='major', labelsize=8)
-                    plt.tight_layout()
-                    st.pyplot(fig2)
-                except Exception:
-                    st.info("Distribution plot not available for this feature.")
+                # Place the distribution plot inside an expander so it doesn't occupy screen space until clicked.
+                with st.expander("Show distribution (click to expand)", expanded=False):
+                    sel_feat_label = st.selectbox("Choose feature for distribution", list(sel_feat_map.keys()), index=0)
+                    sel_feat = sel_feat_map.get(sel_feat_label, feats[0])
+                    # Keep the plot the same size but hidden until the expander is opened (so it appears smaller on-screen initially)
+                    fig2, ax2 = plt.subplots(figsize=(5, 2.6))
+                    try:
+                        sns.kdeplot(df[sel_feat].dropna(), fill=True, ax=ax2, color="#93c5fd")
+                        ax2.axvline(valsA[sel_feat], color="#FF7A1A", linestyle="--", label=f"{playerA}")
+                        ax2.axvline(valsB[sel_feat], color="#ef4444", linestyle="--", label=f"{playerB}")
+                        ax2.legend()
+                        ax2.set_xlabel(FEATURE_LABELS.get(sel_feat, sel_feat))
+                        st.pyplot(fig2)
+                    except Exception:
+                        st.info("Distribution plot not available for this feature.")
 
 # ---------------- Glossary tab ----------------
 else:
