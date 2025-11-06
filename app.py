@@ -1,13 +1,5 @@
-# Updated app.py — applied UI fixes requested by user:
-# - Removed team logo from the Player page.
-# - Kept team logos on the Compare page but removed white border / box around logos.
-# - Made the "Compare" button in similarity list a simple white background with black text + subtle border.
-# - Player-page: similarity cluster heatmap is hidden behind an expander (click-to-open).
-# - Compare tab: distribution control is a visible dropdown (selectbox) on the page (not hidden).
-# - Compare tab: distribution plot is rendered centered in a narrower column so it appears smaller on the page,
-#   while the figure resolution remains unchanged.
-# - Kept earlier fixes: rounding metrics, radar color change, distribution dropdown labels, moving "Summary" above feature-level comparison.
-# NOTE: This is the full updated script per your request.
+# Updated app.py — adjusted Compare-tab distribution rendering so the feature selector is a visible dropdown
+# and the distribution plot is rendered at a clearer, larger on-screen size (full-width) while keeping a good figure resolution.
 
 import pandas as pd
 import streamlit as st
@@ -1205,22 +1197,20 @@ elif page == "Compare":
                 # Show a visible dropdown (selectbox) on the page to pick the feature for distribution
                 sel_feat_label = st.selectbox("Choose feature for distribution", list(sel_feat_map.keys()), index=0, key="dist_select")
                 sel_feat = sel_feat_map.get(sel_feat_label, feats[0])
-                # Center the plot in a narrower middle column so it appears smaller on the page,
-                # while keeping the plot resolution similar to earlier.
-                col_left, col_mid, col_right = st.columns([2, 1, 2])
-                with col_mid:
-                    fig2, ax2 = plt.subplots(figsize=(5, 2.6))
-                    try:
-                        sns.kdeplot(df[sel_feat].dropna(), fill=True, ax=ax2, color="#93c5fd")
-                        ax2.axvline(valsA[sel_feat], color="#FF7A1A", linestyle="--", label=f"{playerA}")
-                        ax2.axvline(valsB[sel_feat], color="#ef4444", linestyle="--", label=f"{playerB}")
-                        ax2.legend(fontsize=8)
-                        ax2.set_xlabel(FEATURE_LABELS.get(sel_feat, sel_feat))
-                        ax2.tick_params(axis='both', which='major', labelsize=8)
-                        plt.tight_layout()
-                        st.pyplot(fig2, use_container_width=False)
-                    except Exception:
-                        st.info("Distribution plot not available for this feature.")
+
+                # Render the distribution plot at a clear on-screen size (use_container_width=True so it fills available width)
+                fig2, ax2 = plt.subplots(figsize=(8, 3))
+                try:
+                    sns.kdeplot(df[sel_feat].dropna(), fill=True, ax=ax2, color="#93c5fd")
+                    ax2.axvline(valsA[sel_feat], color="#FF7A1A", linestyle="--", label=f"{playerA}")
+                    ax2.axvline(valsB[sel_feat], color="#ef4444", linestyle="--", label=f"{playerB}")
+                    ax2.legend(fontsize=9)
+                    ax2.set_xlabel(FEATURE_LABELS.get(sel_feat, sel_feat))
+                    ax2.tick_params(axis='both', which='major', labelsize=10)
+                    plt.tight_layout()
+                    st.pyplot(fig2, use_container_width=True)
+                except Exception:
+                    st.info("Distribution plot not available for this feature.")
 
 # ---------------- Glossary tab ----------------
 else:
