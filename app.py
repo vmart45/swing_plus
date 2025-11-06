@@ -840,7 +840,7 @@ elif page == "Player":
                     "score": sim_score
                 })
 
-            # Show the top-N similar players list (unchanged) and provide a checkbox to toggle the cluster heatmap (default: hidden)
+            # Show the top-N similar players list (unchanged) and provide a dropdown to toggle the cluster heatmap (default: hidden)
             st.markdown(
                 """
                 <style>
@@ -932,7 +932,7 @@ elif page == "Player":
                 unsafe_allow_html=True
             )
 
-            st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to <strong>{player_select}</strong></div>')
+            st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to <strong>{player_select}</strong></div>', unsafe_allow_html=True)
             st.markdown('<div class="sim-list">', unsafe_allow_html=True)
 
             for idx, sim in enumerate(sim_rows, 1):
@@ -966,9 +966,9 @@ elif page == "Player":
 
             st.markdown('</div></div>', unsafe_allow_html=True)
 
-            # Checkbox to show/hide the cluster heatmap (default: hidden)
-            show_cluster = st.checkbox("Show mechanical similarity cluster heatmap", value=False, key="show_cluster_heatmap")
-            if show_cluster:
+            # Dropdown to show/hide the cluster heatmap (default: Hidden)
+            show_cluster_option = st.selectbox("Mechanical similarity cluster", ["Hidden", "Show heatmap"], index=0, key="show_cluster_heatmap")
+            if show_cluster_option == "Show heatmap":
                 try:
                     heat_names = [player_select] + list(similar_players.index)
                     # build indices within df_mech to extract corresponding rows from similarity_matrix
@@ -1061,11 +1061,11 @@ elif page == "Compare":
                     imgA = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{pid}/headshot/silo/current.png"
                 else:
                     imgA = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-                # team logo on compare page — remove white border / box
+                # team logo on compare page — remove white border / box and show inline
                 logo_html_a = f'<div style="margin-top:8px;"><img src="{logoA}" style="height:40px;width:40px;border-radius:6px;box-shadow:none;background:transparent;border:none;"></div>' if logoA else ""
                 st.markdown(f'<div style="text-align:center;"><img src="{imgA}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{playerA}</div>{logo_html_a}</div>', unsafe_allow_html=True)
             with col2:
-                st.markdown(f'<div style="text-align:center;padding:8px;border-radius:10px;"><div style="font-size:1.25em;font-weight:800;color:#0b6efd;">Similarity</div><div style="font-size:1.6em;font-weight:800;color:#183153;margin-top:6px;">{sim_pct}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="text-align:center;padding:8px;border-radius:10px;"><div style="font-size:1.25em;font-weight:800;color:#0b6efd;">Similarity</div><div style="font-size:1.6em;font-weight:900;color:#183153;margin-top:6px">{sim_pct}</div></div>', unsafe_allow_html=True)
             with col3:
                 teamB = rowB["Team"] if "Team" in rowB and pd.notnull(rowB["Team"]) else ""
                 logoB = image_dict.get(teamB, "")
@@ -1203,13 +1203,16 @@ elif page == "Compare":
                 sel_feat_map = {FEATURE_LABELS.get(f, f): f for f in feats}
                 sel_feat_label = st.selectbox("Choose feature for distribution", list(sel_feat_map.keys()), index=0)
                 sel_feat = sel_feat_map.get(sel_feat_label, feats[0])
-                fig2, ax2 = plt.subplots(figsize=(5, 2.6))
+                # Make distribution plot smaller to occupy less vertical space
+                fig2, ax2 = plt.subplots(figsize=(4, 1.6))
                 try:
                     sns.kdeplot(df[sel_feat].dropna(), fill=True, ax=ax2, color="#93c5fd")
                     ax2.axvline(valsA[sel_feat], color="#FF7A1A", linestyle="--", label=f"{playerA}")
                     ax2.axvline(valsB[sel_feat], color="#ef4444", linestyle="--", label=f"{playerB}")
-                    ax2.legend()
+                    ax2.legend(fontsize=8)
                     ax2.set_xlabel(FEATURE_LABELS.get(sel_feat, sel_feat))
+                    ax2.tick_params(axis='both', which='major', labelsize=8)
+                    plt.tight_layout()
                     st.pyplot(fig2)
                 except Exception:
                     st.info("Distribution plot not available for this feature.")
@@ -1217,11 +1220,11 @@ elif page == "Compare":
 # ---------------- Glossary tab ----------------
 else:
     glossary = {
-        "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter's swing is compared to the league average. A score of 100 is average, while every 10 points above or below represents one standard deviation.",
-        "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters who pair efficient mechanics with physical traits that project to higher production.",
-        "PowerIndex+": "A normalized measure of raw swing-driven power potential, built from metrics like bat speed, swing length, and attack angle. It represents how much force and lift a hitter's swing is likely to generate.",
-        "xwOBA (Expected Weighted On-Base Average)": "An advanced Statcast metric estimating a hitter's overall offensive quality based on exit velocity and launch angle. It reflects what a player's outcomes should be, on average.",
-        "Predicted xwOBA": "A model-generated estimate of expected offensive production using a player's swing or biomechanical data (rather than batted-ball outcomes). It predicts what a player's xwOBA might be given their mechanics.",
+        "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter's swing is compared to the league average. A score of 100 is average, while every 10 points represents one standard deviation.",
+        "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters with both sound mechanics and projection-friendly traits.",
+        "PowerIndex+": "A normalized measure of raw swing-driven power potential, built from metrics like bat speed, swing length, and attack angle. It represents how much force and lift a hitter's swing can produce.",
+        "xwOBA (Expected Weighted On-Base Average)": "An advanced Statcast metric estimating a hitter's overall offensive quality based on exit velocity and launch angle. It reflects what a player's offensive output should be given contact quality.",
+        "Predicted xwOBA": "A model-generated estimate of expected offensive production using a player's swing or biomechanical data (rather than batted-ball outcomes). It predicts what a player's xwOBA could be based on swing metrics.",
         "Avg Bat Speed": "The average velocity of the bat head at the point of contact, measured in miles per hour. Higher bat speed typically translates to higher exit velocity and more power potential.",
         "Avg Swing Length": "The average distance the bat travels from launch to contact. Longer swings can generate more leverage and power but may reduce contact consistency.",
         "Avg Attack Angle": "The vertical angle of the bat's path at contact, measured relative to the ground. Positive values indicate an upward swing plane.",
@@ -1229,7 +1232,7 @@ else:
         "Avg Attack Direction": "The horizontal direction of the bat's movement at contact — whether the swing path moves toward right field (positive) or left field (negative).",
         "Avg Intercept Y vs. Plate": "The vertical position (height) at which the bat's swing plane crosses the plate area. It helps identify how 'flat' or 'steep' a hitter's swing path is through the zone.",
         "Avg Intercept Y vs. Batter": "The same intercept concept, but relative to the hitter's body position instead of the plate. It contextualizes swing height based on a hitter's individual setup.",
-        "Avg Batter Y Pos": "The average vertical position of the hitter's body (typically the torso or bat knob) at the moment of contact. It helps quantify a hitter's posture and body control through contact.",
+        "Avg Batter Y Pos": "The average vertical position of the hitter's body (typically the torso or bat knob) at the moment of contact. It helps quantify a hitter's posture and body control throughout the swing.",
         "Avg Batter X Pos": "The average horizontal position of the bat or hands at contact, relative to the center of the plate. This reflects how far out in front or deep in the zone the hitter tends to make contact."
     }
 
