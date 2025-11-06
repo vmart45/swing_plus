@@ -1,6 +1,3 @@
-# Updated app.py — adjusted Compare-tab distribution rendering so the feature selector is a visible dropdown
-# and the distribution plot is rendered at a clearer, larger on-screen size (full-width) while keeping a good figure resolution.
-
 import pandas as pd
 import streamlit as st
 import os
@@ -997,7 +994,7 @@ elif page == "Compare":
     st.markdown(
         """
         <h2 style="text-align:center; margin-top:10px; margin-bottom:6px; font-size:1.4em; color:#183153;">
-            Player vs Player Comparison
+            Compare Players
         </h2>
         """,
         unsafe_allow_html=True
@@ -1121,14 +1118,14 @@ elif page == "Compare":
                 else:
                     importance = pd.Series(np.ones(len(feats)), index=feats)
 
-                # Move Automated summary (renamed "Summary") to top, below metrics and above feature-level comparison
-                st.markdown("### Summary")
+                # Friendly, less-technical headings
+                st.markdown("### Quick Takeaways")
                 weighted_score = (1 - (z_diff / (z_diff.max() + 1e-9))).clip(0, 1) * importance
                 top_sim_idxs = weighted_score.sort_values(ascending=False).head(3).index.tolist()
                 top_diff_idxs = (z_diff * importance).sort_values(ascending=False).head(3).index.tolist()
                 bullets = []
                 if cosine_sim is not None:
-                    bullets.append(f"Overall cosine mechanical similarity: {cosine_sim*100:.1f}%.")
+                    bullets.append(f"Overall mechanical similarity: {cosine_sim*100:.1f}%.")
                 for f in top_sim_idxs:
                     bullets.append(f"Similarity driver: {FEATURE_LABELS.get(f,f)} — both players are close in normalized space.")
                 for f in top_diff_idxs:
@@ -1136,7 +1133,7 @@ elif page == "Compare":
                 for b in bullets:
                     st.markdown(f"- {b}")
 
-                st.markdown("### Feature-level comparison")
+                st.markdown("### Feature comparison")
                 table_df = pd.DataFrame({
                     "Feature": [FEATURE_LABELS.get(f, f) for f in feats],
                     "A (raw)": [f"{valsA[f]:.2f}" if pd.notna(valsA[f]) else "NaN" for f in feats],
@@ -1149,35 +1146,72 @@ elif page == "Compare":
                 })
                 st.dataframe(table_df.style.format(precision=2), use_container_width=True, hide_index=True)
 
-                st.markdown("### Model (SHAP) contributions (if model available)")
+                st.markdown("### Model contributions")
                 if shapA is None or shapB is None:
                     st.info("Model SHAP not available for one or both players.")
                 else:
+                    # Use same visual style as Player page: two single-player horizontal SHAP bar charts (one per column)
                     order = importance.sort_values(ascending=False).index.tolist()
+                    labels = [FEATURE_LABELS.get(f, f) for f in order]
                     shapA_ord = shapA[order]
                     shapB_ord = shapB[order]
-                    labels = [FEATURE_LABELS.get(f, f) for f in order]
-                    fig = go.Figure()
-                    fig.add_trace(go.Bar(
-                        x=shapA_ord.values,
-                        y=labels,
-                        orientation='h',
-                        name=f"{playerA}",
-                        marker_color=["#D8573C" if v > 0 else "#3B82C4" for v in shapA_ord.values],
-                        hovertemplate="%{x:.3f}"
-                    ))
-                    fig.add_trace(go.Bar(
-                        x=shapB_ord.values,
-                        y=labels,
-                        orientation='h',
-                        name=f"{playerB}",
-                        marker_color=["#F59E0B" if v > 0 else "#60A5FA" for v in shapB_ord.values],
-                        hovertemplate="%{x:.3f}"
-                    ))
-                    fig.update_layout(barmode='group', height=420, margin=dict(l=180, r=24, t=24, b=60))
-                    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-                st.markdown("### Radar: normalized percentiles")
+                    col_shap_a, col_shap_b = st.columns([1, 1])
+                    with col_shap_a:
+                        vals = shapA_ord.values.astype(float)
+                        colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]
+                        text_labels = [f"{v:.3f}" for v in vals]
+                        figA = go.Figure()
+                        figA.add_trace(go.Bar(
+                            x=vals,
+                            y=labels,
+                            orientation='h',
+                            marker_color=colors,
+                            hoverinfo='text',
+                            hovertext=[f"Contribution: {v:.3f}" for v in vals],
+                            text=text_labels,
+                            textposition='inside',
+                            insidetextanchor='middle'
+                        ))
+                        figA.update_layout(
+                            margin=dict(l=160, r=24, t=28, b=60),
+                            xaxis_title="SHAP contribution to Swing+ (signed)",
+                            yaxis=dict(autorange="reversed"),
+                            height=420,
+                            showlegend=False,
+                            title=dict(text=f"{playerA} — Model contribution", x=0.01, xanchor='left'),
+                            font=dict(size=11)
+                        )
+                        st.plotly_chart(figA, use_container_width=True, config={"displayModeBar": False})
+
+                    with col_shap_b:
+                        vals = shapB_ord.values.astype(float)
+                        colors = ["#F59E0B" if v > 0 else "#60A5FA" for v in vals]
+                        text_labels = [f"{v:.3f}" for v in vals]
+                        figB = go.Figure()
+                        figB.add_trace(go.Bar(
+                            x=vals,
+                            y=labels,
+                            orientation='h',
+                            marker_color=colors,
+                            hoverinfo='text',
+                            hovertext=[f"Contribution: {v:.3f}" for v in vals],
+                            text=text_labels,
+                            textposition='inside',
+                            insidetextanchor='middle'
+                        ))
+                        figB.update_layout(
+                            margin=dict(l=160, r=24, t=28, b=60),
+                            xaxis_title="SHAP contribution to Swing+ (signed)",
+                            yaxis=dict(autorange="reversed"),
+                            height=420,
+                            showlegend=False,
+                            title=dict(text=f"{playerB} — Model contribution", x=0.01, xanchor='left'),
+                            font=dict(size=11)
+                        )
+                        st.plotly_chart(figB, use_container_width=True, config={"displayModeBar": False})
+
+                st.markdown("### Percentiles (radar)")
                 try:
                     pctA_vals = pctA[feats].values
                     pctB_vals = pctB[feats].values
@@ -1191,7 +1225,7 @@ elif page == "Compare":
                 except Exception:
                     st.info("Radar chart not available due to data issues.")
 
-                st.markdown("### Distribution for a selected feature")
+                st.markdown("### Feature distribution")
                 # Fix names in dropdown to more readable text using FEATURE_LABELS
                 sel_feat_map = {FEATURE_LABELS.get(f, f): f for f in feats}
                 # Show a visible dropdown (selectbox) on the page to pick the feature for distribution
