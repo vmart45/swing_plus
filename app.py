@@ -1,9 +1,9 @@
 # Updated app.py — applied UI fixes requested by user:
-# - Removed team logo from the Player page (it was added accidentally).
+# - Removed team logo from the Player page.
 # - Kept team logos on the Compare page but removed white border / box around logos.
 # - Made the "Compare" button in similarity list a simple white background with black text + subtle border.
 # - Replaced the Player-page similarity cluster control with an expander (click-to-open) so the heatmap is hidden until expanded.
-# - For the Compare tab distribution, the plot size remains the same but is placed inside an expander (click-to-open) so it doesn't take screen space until requested.
+# - For the Compare tab distribution: the distribution control is no longer a select dropdown — it's inside an expander and uses radio buttons (click-to-open). The distribution plot is centered in a narrower column so it appears smaller on the page.
 # - Kept earlier fixes: rounding metrics, radar color change, distribution dropdown labels, moving "Summary" above feature-level comparison.
 # NOTE: This is the full updated script per your request.
 
@@ -1200,21 +1200,27 @@ elif page == "Compare":
                 st.markdown("### Distribution for a selected feature")
                 # Fix names in dropdown to more readable text using FEATURE_LABELS
                 sel_feat_map = {FEATURE_LABELS.get(f, f): f for f in feats}
-                # Place the distribution plot inside an expander so it doesn't occupy screen space until clicked.
+                # Place the distribution inside an expander (click-to-open) and use radio buttons (not a select dropdown).
                 with st.expander("Show distribution (click to expand)", expanded=False):
-                    sel_feat_label = st.selectbox("Choose feature for distribution", list(sel_feat_map.keys()), index=0)
+                    feat_labels = list(sel_feat_map.keys())
+                    # radio (visible list) instead of selectbox dropdown
+                    sel_feat_label = st.radio("Choose feature for distribution", feat_labels, index=0, key="dist_radio")
                     sel_feat = sel_feat_map.get(sel_feat_label, feats[0])
-                    # Keep the plot the same size but hidden until the expander is opened (so it appears smaller on-screen initially)
-                    fig2, ax2 = plt.subplots(figsize=(5, 2.6))
-                    try:
-                        sns.kdeplot(df[sel_feat].dropna(), fill=True, ax=ax2, color="#93c5fd")
-                        ax2.axvline(valsA[sel_feat], color="#FF7A1A", linestyle="--", label=f"{playerA}")
-                        ax2.axvline(valsB[sel_feat], color="#ef4444", linestyle="--", label=f"{playerB}")
-                        ax2.legend()
-                        ax2.set_xlabel(FEATURE_LABELS.get(sel_feat, sel_feat))
-                        st.pyplot(fig2)
-                    except Exception:
-                        st.info("Distribution plot not available for this feature.")
+                    # Center the plot in a narrower column so it appears smaller on the page while keeping the plot resolution
+                    col_left, col_mid, col_right = st.columns([1, 1.6, 1])
+                    with col_mid:
+                        fig2, ax2 = plt.subplots(figsize=(4.0, 1.8))
+                        try:
+                            sns.kdeplot(df[sel_feat].dropna(), fill=True, ax=ax2, color="#93c5fd")
+                            ax2.axvline(valsA[sel_feat], color="#FF7A1A", linestyle="--", label=f"{playerA}")
+                            ax2.axvline(valsB[sel_feat], color="#ef4444", linestyle="--", label=f"{playerB}")
+                            ax2.legend(fontsize=8)
+                            ax2.set_xlabel(FEATURE_LABELS.get(sel_feat, sel_feat))
+                            ax2.tick_params(axis='both', which='major', labelsize=8)
+                            plt.tight_layout()
+                            st.pyplot(fig2)
+                        except Exception:
+                            st.info("Distribution plot not available for this feature.")
 
 # ---------------- Glossary tab ----------------
 else:
