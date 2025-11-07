@@ -503,10 +503,10 @@ elif page == "Player":
     # Add team logo back to player page (to the right of the name) when available
     team_logo_html = ""
     if "Team" in player_row and pd.notnull(player_row["Team"]):
-        team_abbr = str(player_row["Team"])
+        team_abbr = str(player_row["Team"]).strip()
         team_logo_url = image_dict.get(team_abbr, "")
         if team_logo_url:
-            team_logo_html = f'<div style="margin-left:14px;"><img src="{team_logo_url}" style="height:{logo_size}px;width:{logo_size}px;border-radius:8px;box-shadow:none;background:transparent;border:none;object-fit:contain;"></div>'
+            team_logo_html = f'<div style="margin-left:14px; display:flex; align-items:center;"><img src="{team_logo_url}" style="height:{logo_size}px;width:{logo_size}px;border-radius:8px;box-shadow:none;background:transparent;border:none;object-fit:contain;" alt="team logo"/></div>'
 
     player_bio = ""
     bat_side = "R"
@@ -1082,23 +1082,11 @@ elif page == "Compare":
             cols_stats = st.columns(len(stats)*2)
             for i, stat in enumerate(stats):
                 valA = rowA.get(stat, "N/A")
-                if stat == "Age":
-                    try:
-                        valA_disp = f"{int(valA)}"
-                    except Exception:
-                        valA_disp = valA
-                else:
-                    valA_disp = f"{valA:.2f}" if isinstance(valA, (int, float, np.floating, np.integer)) and not pd.isna(valA) else valA
+                valA_disp = f"{valA:.2f}" if isinstance(valA, (int, float, np.floating, np.integer)) and not pd.isna(valA) else valA
                 cols_stats[i].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valA_disp}</div><div style="color:#64748b;">{stat} (A)</div></div>', unsafe_allow_html=True)
             for i, stat in enumerate(stats):
                 valB = rowB.get(stat, "N/A")
-                if stat == "Age":
-                    try:
-                        valB_disp = f"{int(valB)}"
-                    except Exception:
-                        valB_disp = valB
-                else:
-                    valB_disp = f"{valB:.2f}" if isinstance(valB, (int, float, np.floating, np.integer)) and not pd.isna(valB) else valB
+                valB_disp = f"{valB:.2f}" if isinstance(valB, (int, float, np.floating, np.integer)) and not pd.isna(valB) else valB
                 cols_stats[i+len(stats)].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valB_disp}</div><div style="color:#64748b;">{stat} (B)</div></div>', unsafe_allow_html=True)
 
             st.markdown("<hr />", unsafe_allow_html=True)
@@ -1269,20 +1257,20 @@ elif page == "Compare":
 # ---------------- Glossary tab ----------------
 else:
     glossary = {
-        "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter's swing is compared to the league average. A score of 100 is average; higher scores indicate swings that the model deems more mechanically efficient. Swing+ is computed from biomechanical features such as bat speed, swing length, attack angle, and other metrics the model considers.",
-        "ProjSwing+": "A projection-oriented version of Swing+ that combines a player's current mechanical efficiency with physical power traits to estimate how their overall swing performance might scale. It blends current mechanics with power indicators to provide a forward-looking score.",
-        "PowerIndex+": "A normalized measure of raw swing-driven power potential derived from metrics like bat speed, swing length, and attack angle. PowerIndex+ represents the player's underlying capacity to produce batted-ball power given their swing mechanics.",
-        "xwOBA (Expected Weighted On-Base Average)": "An advanced batted-ball metric estimating a hitter's offensive quality based on exit velocity and launch angle. xwOBA predicts the expected offensive outcome for batted balls independent of contextual factors and defense.",
-        "Predicted xwOBA": "A model-generated estimate of expected offensive production using a player's swing and biomechanical data rather than actual batted-ball outcomes. This prediction uses mechanical features to estimate what a player's xwOBA might be if their swing outcomes aligned with their mechanics.",
-        "Avg Bat Speed": "The average linear speed of the bat head at the point of contact, measured in miles per hour. Higher bat speed typically leads to higher exit velocities and a greater potential for extra-base hits.",
-        "Avg Swing Length": "The average travel distance of the bat from swing initiation to contact, measured in meters. Longer swing length often corresponds to more leverage and power generation but may require better timing and control.",
-        "Avg Attack Angle": "The vertical angle of the bat's path at contact measured relative to the ground. Positive values indicate an upward swing plane, while negative values indicate a downward path. Optimal attack angles depend on the player's power profile and desired batted-ball outcomes.",
-        "Avg Swing Tilt": "The overall lateral tilt of a hitter's swing plane and torso through contact. Swing tilt characterizes body posture and upper-body orientation and can affect launch direction and consistency.",
-        "Avg Attack Direction": "The horizontal direction of the bat's movement at contact, showing whether the swing path favors the opposite field or pull side. Positive or negative values correspond to directionality relative to setup and plate geometry.",
-        "Avg Intercept Y vs. Plate": "The vertical position (height) where the bat's swing plane crosses the plate region. This helps identify whether a hitter's swing plane is higher or lower relative to the plate and can influence the optimal launch angle window.",
-        "Avg Intercept Y vs. Batter": "Similar to Intercept Y vs. Plate but measured relative to the batter's body (for example, torso or knob height). This contextualizes swing height relative to a hitter's own setup and helps compare hitters of different sizes.",
-        "Avg Batter Y Pos": "The average vertical position of the hitter's body (usually torso or the bat knob) at contact. This metric captures posture and how high or low the hitter makes contact relative to their body.",
-        "Avg Batter X Pos": "The average horizontal position of the hitter's hands/bat at contact relative to the center of the plate. This indicates whether the hitter tends to make contact out front (toward the pitcher) or deeper in the zone, which affects launch conditions and plate coverage."
+        "Swing+": "A standardized measure of swing efficiency that evaluates how mechanically optimized a hitter's swing is compared to the league average. A score of 100 is average, while every 10 po[...]", 
+        "ProjSwing+": "A projection-based version of Swing+ that combines current swing efficiency with physical power traits to estimate how a swing is likely to scale over time. It rewards hitters w[...]", 
+        "PowerIndex+": "A normalized measure of raw swing-driven power potential, built from metrics like bat speed, swing length, and attack angle. It represents how much force and lift a hitter's sw[...]", 
+        "xwOBA (Expected Weighted On-Base Average)": "An advanced Statcast metric estimating a hitter's overall offensive quality based on exit velocity and launch angle. It reflects what a player's o[...]", 
+        "Predicted xwOBA": "A model-generated estimate of expected offensive production using a player's swing or biomechanical data (rather than batted-ball outcomes). It predicts what a player's xwO[...]", 
+        "Avg Bat Speed": "The average velocity of the bat head at the point of contact, measured in miles per hour. Higher bat speed typically translates to higher exit velocity and more power potenti[...]", 
+        "Avg Swing Length": "The average distance the bat travels from launch to contact. Longer swings can generate more leverage and power but may reduce contact consistency.", 
+        "Avg Attack Angle": "The vertical angle of the bat's path at contact, measured relative to the ground. Positive values indicate an upward swing plane.", 
+        "Avg Swing Tilt": "The overall body tilt or lateral bend during the swing. It reflects how the hitter's upper body moves through the swing plane.", 
+        "Avg Attack Direction": "The horizontal direction of the bat's movement at contact — whether the swing path moves toward right field (positive) or left field (negative).", 
+        "Avg Intercept Y vs. Plate": "The vertical position (height) at which the bat's swing plane crosses the plate area. It helps identify how 'flat' or 'steep' a hitter's swing path is through the[...]", 
+        "Avg Intercept Y vs. Batter": "The same intercept concept, but relative to the hitter's body position instead of the plate. It contextualizes swing height based on a hitter's individual setup.[...]", 
+        "Avg Batter Y Pos": "The average vertical position of the hitter's body (typically the torso or bat knob) at the moment of contact. It helps quantify a hitter's posture and body control throug[...]", 
+        "Avg Batter X Pos": "The average horizontal position of the bat or hands at contact, relative to the center of the plate. This reflects how far out in front or deep in the zone the hitter tend[...]"
     }
 
     st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
@@ -1299,42 +1287,28 @@ else:
     else:
         filtered = gloss_df.copy().reset_index(drop=True)
 
-    # Render card-style glossary like original, but add a Read more toggle (keeps original look)
     cols_per_row = 3
     rows = [filtered.iloc[i:i+cols_per_row] for i in range(0, len(filtered), cols_per_row)]
-    for row_idx, row_data in enumerate(rows):
+    for row_data in rows:
         cols = st.columns(cols_per_row, gap="large")
-        for col_idx, (_, item) in enumerate(row_data.iterrows()):
-            idx = row_idx * cols_per_row + col_idx
-            if col_idx < len(cols):
-                with cols[col_idx]:
-                    # create a short snippet and a hidden full definition that can be toggled
-                    full_def = item['definition']
-                    snippet = full_def
-                    max_snip = 160
-                    if len(full_def) > max_snip:
-                        snippet = full_def[:max_snip].rstrip() + "..."
-                    # Card HTML: keep original styling, include snippet and hidden full text, and a read-more link
+        for idx, (_, item) in enumerate(row_data.iterrows()):
+            if idx < len(cols):
+                with cols[idx]:
                     st.markdown(f"""
-                    <div class="gloss-card" style="background: #fff; border-radius: 12px; padding: 18px; border: 1px solid #eef4f8; 
-                                box-shadow: 0 6px 18px rgba(15,23,42,0.04); min-height: 180px; display:flex; flex-direction:column; justify-content:flex-start;">
+                    <div style="background: #fff; border-radius: 12px; padding: 18px; border: 1px solid #eef4f8; 
+                                box-shadow: 0 6px 18px rgba(15,23,42,0.04); height: 220px; 
+                                display: flex; flex-direction: column; justify-content: center;">
                         <div style="font-weight: 700; color: #0b1320; font-size: 1.03rem; margin-bottom: 12px;">
                             {item['term']}
                         </div>
-                        <div id="gloss-snippet-{idx}" style="color: #475569; font-size: 0.95rem; line-height: 1.45;">
-                            {snippet}
-                        </div>
-                        <div id="gloss-full-{idx}" style="display:none;color: #475569; font-size: 0.95rem; line-height: 1.45; margin-top:8px;">
-                            {full_def}
-                        </div>
-                        <div style="margin-top:8px;">
-                            <a href="#" class="gloss-toggle" data-target="gloss-full-{idx}" data-snippet="gloss-snippet-{idx}" style="color:#0b6efd;font-weight:700;text-decoration:none;">Read more</a>
+                        <div style="color: #475569; font-size: 0.95rem; line-height: 1.45;">
+                            {item['definition']}
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
         st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
 
-# Inject JS helper to ensure Compare links do same-tab navigation and to toggle glossary cards
+# Inject JS helper to ensure Compare links do same-tab navigation
 components.html(
     """
     <script>
@@ -1342,40 +1316,14 @@ components.html(
         document.addEventListener('click', function(e) {
             try {
                 var el = e.target;
-                // walk up to an anchor if clicked element is inside it
                 while (el && el.tagName !== 'A' && el !== document.body) el = el.parentElement;
                 if (!el || el.tagName !== 'A') return;
                 var href = el.getAttribute('href') || '';
-                // Compare navigation handling
                 if (href.indexOf('?playerA=') !== -1 || href.indexOf('?player=') !== -1) {
                     e.preventDefault();
                     var newUrl = href.startsWith('?') ? window.location.pathname + href : href;
                     try { history.pushState(null, '', newUrl); } catch (err) {}
                     setTimeout(function(){ window.location.reload(); }, 40);
-                    return;
-                }
-                // Glossary read-more toggle handling
-                if (el.classList && el.classList.contains('gloss-toggle')) {
-                    e.preventDefault();
-                    try {
-                        var targetId = el.getAttribute('data-target');
-                        var snippetId = el.getAttribute('data-snippet');
-                        var target = document.getElementById(targetId);
-                        var snippet = document.getElementById(snippetId);
-                        if (!target) return;
-                        if (target.style.display === 'none' || target.style.display === '') {
-                            target.style.display = 'block';
-                            if (snippet) snippet.style.display = 'none';
-                            el.innerText = 'Show less';
-                        } else {
-                            target.style.display = 'none';
-                            if (snippet) snippet.style.display = 'block';
-                            el.innerText = 'Read more';
-                        }
-                    } catch (err) {
-                        // ignore
-                    }
-                    return;
                 }
             } catch (err) {}
         }, true);
