@@ -503,10 +503,10 @@ elif page == "Player":
     # Add team logo back to player page (to the right of the name) when available
     team_logo_html = ""
     if "Team" in player_row and pd.notnull(player_row["Team"]):
-        team_abbr = str(player_row["Team"]).strip()
+        team_abbr = str(player_row["Team"])
         team_logo_url = image_dict.get(team_abbr, "")
         if team_logo_url:
-            team_logo_html = f'<div style="margin-left:14px; display:flex; align-items:center;"><img src="{team_logo_url}" style="height:{logo_size}px;width:{logo_size}px;border-radius:8px;box-shadow:none;background:transparent;border:none;object-fit:contain;" alt="team logo"/></div>'
+            team_logo_html = f'<div style="margin-left:14px;"><img src="{team_logo_url}" style="height:{logo_size}px;width:{logo_size}px;border-radius:8px;box-shadow:none;background:transparent;border:none;object-fit:contain;"></div>'
 
     player_bio = ""
     bat_side = "R"
@@ -1299,18 +1299,42 @@ else:
     else:
         filtered = gloss_df.copy().reset_index(drop=True)
 
+    # Render card-style glossary like original, but add a Read more toggle (keeps original look)
     cols_per_row = 3
     rows = [filtered.iloc[i:i+cols_per_row] for i in range(0, len(filtered), cols_per_row)]
-    for row_data in rows:
+    for row_idx, row_data in enumerate(rows):
         cols = st.columns(cols_per_row, gap="large")
-        for idx, (_, item) in enumerate(row_data.iterrows()):
-            if idx < len(cols):
-                with cols[idx]:
-                    with st.expander(item['term'], expanded=False):
-                        st.markdown(f'<div style="color: #475569; font-size: 0.95rem; line-height: 1.45;">{item["definition"]}</div>', unsafe_allow_html=True)
+        for col_idx, (_, item) in enumerate(row_data.iterrows()):
+            idx = row_idx * cols_per_row + col_idx
+            if col_idx < len(cols):
+                with cols[col_idx]:
+                    # create a short snippet and a hidden full definition that can be toggled
+                    full_def = item['definition']
+                    snippet = full_def
+                    max_snip = 160
+                    if len(full_def) > max_snip:
+                        snippet = full_def[:max_snip].rstrip() + "..."
+                    # Card HTML: keep original styling, include snippet and hidden full text, and a read-more link
+                    st.markdown(f"""
+                    <div class="gloss-card" style="background: #fff; border-radius: 12px; padding: 18px; border: 1px solid #eef4f8; 
+                                box-shadow: 0 6px 18px rgba(15,23,42,0.04); min-height: 180px; display:flex; flex-direction:column; justify-content:flex-start;">
+                        <div style="font-weight: 700; color: #0b1320; font-size: 1.03rem; margin-bottom: 12px;">
+                            {item['term']}
+                        </div>
+                        <div id="gloss-snippet-{idx}" style="color: #475569; font-size: 0.95rem; line-height: 1.45;">
+                            {snippet}
+                        </div>
+                        <div id="gloss-full-{idx}" style="display:none;color: #475569; font-size: 0.95rem; line-height: 1.45; margin-top:8px;">
+                            {full_def}
+                        </div>
+                        <div style="margin-top:8px;">
+                            <a href="#" class="gloss-toggle" data-target="gloss-full-{idx}" data-snippet="gloss-snippet-{idx}" style="color:#0b6efd;font-weight:700;text-decoration:none;">Read more</a>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
         st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
 
-# Inject JS helper to ensure Compare links do same-tab navigation
+# Inject JS helper to ensure Compare links do same-tab navigation and to toggle glossary cards
 components.html(
     """
     <script>
@@ -1318,14 +1342,40 @@ components.html(
         document.addEventListener('click', function(e) {
             try {
                 var el = e.target;
+                // walk up to an anchor if clicked element is inside it
                 while (el && el.tagName !== 'A' && el !== document.body) el = el.parentElement;
                 if (!el || el.tagName !== 'A') return;
                 var href = el.getAttribute('href') || '';
+                // Compare navigation handling
                 if (href.indexOf('?playerA=') !== -1 || href.indexOf('?player=') !== -1) {
                     e.preventDefault();
                     var newUrl = href.startsWith('?') ? window.location.pathname + href : href;
                     try { history.pushState(null, '', newUrl); } catch (err) {}
                     setTimeout(function(){ window.location.reload(); }, 40);
+                    return;
+                }
+                // Glossary read-more toggle handling
+                if (el.classList && el.classList.contains('gloss-toggle')) {
+                    e.preventDefault();
+                    try {
+                        var targetId = el.getAttribute('data-target');
+                        var snippetId = el.getAttribute('data-snippet');
+                        var target = document.getElementById(targetId);
+                        var snippet = document.getElementById(snippetId);
+                        if (!target) return;
+                        if (target.style.display === 'none' || target.style.display === '') {
+                            target.style.display = 'block';
+                            if (snippet) snippet.style.display = 'none';
+                            el.innerText = 'Show less';
+                        } else {
+                            target.style.display = 'none';
+                            if (snippet) snippet.style.display = 'block';
+                            el.innerText = 'Read more';
+                        }
+                    } catch (err) {
+                        // ignore
+                    }
+                    return;
                 }
             } catch (err) {}
         }, true);
