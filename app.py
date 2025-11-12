@@ -179,6 +179,8 @@ if season_col:
     if unique_years:
         default_index = unique_years.index(default_season) if default_season in unique_years else len(unique_years) - 1
         season_selected_global = st.sidebar.selectbox("Season (global)", unique_years, index=default_index)
+else:
+    season_selected_global = None
 
 # Player search
 search_name = st.sidebar.text_input("Search Player by Name")
@@ -344,11 +346,11 @@ def compute_shap(player_row, mech_features_available):
         return None, None, None
 
 @st.cache_data
-def get_scaler_and_scaled_df(features):
+def get_scaler_and_scaled_df(features, df_for_scaling):
     scaler = StandardScaler()
-    X = df[features].astype(float)
+    X = df_for_scaling[features].astype(float)
     X_scaled = scaler.fit_transform(X)
-    df_scaled = pd.DataFrame(X_scaled, columns=features, index=df.index)
+    df_scaled = pd.DataFrame(X_scaled, columns=features, index=df_for_scaling.index)
     return scaler, df_scaled
 
 def compute_cosine_similarity_between_rows(vecA, vecB):
@@ -631,6 +633,7 @@ elif page == "Player":
             if len(pr_df) > 0:
                 player_row = pr_df.iloc[0]
             else:
+                # fallback to latest available row for player
                 player_row = df[df["Name"] == player_select].iloc[0]
         except Exception:
             player_row = df[df["Name"] == player_select].iloc[0]
@@ -720,18 +723,55 @@ elif page == "Player":
 
     st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
-    total_players = len(df)
-    # Use safe ranking helper to avoid IntCastingNaNError
-    if "Swing+" in df.columns:
-        df["Swing+_rank"] = safe_rank_column(df, "Swing+")
-    if "HitSkillPlus" in df.columns:
-        df["ProjSwing+_rank"] = safe_rank_column(df, "HitSkillPlus")
-    if "ImpactPlus" in df.columns:
-        df["PowerIndex+_rank"] = safe_rank_column(df, "ImpactPlus")
+    # Compute ranks within the selected season context (player-specific if chosen, else global season filter)
+    if season_col:
+        season_context = None
+        if player_season_selected is not None:
+            season_context = player_season_selected
+        elif season_selected_global is not None:
+            season_context = season_selected_global
 
-    p_swing_rank = int(df.loc[df["Name"] == player_select, "Swing+_rank"].iloc[0]) if "Swing+_rank" in df.columns else None
-    p_proj_rank = int(df.loc[df["Name"] == player_select, "ProjSwing+_rank"].iloc[0]) if "ProjSwing+_rank" in df.columns else None
-    p_power_rank = int(df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]) if "PowerIndex+_rank" in df.columns else None
+        if season_context is not None:
+            try:
+                df_rank = df[df[season_col] == season_context].copy()
+            except Exception:
+                df_rank = df.copy()
+        else:
+            df_rank = df.copy()
+    else:
+        df_rank = df.copy()
+
+    total_players = len(df_rank) if len(df_rank) > 0 else len(df)
+
+    if "Swing+" in df_rank.columns:
+        df_rank["Swing+_rank"] = safe_rank_column(df_rank, "Swing+")
+    if "HitSkillPlus" in df_rank.columns:
+        df_rank["ProjSwing+_rank"] = safe_rank_column(df_rank, "HitSkillPlus")
+    if "ImpactPlus" in df_rank.columns:
+        df_rank["PowerIndex+_rank"] = safe_rank_column(df_rank, "ImpactPlus")
+
+    # Lookup ranks for the selected player's row within the season-specific df_rank
+    p_idx = player_row.name
+    try:
+        # if player's index exists in df_rank use it, else attempt to match by name
+        if p_idx in df_rank.index:
+            p_swing_rank = int(df_rank.loc[p_idx, "Swing+_rank"]) if "Swing+_rank" in df_rank.columns else None
+            p_proj_rank = int(df_rank.loc[p_idx, "ProjSwing+_rank"]) if "ProjSwing+_rank" in df_rank.columns else None
+            p_power_rank = int(df_rank.loc[p_idx, "PowerIndex+_rank"]) if "PowerIndex+_rank" in df_rank.columns else None
+        else:
+            sub = df_rank[df_rank["Name"] == player_select]
+            if len(sub) > 0:
+                p_swing_rank = int(sub["Swing+_rank"].iloc[0]) if "Swing+_rank" in sub.columns else None
+                p_proj_rank = int(sub["ProjSwing+_rank"].iloc[0]) if "ProjSwing+_rank" in sub.columns else None
+                p_power_rank = int(sub["PowerIndex+_rank"].iloc[0]) if "PowerIndex+_rank" in sub.columns else None
+            else:
+                p_swing_rank = None
+                p_proj_rank = None
+                p_power_rank = None
+    except Exception:
+        p_swing_rank = None
+        p_proj_rank = None
+        p_power_rank = None
 
     # New plus_color: color by rank (1 = reddest, max = bluest)
     def plus_color_by_rank(rank, total, start_hex="#D32F2F", end_hex="#3B82C4"):
@@ -763,17 +803,17 @@ elif page == "Player":
           <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
             <div style="font-size: 2.2em; font-weight: 700; color: {swing_color};">{player_row['Swing+']:.2f}</div>
             <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">Swing+</div>
-            <span style="background: #FFC10733; color: #B71C1C; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_swing_rank} of {total_players}</span>
+            <span style="background: #FFC10733; color: #B71C1C; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_swing_rank if p_swing_rank is not None else 'N/A'} of {total_players}</span>
           </div>
           <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
             <div style="font-size: 2.2em; font-weight: 700; color: {proj_color};">{player_row.get('ProjSwing+', player_row.get('HitSkillPlus', np.nan)):.2f}</div>
             <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">HitSkill+</div>
-            <span style="background: #C8E6C933; color: #1B5E20; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_proj_rank} of {total_players}</span>
+            <span style="background: #C8E6C933; color: #1B5E20; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_proj_rank if p_proj_rank is not None else 'N/A'} of {total_players}</span>
           </div>
           <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
             <div style="font-size: 2.2em; font-weight: 700; color: {power_color};">{player_row.get('PowerIndex+', player_row.get('ImpactPlus', np.nan)):.2f}</div>
             <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">Impact+</div>
-            <span style="background: #B3E5FC33; color: #01579B; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_power_rank} of {total_players}</span>
+            <span style="background: #B3E5FC33; color: #01579B; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_power_rank if p_power_rank is not None else 'N/A'} of {total_players}</span>
           </div>
         </div>
         """,
@@ -836,7 +876,7 @@ elif page == "Player":
             f"""
             <div id="savantviz-anchor"></div>
             <div style="display: flex; justify-content: center;">
-                <video id="player-savant-video" width="900" height="480" style="border-radius:9px; box-shadow:0 2px 12px #0002;" autoplay muted playsinline key="{player_id}-{bat_side}">
+                <video id="player-savant-video" width="900" height="480" style="border-radius:9px; box-shadow:0 2px 12px #0002;" autoplay muted playsinline key="{player_id}-{video_year}-{bat_side}">
                     <source src="{video_url}" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
@@ -987,7 +1027,18 @@ elif page == "Player":
 
     mech_features_available = [f for f in mechanical_features if f in df.columns]
     if len(mech_features_available) >= 2 and name_col in df.columns:
-        df_mech = df.dropna(subset=mech_features_available + [name_col]).reset_index(drop=True)
+        # Build df_mech including season context if available
+        df_mech = df.dropna(subset=mech_features_available + [name_col]).copy()
+
+        # Apply season context if we have one (player-level or global)
+        if season_col:
+            season_ctx = player_season_selected if player_season_selected is not None else season_selected_global
+            if season_ctx is not None:
+                try:
+                    df_mech = df_mech[df_mech[season_col] == season_ctx]
+                except Exception:
+                    pass
+
         if player_select in df_mech[name_col].values and len(df_mech) > TOP_N:
             scaler = StandardScaler()
             X_scaled = scaler.fit_transform(df_mech[mech_features_available])
@@ -997,16 +1048,10 @@ elif page == "Player":
             # Robust selection/sorting of similar players to avoid sort type errors
             try:
                 sim_series = similarity_df.loc[player_select]
-                # coerce to numeric and fill NaN with 0 to be safe
                 sim_series = pd.to_numeric(sim_series, errors='coerce').fillna(0)
-                # Drop the player itself and then take top-N
-                if player_select in sim_series.index:
-                    sim_series_no_self = sim_series.drop(index=player_select, errors='ignore')
-                else:
-                    sim_series_no_self = sim_series
+                sim_series_no_self = sim_series.drop(index=player_select, errors='ignore')
                 similar_players = sim_series_no_self.sort_values(ascending=False).head(TOP_N)
             except Exception:
-                # Fallback: attempt a safe approach using numpy
                 try:
                     idx = df_mech[df_mech[name_col] == player_select].index[0]
                     sim_arr = similarity_matrix[idx]
@@ -1032,7 +1077,6 @@ elif page == "Player":
                     try:
                         sim_score = float(sim_score_val)
                     except Exception:
-                        # fallback if a Series slipped through, take first element
                         try:
                             sim_score = float(sim_score_val.iloc[0])
                         except Exception:
@@ -1133,7 +1177,7 @@ elif page == "Player":
                     unsafe_allow_html=True
                 )
 
-                st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to {player_select}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to {player_title}</div>', unsafe_allow_html=True)
                 st.markdown('<div class="sim-list">', unsafe_allow_html=True)
 
                 for idx, sim in enumerate(sim_rows, 1):
@@ -1169,7 +1213,8 @@ elif page == "Player":
 
                 with st.expander("Mechanical similarity cluster (click to expand)", expanded=False):
                     try:
-                        heat_names = [player_select] + list(similar_players.index)
+                        heat_names = [player_title] + list(similar_players.index)
+                        # find indices in df_mech for the heatmap selection
                         heat_idx = [df_mech[df_mech[name_col] == n].index[0] for n in heat_names]
                         heat_mat = similarity_matrix[np.ix_(heat_idx, heat_idx)]
 
@@ -1188,7 +1233,7 @@ elif page == "Player":
                             cbar_kws={"shrink": 0.6, "label": "Cosine Similarity"},
                             ax=axh
                         )
-                        axh.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=16, pad=12)
+                        axh.set_title(f"Mechanical Similarity Cluster: {player_title}", fontsize=16, pad=12)
                         axh.set_xlabel("Name")
                         axh.set_ylabel("Name")
                         plt.tight_layout()
@@ -1198,11 +1243,13 @@ elif page == "Player":
 
 # ---------------- Compare tab ----------------
 elif page == "Compare":
-    st.markdown('<h2 style="text-align:center; margin-top:10px; margin-bottom:6px; font-size:1.4em; color:#183153;">Compare Players</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 style="text-align:center; margin-top:10px; margin-bottom:6px; font-size:1.4em; color:#183153;">Compare Players (season-specific)</h2>', unsafe_allow_html=True)
 
-    player_options = sorted(df_filtered["Name"].unique())
+    # Player options come from full df (not just filtered) to allow cross-season selection,
+    # but we will respect the global season filter for defaults.
+    player_options = sorted(df["Name"].unique())
     if not player_options:
-        st.info("No players available for comparison with current filters.")
+        st.info("No players available for comparison.")
     else:
         default_a_idx = 0
         default_b_idx = 1 if len(player_options) > 1 else 0
@@ -1210,31 +1257,107 @@ elif page == "Compare":
             default_a_idx = player_options.index(qp_player)
         if qp_player_b and qp_player_b in player_options:
             default_b_idx = player_options.index(qp_player_b)
+
         col_a, col_b = st.columns([1, 1])
         with col_a:
             playerA = st.selectbox("Player A", player_options, index=default_a_idx, key="compare_player_a")
+            # season selector for A
+            seasonA = None
+            if season_col:
+                seasonsA = sorted(df[df["Name"] == playerA][season_col].dropna().unique())
+                if seasonsA:
+                    # default to global season if available else most recent season for player
+                    defaultA = season_selected_global if season_selected_global in seasonsA else seasonsA[-1]
+                    idxA = seasonsA.index(defaultA) if defaultA in seasonsA else len(seasonsA) - 1
+                    seasonA = st.selectbox("Season A", seasonsA, index=idxA, key="season_a_select")
         with col_b:
             playerB = st.selectbox("Player B", player_options, index=default_b_idx, key="compare_player_b")
+            # season selector for B
+            seasonB = None
+            if season_col:
+                seasonsB = sorted(df[df["Name"] == playerB][season_col].dropna().unique())
+                if seasonsB:
+                    defaultB = season_selected_global if season_selected_global in seasonsB else seasonsB[-1]
+                    idxB = seasonsB.index(defaultB) if defaultB in seasonsB else len(seasonsB) - 1
+                    seasonB = st.selectbox("Season B", seasonsB, index=idxB, key="season_b_select")
 
-        if playerA == playerB:
-            st.warning("Select two different players to compare.")
+        if playerA == playerB and (season_col is None or seasonA == seasonB):
+            st.warning("Select two different players or two different player-season combinations to compare.")
         else:
-            rowA = df[df["Name"] == playerA].iloc[0]
-            rowB = df[df["Name"] == playerB].iloc[0]
+            # fetch season-specific rows for A and B
+            def get_player_row_for_season(name, season_selected):
+                try:
+                    if season_col and season_selected is not None:
+                        r = df[(df["Name"] == name) & (df[season_col] == season_selected)]
+                        if len(r) > 0:
+                            return r.iloc[0]
+                    # fallback to latest row for the player
+                    return df[df["Name"] == name].iloc[0]
+                except Exception:
+                    return df[df["Name"] == name].iloc[0]
+
+            rowA = get_player_row_for_season(playerA, seasonA if season_col else None)
+            rowB = get_player_row_for_season(playerB, seasonB if season_col else None)
+
+            # Build df_for_comparison: use seasonA and seasonB if present, otherwise use global season filter
+            if season_col:
+                seasons_to_use = []
+                if seasonA is not None:
+                    seasons_to_use.append(seasonA)
+                if seasonB is not None:
+                    seasons_to_use.append(seasonB)
+                # if empty, use global season_selected_global else full df
+                if seasons_to_use:
+                    try:
+                        df_comp = df[df[season_col].isin(seasons_to_use)].dropna(subset=mech_features_available + [name_col]).copy()
+                    except Exception:
+                        df_comp = df.dropna(subset=mech_features_available + [name_col]).copy()
+                elif season_selected_global is not None:
+                    df_comp = df[df[season_col] == season_selected_global].dropna(subset=mech_features_available + [name_col]).copy()
+                else:
+                    df_comp = df.dropna(subset=mech_features_available + [name_col]).copy()
+            else:
+                df_comp = df.dropna(subset=mech_features_available + [name_col]).copy()
 
             mech_features_available = [f for f in mechanical_features if f in df.columns]
-            if len(mech_features_available) >= 2:
-                scaler, df_scaled = get_scaler_and_scaled_df(mech_features_available)
+            if len(mech_features_available) >= 2 and not df_comp.empty:
                 try:
-                    idxA = df[df["Name"] == playerA].index[0]
-                    idxB = df[df["Name"] == playerB].index[0]
-                    vecA = df_scaled.loc[idxA, mech_features_available].values
-                    vecB = df_scaled.loc[idxB, mech_features_available].values
+                    scaler, df_scaled = get_scaler_and_scaled_df(mech_features_available, df_comp)
+                    # indices for A and B in df_comp - try to get exact season-specific index if possible
+                    try:
+                        idxA = df_comp[(df_comp["Name"] == playerA) & ((df_comp[season_col] == seasonA) if season_col and seasonA is not None else True)].index[0]
+                    except Exception:
+                        # fallback: use first matching name in df_comp
+                        try:
+                            idxA = df_comp[df_comp["Name"] == playerA].index[0]
+                        except Exception:
+                            idxA = None
+                    try:
+                        idxB = df_comp[(df_comp["Name"] == playerB) & ((df_comp[season_col] == seasonB) if season_col and seasonB is not None else True)].index[0]
+                    except Exception:
+                        try:
+                            idxB = df_comp[df_comp["Name"] == playerB].index[0]
+                        except Exception:
+                            idxB = None
+
+                    if idxA is not None and idxB is not None:
+                        vecA = df_scaled.loc[idxA, mech_features_available].values
+                        vecB = df_scaled.loc[idxB, mech_features_available].values
+                        cosine_sim = compute_cosine_similarity_between_rows(vecA, vecB)
+                        sim_pct = f"{cosine_sim*100:.1f}%"
+                    else:
+                        # try transforming raw rows directly if indices not found in df_comp
+                        try:
+                            vecA = scaler.transform(pd.DataFrame([rowA[mech_features_available].astype(float)]))[0]
+                            vecB = scaler.transform(pd.DataFrame([rowB[mech_features_available].astype(float)]))[0]
+                            cosine_sim = compute_cosine_similarity_between_rows(vecA, vecB)
+                            sim_pct = f"{cosine_sim*100:.1f}%"
+                        except Exception:
+                            cosine_sim = None
+                            sim_pct = "N/A"
                 except Exception:
-                    vecA = scaler.transform(df[df["Name"] == playerA][mech_features_available].astype(float))[0]
-                    vecB = scaler.transform(df[df["Name"] == playerB][mech_features_available].astype(float))[0]
-                cosine_sim = compute_cosine_similarity_between_rows(vecA, vecB)
-                sim_pct = f"{cosine_sim*100:.1f}%"
+                    cosine_sim = None
+                    sim_pct = "N/A"
             else:
                 cosine_sim = None
                 sim_pct = "N/A"
@@ -1252,7 +1375,8 @@ elif page == "Compare":
                 else:
                     imgA = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
                 logo_html_a = f'<div style="margin-top:8px;"><img src="{logoA}" style="height:40px;width:40px;border-radius:6px;"></div>' if logoA else ""
-                st.markdown(f'<div style="text-align:center;"><img src="{imgA}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{playerA}</div>{logo_html_a}</div>', unsafe_allow_html=True)
+                titleA = f"{playerA} ({seasonA})" if (season_col and seasonA is not None) else playerA
+                st.markdown(f'<div style="text-align:center;"><img src="{imgA}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{titleA}</div>{logo_html_a}</div>', unsafe_allow_html=True)
             with col2:
                 st.markdown(f'<div style="text-align:center;padding:8px;border-radius:10px;"><div style="font-size:1.25em;font-weight:800;color:#0b6efd;">Similarity</div><div style="font-size:1.6em;font-weight:800;color:#183153;margin-top:4px;">{sim_pct}</div></div>', unsafe_allow_html=True)
             with col3:
@@ -1267,7 +1391,8 @@ elif page == "Compare":
                 else:
                     imgB = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
                 logo_html_b = f'<div style="margin-top:8px;"><img src="{logoB}" style="height:40px;width:40px;border-radius:6px;"></div>' if logoB else ""
-                st.markdown(f'<div style="text-align:center;"><img src="{imgB}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{playerB}</div>{logo_html_b}</div>', unsafe_allow_html=True)
+                titleB = f"{playerB} ({seasonB})" if (season_col and seasonB is not None) else playerB
+                st.markdown(f'<div style="text-align:center;"><img src="{imgB}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{titleB}</div>{logo_html_b}</div>', unsafe_allow_html=True)
 
             st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
@@ -1286,20 +1411,27 @@ elif page == "Compare":
 
             st.markdown("<hr />", unsafe_allow_html=True)
 
-            # Compare SHAP and rest (unchanged)
-            if len(mech_features_available) >= 2:
+            # Compare SHAP and rest (season-aware)
+            if len(mech_features_available) >= 2 and not df_comp.empty:
                 feats = mech_features_available
-                mean_series = df[feats].mean()
-                std_series = df[feats].std().replace(0, 1e-9)
+                mean_series = df_comp[feats].mean()
+                std_series = df_comp[feats].std().replace(0, 1e-9)
                 valsA = rowA[feats].astype(float)
                 valsB = rowB[feats].astype(float)
                 zA = (valsA - mean_series) / std_series
                 zB = (valsB - mean_series) / std_series
                 abs_diff = (valsA - valsB).abs()
                 z_diff = (zA - zB).abs()
-                pctile = df[feats].rank(pct=True)
-                pctA = pctile.loc[rowA.name]
-                pctB = pctile.loc[rowB.name]
+                pctile = df_comp[feats].rank(pct=True)
+                # pctile uses df_comp's index; ensure we can look up via indices if possible, else approximate by ranking the raw values
+                try:
+                    pctA = pctile.loc[rowA.name]
+                except Exception:
+                    pctA = pctile.loc[df_comp[df_comp["Name"] == playerA].index[0]] if len(df_comp[df_comp["Name"] == playerA]) > 0 else pd.Series(0, index=feats)
+                try:
+                    pctB = pctile.loc[rowB.name]
+                except Exception:
+                    pctB = pctile.loc[df_comp[df_comp["Name"] == playerB].index[0]] if len(df_comp[df_comp["Name"] == playerB]) > 0 else pd.Series(0, index=feats)
 
                 shapA, predA, baseA = compute_shap(rowA, feats)
                 shapB, predB, baseB = compute_shap(rowB, feats)
@@ -1317,7 +1449,7 @@ elif page == "Compare":
 
                 if model_loaded and explainer is not None and shapA is not None:
                     try:
-                        sampleX = df[feats].head(200).copy()
+                        sampleX = df_comp[feats].head(200).copy()
                         sampleX = sampleX.fillna(sampleX.mean())
                         try:
                             samp_shap = explainer(sampleX)
