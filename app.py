@@ -3,6 +3,7 @@ import streamlit as st
 import os
 import requests
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics.pairwise import cosine_similarity
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -84,18 +85,19 @@ def normalize_columns(df):
 
 df = normalize_columns(df)
 
-# Normalize Name to "First Last" if possible
+# Normalize Name to "First Last" if possible (convert "Last, First" -> "First Last")
 def normalize_name(name):
     try:
         if not isinstance(name, str):
             return name
         name = name.strip()
-        # If already "First Last" (no comma) just normalize whitespace
         if "," in name:
-            parts = [p.strip() for p in name.split(",", 1)]
-            # handle cases like "Last, First Middle"
-            return f"{parts[1]} {parts[0]}".strip()
-        # Replace multiple spaces
+            parts = [p.strip() for p in name.split(",")]
+            # handle "Last, First Middle"
+            first = " ".join(parts[1].split()) if len(parts) > 1 else ""
+            last = parts[0]
+            full = f"{first} {last}".strip()
+            return " ".join(full.split())
         return " ".join(name.split())
     except Exception:
         return name
@@ -167,7 +169,7 @@ FEATURE_LABELS = {
 # Sidebar filters in requested order: season, player, age, comp swings
 st.sidebar.header("Filters")
 
-# Detect season column
+# Season filter auto-default to 2025 if present
 season_col = None
 for c in ["year", "Year", "season"]:
     if c in df.columns:
@@ -178,18 +180,19 @@ season_selected = None
 if season_col:
     unique_years = sorted(df[season_col].dropna().unique())
     default_season = 2025 if 2025 in unique_years else (unique_years[-1] if unique_years else None)
-    if unique_years:
-        default_index = unique_years.index(default_season) if default_season in unique_years else len(unique_years) - 1
-        season_selected = st.sidebar.selectbox("Season", unique_years, index=default_index)
+    if default_season is None:
+        season_selected = st.sidebar.selectbox("Season", unique_years) if unique_years else None
+    else:
+        season_selected = st.sidebar.selectbox("Season", unique_years, index=unique_years.index(default_season) if default_season in unique_years else 0)
 
-# Player search/select
-search_name = st.sidebar.text_input("Search Player by Name (First Last)")
+# Player search
+search_name = st.sidebar.text_input("Search Player by Name")
 
-# Age slider
+# Age range
 min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
 age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, max_age))
 
-# Competitive swings filter
+# Competitive swings filter (keep, default start 100)
 comp_col = None
 for c in ["swings_competitive", "competitive_swings", "competitive_swings"]:
     if c in df.columns:
@@ -207,7 +210,7 @@ if comp_col:
 else:
     swings_range = None
 
-# Build filtered df
+# Build filtered df (apply season first to match requested order)
 df_filtered = df.copy()
 if season_col and season_selected is not None:
     try:
@@ -447,6 +450,7 @@ if page == "Main":
             all_stats.append(c)
 
     # Remove disallowed/removed columns entirely from display if present
+    # User requested removal of: bip, batter_run_value, est_ba, est_slg, est_woba, xwOBA_pred, xba_pred, xslg_pred, side (BT)
     removed_cols = ["bip", "batter_run_value", "est_ba", "est_slg", "est_woba", "xwOBA_pred", "xba_pred", "xslg_pred", "side"]
     # Ensure removed columns are not included
     display_cols = [c for c in all_stats if c not in removed_cols]
@@ -515,7 +519,6 @@ if page == "Main":
     try:
         styler = styled.style.format(precision=2)
         if plus_labels:
-            # Only apply gradient to plus columns that exist after renaming
             valid_plus = [c for c in plus_labels if c in styled.columns]
             if valid_plus:
                 styler = styler.background_gradient(subset=valid_plus, cmap=elite_cmap)
@@ -523,7 +526,7 @@ if page == "Main":
     except Exception:
         st.dataframe(styled, use_container_width=True, hide_index=True)
 
-    # Leaderboards (keep Swing+ and HitSkill+ top lists)
+    # Leaderboards (restore original styling behavior)
     st.markdown("<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Top 10 Leaderboards</h2>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
@@ -532,7 +535,6 @@ if page == "Main":
             top_swing = df_filtered.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
             leaderboard_cols = [c for c in ["Name", "Team", "Age", "Swing+", "HitSkillPlus", "ImpactPlus"] if c in top_swing.columns]
             top_swing_display = top_swing.copy()
-            # Apply formatting and renaming
             for col in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
                 if col in top_swing_display.columns:
                     top_swing_display[col] = top_swing_display[col].apply(lambda v: f"{v:.2f}" if pd.notna(v) else v)
@@ -541,17 +543,16 @@ if page == "Main":
                     top_swing_display["Age"] = top_swing_display["Age"].round(0).astype("Int64")
                 except Exception:
                     pass
-            # Rename to friendly labels
-            display_top = top_swing_display.rename(columns=rename_map)
-            # Determine which renamed Swing label exists
-            swing_label = rename_map.get("Swing+", "Swing+")
+            # Keep leaderboard columns in original names and style the original "Swing+" column
             try:
-                if swing_label in display_top.columns:
-                    st.dataframe(display_top[ [c for c in display_top.columns if c in display_top.columns] ].style.background_gradient(subset=[swing_label], cmap=elite_cmap), use_container_width=True, hide_index=True)
-                else:
-                    st.dataframe(display_top, use_container_width=True, hide_index=True)
+                st.dataframe(
+                    top_swing_display[leaderboard_cols]
+                    .style.background_gradient(subset=["Swing+"], cmap=elite_cmap),
+                    use_container_width=True,
+                    hide_index=True
+                )
             except Exception:
-                st.dataframe(display_top, use_container_width=True, hide_index=True)
+                st.dataframe(top_swing_display[leaderboard_cols], use_container_width=True, hide_index=True)
         else:
             st.info("Swing+ not present in dataset; leaderboard unavailable.")
 
@@ -569,15 +570,15 @@ if page == "Main":
                     top_hit_display["Age"] = top_hit_display["Age"].round(0).astype("Int64")
                 except Exception:
                     pass
-            display_top_hit = top_hit_display.rename(columns=rename_map)
-            hit_label = rename_map.get("HitSkillPlus", "HitSkill+")
             try:
-                if hit_label in display_top_hit.columns:
-                    st.dataframe(display_top_hit.style.background_gradient(subset=[hit_label], cmap=elite_cmap), use_container_width=True, hide_index=True)
-                else:
-                    st.dataframe(display_top_hit, use_container_width=True, hide_index=True)
+                st.dataframe(
+                    top_hit_display[leaderboard_cols]
+                    .style.background_gradient(subset=["HitSkillPlus"], cmap=elite_cmap),
+                    use_container_width=True,
+                    hide_index=True
+                )
             except Exception:
-                st.dataframe(display_top_hit, use_container_width=True, hide_index=True)
+                st.dataframe(top_hit_display[leaderboard_cols], use_container_width=True, hide_index=True)
         else:
             st.info("HitSkillPlus not present in dataset; leaderboard unavailable.")
 
@@ -738,7 +739,7 @@ elif page == "Player":
         unsafe_allow_html=True
     )
 
-    # Rest of Player tab (SHAP, similarity, etc.)
+    # Rest of Player tab (SHAP, similarity, etc.) remains as before but avoiding removed columns where applicable
 
     mech_features_available = [f for f in mechanical_features if f in df.columns]
 
@@ -895,16 +896,15 @@ elif page == "Compare":
             st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
             stats = ["Age", "Swing+", "HitSkillPlus", "ImpactPlus"]
-            # show A row and B row side by side
             cols_stats = st.columns(len(stats)*2)
             for i, stat in enumerate(stats):
                 valA = rowA.get(stat, "N/A")
                 valA_disp = f"{valA:.2f}" if isinstance(valA, (int, float, np.floating, np.integer)) and not pd.isna(valA) else valA
-                cols_stats[i].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valA_disp}</div><div style="color:#64748b;">{("HitSkill+" if stat=="HitSkillPlus" else "Impact+" if stat=="ImpactPlus" else stat) } (A)</div></div>', unsafe_allow_html=True)
+                cols_stats[i].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valA_disp}</div><div style="color:#64748b;">{stat} (A)</div></div>', unsafe_allow_html=True)
             for i, stat in enumerate(stats):
                 valB = rowB.get(stat, "N/A")
                 valB_disp = f"{valB:.2f}" if isinstance(valB, (int, float, np.floating, np.integer)) and not pd.isna(valB) else valB
-                cols_stats[i+len(stats)].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valB_disp}</div><div style="color:#64748b;">{("HitSkill+" if stat=="HitSkillPlus" else "Impact+" if stat=="ImpactPlus" else stat) } (B)</div></div>', unsafe_allow_html=True)
+                cols_stats[i+len(stats)].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valB_disp}</div><div style="color:#64748b;">{stat} (B)</div></div>', unsafe_allow_html=True)
 
             st.markdown("<hr />", unsafe_allow_html=True)
 
