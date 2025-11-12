@@ -780,16 +780,35 @@ elif page == "Player":
         unsafe_allow_html=True
     )
 
+    # Build video URL using selected season (player_season_selected) first, fallback to global season, fallback to player row year, then 2025
     video_url = None
     if "id" in player_row and pd.notnull(player_row["id"]):
-        player_id = str(int(player_row["id"]))
-        video_url = f"https://builds.mlbstatic.com/baseballsavant.mlb.com/swing-path/splendid-splinter/cut/{player_id}-2025-{bat_side}.mp4"
+        try:
+            player_id = str(int(player_row["id"]))
+        except Exception:
+            player_id = None
+
+        video_year = None
+        try:
+            if player_season_selected is not None:
+                video_year = int(player_season_selected)
+            elif season_selected_global is not None:
+                video_year = int(season_selected_global)
+            elif "year" in player_row and pd.notna(player_row["year"]):
+                video_year = int(player_row["year"])
+            else:
+                video_year = 2025
+        except Exception:
+            video_year = 2025
+
+        if player_id:
+            video_url = f"https://builds.mlbstatic.com/baseballsavant.mlb.com/swing-path/splendid-splinter/cut/{player_id}-{video_year}-{bat_side}.mp4"
 
     DEFAULT_ONEIL_CRUZ_IDS = ['665833-2025-L', '665833-2025-R', '665833-2025-S']
     default_name = "Oneil Cruz"
     showing_default = False
     if video_url:
-        showing_default = f'{player_id}-2025-{bat_side}' in DEFAULT_ONEIL_CRUZ_IDS
+        showing_default = any(d in video_url for d in DEFAULT_ONEIL_CRUZ_IDS)
 
     if video_url:
         if showing_default:
@@ -1002,14 +1021,22 @@ elif page == "Player":
             else:
                 top_names = [player_select] + list(similar_players.index)
                 sim_rows = []
-                for sim_name in similar_players.index:
+                # iterate via items() to avoid Series-vs-scalar conversion errors
+                for sim_name, sim_score_val in similar_players.items():
                     sim_row = df_mech[df_mech[name_col] == sim_name]
                     if "id" in sim_row.columns and pd.notnull(sim_row.iloc[0]["id"]):
                         sim_id = str(int(sim_row.iloc[0]["id"]))
                         sim_headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{sim_id}/headshot/silo/current.png"
                     else:
                         sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-                    sim_score = float(similar_players[sim_name])
+                    try:
+                        sim_score = float(sim_score_val)
+                    except Exception:
+                        # fallback if a Series slipped through, take first element
+                        try:
+                            sim_score = float(sim_score_val.iloc[0])
+                        except Exception:
+                            sim_score = 0.0
                     sim_rows.append({
                         "name": sim_name,
                         "headshot_url": sim_headshot_url,
