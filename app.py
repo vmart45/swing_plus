@@ -355,9 +355,10 @@ def compute_cosine_similarity_between_rows(vecA, vecB):
     sim = np.dot(vecA, vecB) / (np.linalg.norm(vecA) * np.linalg.norm(vecB) + 1e-12)
     return float(sim)
 
-def safe_rank_column(df, col):
-    ranks = df[col].rank(ascending=False, method="min")
-    filled = ranks.fillna(len(df) + 1).astype(int)
+def safe_rank_column(df_in, col):
+    # safe ranking that handles NaN by assigning worst rank (len+1)
+    ranks = df_in[col].rank(ascending=False, method="min")
+    filled = ranks.fillna(len(df_in) + 1).astype(int)
     return filled
 
 # Page navigation
@@ -606,31 +607,58 @@ elif page == "Player":
         key="player_select",
         index=default_index
     )
-    player_row = df[df["Name"] == player_select].iloc[0]
+
+    # NEW: Season selector directly below the player selector (per request)
+    player_season_selected = None
+    if season_col:
+        try:
+            player_seasons = sorted(df[df["Name"] == player_select][season_col].dropna().unique())
+            if player_seasons:
+                default_player_season = player_seasons[-1]
+                idx = 0
+                if str(default_player_season) in [str(s) for s in player_seasons]:
+                    idx = player_seasons.index(default_player_season)
+                player_season_selected = st.selectbox("Season (player)", player_seasons, index=idx, key="player_season_select")
+            else:
+                player_season_selected = None
+        except Exception:
+            player_season_selected = None
+
+    # Choose the player_row based on player and selected season (if available)
+    if player_season_selected is not None and season_col:
+        try:
+            pr_df = df[(df["Name"] == player_select) & (df[season_col] == player_season_selected)]
+            if len(pr_df) > 0:
+                player_row = pr_df.iloc[0]
+            else:
+                player_row = df[df["Name"] == player_select].iloc[0]
+        except Exception:
+            player_row = df[df["Name"] == player_select].iloc[0]
+    else:
+        player_row = df[df["Name"] == player_select].iloc[0]
+
+    # Build player title including season if selected
+    player_title = player_select
+    if player_season_selected is not None:
+        player_title = f"{player_select} ({player_season_selected})"
 
     headshot_size = 96
     logo_size = 80
 
     headshot_html = ""
     if "id" in player_row and pd.notnull(player_row["id"]):
-        player_id = str(int(player_row["id"]))
-        headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
-        headshot_html = (
-            f'<img src="{headshot_url}" '
-            f'style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;'
-            f'box-shadow:0 1px 6px rgba(0,0,0,0.06);margin-right:18px;" alt="headshot"/>'
-        )
+        try:
+            player_id = str(int(player_row["id"]))
+            headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
+        except Exception:
+            headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
+        headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;margin-right:18px;" alt="headshot"/>'
     else:
         fallback_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-        headshot_html = (
-            f'<img src="{fallback_url}" '
-            f'style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;'
-            f'box-shadow:0 1px 6px rgba(0,0,0,0.06);margin-right:18px;" alt="headshot"/>'
-        )
+        headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;margin-right:18px;" alt="headshot"/>'
 
-    player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
+    player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_title}</span>'
 
-    # Add team logo back to player page (to the right of the name) when available
     team_logo_html = ""
     if "Team" in player_row and pd.notnull(player_row["Team"]):
         team_abbr = str(player_row["Team"]).strip()
@@ -641,9 +669,9 @@ elif page == "Player":
     player_bio = ""
     bat_side = "R"
     if "id" in player_row and pd.notnull(player_row["id"]):
-        player_id = str(int(player_row["id"]))
-        mlb_bio_url = f"https://statsapi.mlb.com/api/v1/people/{player_id}"
         try:
+            player_id = str(int(player_row["id"]))
+            mlb_bio_url = f"https://statsapi.mlb.com/api/v1/people/{player_id}"
             resp = requests.get(mlb_bio_url, timeout=4)
             if resp.status_code == 200:
                 data = resp.json()
@@ -693,18 +721,13 @@ elif page == "Player":
     st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
     total_players = len(df)
-    df["Swing+_rank"] = df["Swing+"].rank(ascending=False, method="min").astype(int)
-    # If ProjSwing+ or PowerIndex+ present, fallback names; keep safe lookup
-    if "ProjSwing+" in df.columns:
-        df["ProjSwing+_rank"] = df["ProjSwing+"].rank(ascending=False, method="min").astype(int)
-    else:
-        if "HitSkillPlus" in df.columns:
-            df["ProjSwing+_rank"] = df["HitSkillPlus"].rank(ascending=False, method="min").astype(int)
-    if "PowerIndex+" in df.columns:
-        df["PowerIndex+_rank"] = df["PowerIndex+"].rank(ascending=False, method="min").astype(int)
-    else:
-        if "ImpactPlus" in df.columns:
-            df["PowerIndex+_rank"] = df["ImpactPlus"].rank(ascending=False, method="min").astype(int)
+    # Use safe ranking helper to avoid IntCastingNaNError
+    if "Swing+" in df.columns:
+        df["Swing+_rank"] = safe_rank_column(df, "Swing+")
+    if "HitSkillPlus" in df.columns:
+        df["ProjSwing+_rank"] = safe_rank_column(df, "HitSkillPlus")
+    if "ImpactPlus" in df.columns:
+        df["PowerIndex+_rank"] = safe_rank_column(df, "ImpactPlus")
 
     p_swing_rank = int(df.loc[df["Name"] == player_select, "Swing+_rank"].iloc[0]) if "Swing+_rank" in df.columns else None
     p_proj_rank = int(df.loc[df["Name"] == player_select, "ProjSwing+_rank"].iloc[0]) if "ProjSwing+_rank" in df.columns else None
