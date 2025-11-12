@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 DATA_PATH = "Main.csv"
-MODEL_PATH = "swingplus_model.pkl"
+MODEL_PATH = "SwingPlus.pkl"
 
 if not os.path.exists(DATA_PATH):
     st.error(f"Could not find `{DATA_PATH}` in the app directory.")
