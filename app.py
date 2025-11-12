@@ -975,180 +975,199 @@ elif page == "Player":
             similarity_matrix = cosine_similarity(X_scaled)
             similarity_df = pd.DataFrame(similarity_matrix, index=df_mech[name_col], columns=df_mech[name_col])
 
-            similar_players = (
-                similarity_df.loc[player_select]
-                .sort_values(ascending=False)
-                .iloc[1:TOP_N+1]
-            )
-
-            top_names = [player_select] + list(similar_players.index)
-            sim_rows = []
-            for sim_name in similar_players.index:
-                sim_row = df_mech[df_mech[name_col] == sim_name]
-                if "id" in sim_row.columns and pd.notnull(sim_row.iloc[0]["id"]):
-                    sim_id = str(int(sim_row.iloc[0]["id"]))
-                    sim_headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{sim_id}/headshot/silo/current.png"
+            # Robust selection/sorting of similar players to avoid sort type errors
+            try:
+                sim_series = similarity_df.loc[player_select]
+                # coerce to numeric and fill NaN with 0 to be safe
+                sim_series = pd.to_numeric(sim_series, errors='coerce').fillna(0)
+                # Drop the player itself and then take top-N
+                if player_select in sim_series.index:
+                    sim_series_no_self = sim_series.drop(index=player_select, errors='ignore')
                 else:
-                    sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-                sim_score = similar_players[sim_name]
-                sim_rows.append({
-                    "name": sim_name,
-                    "headshot_url": sim_headshot_url,
-                    "score": sim_score
-                })
+                    sim_series_no_self = sim_series
+                similar_players = sim_series_no_self.sort_values(ascending=False).head(TOP_N)
+            except Exception:
+                # Fallback: attempt a safe approach using numpy
+                try:
+                    idx = df_mech[df_mech[name_col] == player_select].index[0]
+                    sim_arr = similarity_matrix[idx]
+                    sim_series = pd.Series(sim_arr, index=df_mech[name_col])
+                    sim_series_no_self = sim_series.drop(index=player_select, errors='ignore')
+                    similar_players = sim_series_no_self.sort_values(ascending=False).head(TOP_N)
+                except Exception:
+                    similar_players = pd.Series(dtype=float)
 
-            st.markdown(
-                """
-                <style>
-                .sim-container {
-                    width: 100%;
-                    max-width: 1160px;
-                    margin: 12px auto 10px auto;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                }
-                .sim-list {
-                    width: 100%;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 10px;
-                    align-items: center;
-                }
-                .sim-item {
-                    display: flex;
-                    align-items: center;
-                    background: #ffffff;
-                    border-radius: 12px;
-                    padding: 10px 14px;
-                    gap: 12px;
-                    width: 100%;
-                    border: 1px solid #eef4f8;
-                    box-shadow: 0 6px 18px rgba(15,23,42,0.04);
-                }
-                .sim-rank {
-                    font-size: 1em;
-                    font-weight: 700;
-                    color: #183153;
-                    min-width: 36px;
-                    text-align: center;
-                }
-                .sim-headshot-compact {
-                    height: 48px;
-                    width: 48px;
-                    border-radius: 8px;
-                    object-fit: cover;
-                    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
-                }
-                .sim-name-compact {
-                    flex: 1;
-                    font-size: 1em;
-                    color: #183153;
-                }
-                .sim-score-compact {
-                    font-size: 0.98em;
-                    font-weight: 700;
-                    color: #333;
-                    margin-right: 12px;
-                    min-width: 72px;
-                    text-align: right;
-                }
-                .sim-bar-mini {
-                    width: 220px;
-                    height: 10px;
-                    background: #f4f7fa;
-                    border-radius: 999px;
-                    overflow: hidden;
-                    margin-left: 8px;
-                }
-                .sim-bar-fill {
-                    height: 100%;
-                    border-radius: 999px;
-                    transition: width 0.5s ease;
-                }
-                .sim-compare-btn {
-                    background: #ffffff;
-                    color: #000000;
-                    padding: 8px 12px;
-                    border-radius: 10px;
-                    text-decoration: none;
-                    font-weight: 800;
-                    border: 1px solid #d1d5db;
-                    cursor: pointer;
-                }
-                .sim-compare-btn:hover { background: #f3f4f6; transform: translateY(-1px); }
-                @media (max-width: 1100px) {
-                    .sim-container { max-width: 92%; }
-                    .sim-bar-mini { width: 160px; height: 8px; }
-                    .sim-headshot-compact { height: 40px; width: 40px; }
-                }
-                </style>
-                """,
-                unsafe_allow_html=True
-            )
-
-            st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to {player_select}</div>', unsafe_allow_html=True)
-            st.markdown('<div class="sim-list">', unsafe_allow_html=True)
-
-            for idx, sim in enumerate(sim_rows, 1):
-                pct = max(0.0, min(1.0, float(sim['score'])))
-                width_pct = int(round(pct * 100))
-
-                start_color = "#D32F2F"
-                end_color = "#FFB648"
-
-                sim_pct_text = f"{pct:.1%}"
-
-                href = f"?playerA={quote(player_select)}&playerB={quote(sim['name'])}&page=Compare"
+            if similar_players.empty:
+                st.info("No mechanically similar players found (or not enough data).")
+            else:
+                top_names = [player_select] + list(similar_players.index)
+                sim_rows = []
+                for sim_name in similar_players.index:
+                    sim_row = df_mech[df_mech[name_col] == sim_name]
+                    if "id" in sim_row.columns and pd.notnull(sim_row.iloc[0]["id"]):
+                        sim_id = str(int(sim_row.iloc[0]["id"]))
+                        sim_headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{sim_id}/headshot/silo/current.png"
+                    else:
+                        sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
+                    sim_score = float(similar_players[sim_name])
+                    sim_rows.append({
+                        "name": sim_name,
+                        "headshot_url": sim_headshot_url,
+                        "score": sim_score
+                    })
 
                 st.markdown(
-                    f"""
-                    <div class="sim-item">
-                        <div class="sim-rank">{idx}</div>
-                        <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                        <div class="sim-name-compact"><a href="?player={quote(sim['name'])}" style="color:#183153;text-decoration:none;font-weight:700;">{sim['name']}</a></div>
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            <div class="sim-score-compact">{sim_pct_text}</div>
-                            <div class="sim-bar-mini" aria-hidden="true">
-                                <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
-                            </div>
-                            <a class="sim-compare-btn" href="{href}" onclick="window.history.pushState(null,'','{href}'); setTimeout(()=>window.location.reload(),30); return false;">Compare</a>
-                        </div>
-                    </div>
+                    """
+                    <style>
+                    .sim-container {
+                        width: 100%;
+                        max-width: 1160px;
+                        margin: 12px auto 10px auto;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                    }
+                    .sim-list {
+                        width: 100%;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 10px;
+                        align-items: center;
+                    }
+                    .sim-item {
+                        display: flex;
+                        align-items: center;
+                        background: #ffffff;
+                        border-radius: 12px;
+                        padding: 10px 14px;
+                        gap: 12px;
+                        width: 100%;
+                        border: 1px solid #eef4f8;
+                        box-shadow: 0 6px 18px rgba(15,23,42,0.04);
+                    }
+                    .sim-rank {
+                        font-size: 1em;
+                        font-weight: 700;
+                        color: #183153;
+                        min-width: 36px;
+                        text-align: center;
+                    }
+                    .sim-headshot-compact {
+                        height: 48px;
+                        width: 48px;
+                        border-radius: 8px;
+                        object-fit: cover;
+                        box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+                    }
+                    .sim-name-compact {
+                        flex: 1;
+                        font-size: 1em;
+                        color: #183153;
+                    }
+                    .sim-score-compact {
+                        font-size: 0.98em;
+                        font-weight: 700;
+                        color: #333;
+                        margin-right: 12px;
+                        min-width: 72px;
+                        text-align: right;
+                    }
+                    .sim-bar-mini {
+                        width: 220px;
+                        height: 10px;
+                        background: #f4f7fa;
+                        border-radius: 999px;
+                        overflow: hidden;
+                        margin-left: 8px;
+                    }
+                    .sim-bar-fill {
+                        height: 100%;
+                        border-radius: 999px;
+                        transition: width 0.5s ease;
+                    }
+                    .sim-compare-btn {
+                        background: #ffffff;
+                        color: #000000;
+                        padding: 8px 12px;
+                        border-radius: 10px;
+                        text-decoration: none;
+                        font-weight: 800;
+                        border: 1px solid #d1d5db;
+                        cursor: pointer;
+                    }
+                    .sim-compare-btn:hover { background: #f3f4f6; transform: translateY(-1px); }
+                    @media (max-width: 1100px) {
+                        .sim-container { max-width: 92%; }
+                        .sim-bar-mini { width: 160px; height: 8px; }
+                        .sim-headshot-compact { height: 40px; width: 40px; }
+                    }
+                    </style>
                     """,
                     unsafe_allow_html=True
                 )
 
-            st.markdown('</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to {player_select}</div>', unsafe_allow_html=True)
+                st.markdown('<div class="sim-list">', unsafe_allow_html=True)
 
-            with st.expander("Mechanical similarity cluster (click to expand)", expanded=False):
-                try:
-                    heat_names = [player_select] + list(similar_players.index)
-                    heat_idx = [df_mech[df_mech[name_col] == n].index[0] for n in heat_names]
-                    heat_mat = similarity_matrix[np.ix_(heat_idx, heat_idx)]
+                for idx, sim in enumerate(sim_rows, 1):
+                    pct = max(0.0, min(1.0, float(sim['score'])))
+                    width_pct = int(round(pct * 100))
 
-                    fig_h, axh = plt.subplots(figsize=(8, 6))
-                    sns.heatmap(
-                        heat_mat,
-                        xticklabels=heat_names,
-                        yticklabels=heat_names,
-                        cmap="RdYlBu_r",
-                        vmin=0.0,
-                        vmax=1.0,
-                        annot=True,
-                        fmt=".2f",
-                        annot_kws={"fontsize": 9},
-                        square=True,
-                        cbar_kws={"shrink": 0.6, "label": "Cosine Similarity"},
-                        ax=axh
+                    start_color = "#D32F2F"
+                    end_color = "#FFB648"
+
+                    sim_pct_text = f"{pct:.1%}"
+
+                    href = f"?playerA={quote(player_select)}&playerB={quote(sim['name'])}&page=Compare"
+
+                    st.markdown(
+                        f"""
+                        <div class="sim-item">
+                            <div class="sim-rank">{idx}</div>
+                            <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
+                            <div class="sim-name-compact"><a href="?player={quote(sim['name'])}" style="color:#183153;text-decoration:none;font-weight:700;">{sim['name']}</a></div>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <div class="sim-score-compact">{sim_pct_text}</div>
+                                <div class="sim-bar-mini" aria-hidden="true">
+                                    <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
+                                </div>
+                                <a class="sim-compare-btn" href="{href}" onclick="window.history.pushState(null,'','{href}'); setTimeout(()=>window.location.reload(),30); return false;">Compare</a>
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
                     )
-                    axh.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=16, pad=12)
-                    axh.set_xlabel("Name")
-                    axh.set_ylabel("Name")
-                    plt.tight_layout()
-                    st.pyplot(fig_h)
-                except Exception:
-                    st.info("Could not render cluster heatmap due to data issues.")
+
+                st.markdown('</div></div>', unsafe_allow_html=True)
+
+                with st.expander("Mechanical similarity cluster (click to expand)", expanded=False):
+                    try:
+                        heat_names = [player_select] + list(similar_players.index)
+                        heat_idx = [df_mech[df_mech[name_col] == n].index[0] for n in heat_names]
+                        heat_mat = similarity_matrix[np.ix_(heat_idx, heat_idx)]
+
+                        fig_h, axh = plt.subplots(figsize=(8, 6))
+                        sns.heatmap(
+                            heat_mat,
+                            xticklabels=heat_names,
+                            yticklabels=heat_names,
+                            cmap="RdYlBu_r",
+                            vmin=0.0,
+                            vmax=1.0,
+                            annot=True,
+                            fmt=".2f",
+                            annot_kws={"fontsize": 9},
+                            square=True,
+                            cbar_kws={"shrink": 0.6, "label": "Cosine Similarity"},
+                            ax=axh
+                        )
+                        axh.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=16, pad=12)
+                        axh.set_xlabel("Name")
+                        axh.set_ylabel("Name")
+                        plt.tight_layout()
+                        st.pyplot(fig_h)
+                    except Exception:
+                        st.info("Could not render cluster heatmap due to data issues.")
 
 # ---------------- Compare tab ----------------
 elif page == "Compare":
