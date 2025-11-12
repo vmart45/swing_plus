@@ -247,6 +247,9 @@ mechanical_features = [
     "swing_length"
 ]
 
+# Ensure name_col is defined at module level so Compare/Player sections can reference it
+name_col = "Name"
+
 # Load model and SHAP explainer (optional)
 model = None
 explainer = None
@@ -392,6 +395,10 @@ if "page" in params and len(params["page"]) > 0:
         qp_page = unquote(params["page"][0])
     except Exception:
         qp_page = params["page"][0]
+
+# support seasonA/seasonB direct links in compare query params
+qp_season_a = params.get("seasonA", [None])[0] if "seasonA" in params else None
+qp_season_b = params.get("seasonB", [None])[0] if "seasonB" in params else None
 
 page_options = ["Main", "Player", "Compare"]
 default_page = 0
@@ -1290,9 +1297,18 @@ elif page == "Compare":
             if season_col:
                 seasonsA = sorted(df[df["Name"] == playerA][season_col].dropna().unique())
                 if seasonsA:
-                    # default to global season if available else most recent season for player
-                    defaultA = season_selected_global if season_selected_global in seasonsA else seasonsA[-1]
-                    idxA = seasonsA.index(defaultA) if defaultA in seasonsA else len(seasonsA) - 1
+                    # default to query param seasonA if provided, then global season, else most recent season for player
+                    defaultA = None
+                    if qp_season_a and qp_season_a in seasonsA:
+                        defaultA = int(qp_season_a)
+                    elif season_selected_global in seasonsA:
+                        defaultA = season_selected_global
+                    else:
+                        defaultA = seasonsA[-1]
+                    try:
+                        idxA = seasonsA.index(defaultA) if defaultA in seasonsA else len(seasonsA) - 1
+                    except Exception:
+                        idxA = len(seasonsA) - 1
                     seasonA = st.selectbox("Season A", seasonsA, index=idxA, key="season_a_select")
         with col_b:
             playerB = st.selectbox("Player B", player_options, index=default_b_idx, key="compare_player_b")
@@ -1301,8 +1317,17 @@ elif page == "Compare":
             if season_col:
                 seasonsB = sorted(df[df["Name"] == playerB][season_col].dropna().unique())
                 if seasonsB:
-                    defaultB = season_selected_global if season_selected_global in seasonsB else seasonsB[-1]
-                    idxB = seasonsB.index(defaultB) if defaultB in seasonsB else len(seasonsB) - 1
+                    defaultB = None
+                    if qp_season_b and qp_season_b in seasonsB:
+                        defaultB = int(qp_season_b)
+                    elif season_selected_global in seasonsB:
+                        defaultB = season_selected_global
+                    else:
+                        defaultB = seasonsB[-1]
+                    try:
+                        idxB = seasonsB.index(defaultB) if defaultB in seasonsB else len(seasonsB) - 1
+                    except Exception:
+                        idxB = len(seasonsB) - 1
                     seasonB = st.selectbox("Season B", seasonsB, index=idxB, key="season_b_select")
 
         if playerA == playerB and (season_col is None or seasonA == seasonB):
