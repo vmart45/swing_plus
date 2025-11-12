@@ -406,9 +406,14 @@ st.markdown("<div style='display:flex;justify-content:center;margin-bottom:6px;'
 page = st.radio("", page_options, index=default_page, horizontal=True, key="top_nav")
 st.markdown("</div>", unsafe_allow_html=True)
 
-def open_compare_in_same_tab(playerA, playerB):
+def open_compare_in_same_tab(playerA, playerB, seasonA=None, seasonB=None):
     try:
-        st.experimental_set_query_params(playerA=playerA, playerB=playerB, page="Compare")
+        params = {"playerA": playerA, "playerB": playerB, "page": "Compare"}
+        if seasonA is not None:
+            params["seasonA"] = seasonA
+        if seasonB is not None:
+            params["seasonB"] = seasonB
+        st.experimental_set_query_params(**params)
     except Exception:
         try:
             st.experimental_set_query_params(player=playerA, playerB=playerB, page="Compare")
@@ -1081,10 +1086,18 @@ elif page == "Player":
                             sim_score = float(sim_score_val.iloc[0])
                         except Exception:
                             sim_score = 0.0
+                    # Determine sim season for compare link if available
+                    sim_season = None
+                    if season_col and season_col in sim_row.columns:
+                        try:
+                            sim_season = sim_row.iloc[0][season_col]
+                        except Exception:
+                            sim_season = None
                     sim_rows.append({
                         "name": sim_name,
                         "headshot_url": sim_headshot_url,
-                        "score": sim_score
+                        "score": sim_score,
+                        "season": sim_season
                     })
 
                 st.markdown(
@@ -1189,20 +1202,31 @@ elif page == "Player":
 
                     sim_pct_text = f"{pct:.1%}"
 
-                    href = f"?playerA={quote(player_select)}&playerB={quote(sim['name'])}&page=Compare"
+                    # Build compare href including season context if available
+                    seasonA_param = player_season_selected if player_season_selected is not None else season_selected_global
+                    seasonB_param = sim.get("season", "")
+                    href_compare = f"?playerA={quote(player_select)}&playerB={quote(sim['name'])}&page=Compare"
+                    if seasonA_param:
+                        href_compare += f"&seasonA={quote(str(seasonA_param))}"
+                    if seasonB_param:
+                        href_compare += f"&seasonB={quote(str(seasonB_param))}"
+
+                    # Player link: include page=Player and ensure onclick to force navigation/reload
+                    href_player_link = f"?player={quote(sim['name'])}&page=Player"
+                    onclick_player = f"window.history.pushState(null,'','{href_player_link}'); setTimeout(()=>window.location.reload(),30); return false;"
 
                     st.markdown(
                         f"""
                         <div class="sim-item">
                             <div class="sim-rank">{idx}</div>
                             <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                            <div class="sim-name-compact"><a href="?player={quote(sim['name'])}" style="color:#183153;text-decoration:none;font-weight:700;">{sim['name']}</a></div>
+                            <div class="sim-name-compact"><a href="{href_player_link}" onclick="{onclick_player}" style="color:#183153;text-decoration:none;font-weight:700;">{sim['name']}</a></div>
                             <div style="display:flex;align-items:center;gap:8px;">
                                 <div class="sim-score-compact">{sim_pct_text}</div>
                                 <div class="sim-bar-mini" aria-hidden="true">
                                     <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
                                 </div>
-                                <a class="sim-compare-btn" href="{href}" onclick="window.history.pushState(null,'','{href}'); setTimeout(()=>window.location.reload(),30); return false;">Compare</a>
+                                <a class="sim-compare-btn" href="{href_compare}" onclick="window.history.pushState(null,'','{href_compare}'); setTimeout(()=>window.location.reload(),30); return false;">Compare</a>
                             </div>
                         </div>
                         """,
@@ -1300,11 +1324,12 @@ elif page == "Compare":
             rowB = get_player_row_for_season(playerB, seasonB if season_col else None)
 
             # Build df_for_comparison: use seasonA and seasonB if present, otherwise use global season filter
+            mech_features_available = [f for f in mechanical_features if f in df.columns]
             if season_col:
                 seasons_to_use = []
                 if seasonA is not None:
                     seasons_to_use.append(seasonA)
-                if seasonB is not None:
+                if seasonB is not None and seasonB not in seasons_to_use:
                     seasons_to_use.append(seasonB)
                 # if empty, use global season_selected_global else full df
                 if seasons_to_use:
@@ -1319,7 +1344,6 @@ elif page == "Compare":
             else:
                 df_comp = df.dropna(subset=mech_features_available + [name_col]).copy()
 
-            mech_features_available = [f for f in mechanical_features if f in df.columns]
             if len(mech_features_available) >= 2 and not df_comp.empty:
                 try:
                     scaler, df_scaled = get_scaler_and_scaled_df(mech_features_available, df_comp)
@@ -1327,7 +1351,6 @@ elif page == "Compare":
                     try:
                         idxA = df_comp[(df_comp["Name"] == playerA) & ((df_comp[season_col] == seasonA) if season_col and seasonA is not None else True)].index[0]
                     except Exception:
-                        # fallback: use first matching name in df_comp
                         try:
                             idxA = df_comp[df_comp["Name"] == playerA].index[0]
                         except Exception:
