@@ -526,33 +526,33 @@ if page == "Main":
     except Exception:
         st.dataframe(styled, use_container_width=True, hide_index=True)
 
-    # Leaderboards (restore original styling behavior)
+    # Leaderboards (restore original styling behavior but anchor gradient to full dataset so top-10 are darker)
     st.markdown("<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Top 10 Leaderboards</h2>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
         st.markdown('<div style="text-align:center; font-size:1.15em; font-weight:600; margin-bottom:0.6em; color:#385684;">Top 10 by Swing+</div>', unsafe_allow_html=True)
         if "Swing+" in df_filtered.columns:
             top_swing = df_filtered.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
-            leaderboard_cols = [c for c in ["Name", "Team", "Age", "Swing+", "HitSkillPlus", "ImpactPlus"] if c in top_swing.columns]
             top_swing_display = top_swing.copy()
-            for col in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
-                if col in top_swing_display.columns:
-                    top_swing_display[col] = top_swing_display[col].apply(lambda v: f"{v:.2f}" if pd.notna(v) else v)
             if "Age" in top_swing_display.columns:
                 try:
                     top_swing_display["Age"] = top_swing_display["Age"].round(0).astype("Int64")
                 except Exception:
                     pass
-            # Keep leaderboard columns in original names and style the original "Swing+" column
+            # Rename for display
+            top_swing_renamed = top_swing_display.rename(columns=rename_map)
+            swing_label = rename_map.get("Swing+", "Swing+")
             try:
+                # Anchor gradient to full df range so top-10 will show darker red near the top of global scale
+                vmin = float(df_filtered["Swing+"].min())
+                vmax = float(df_filtered["Swing+"].max())
                 st.dataframe(
-                    top_swing_display[leaderboard_cols]
-                    .style.background_gradient(subset=["Swing+"], cmap=elite_cmap),
+                    top_swing_renamed.style.format(precision=2).background_gradient(subset=[swing_label], cmap=elite_cmap, vmin=vmin, vmax=vmax),
                     use_container_width=True,
                     hide_index=True
                 )
             except Exception:
-                st.dataframe(top_swing_display[leaderboard_cols], use_container_width=True, hide_index=True)
+                st.dataframe(top_swing_renamed, use_container_width=True, hide_index=True)
         else:
             st.info("Swing+ not present in dataset; leaderboard unavailable.")
 
@@ -560,25 +560,24 @@ if page == "Main":
         st.markdown('<div style="text-align:center; font-size:1.15em; font-weight:600; margin-bottom:0.6em; color:#385684;">Top 10 by HitSkill+</div>', unsafe_allow_html=True)
         if "HitSkillPlus" in df_filtered.columns:
             top_hit = df_filtered.sort_values("HitSkillPlus", ascending=False).head(10).reset_index(drop=True)
-            leaderboard_cols = [c for c in ["Name", "Team", "Age", "HitSkillPlus", "Swing+", "ImpactPlus"] if c in top_hit.columns]
             top_hit_display = top_hit.copy()
-            for col in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
-                if col in top_hit_display.columns:
-                    top_hit_display[col] = top_hit_display[col].apply(lambda v: f"{v:.2f}" if pd.notna(v) else v)
             if "Age" in top_hit_display.columns:
                 try:
                     top_hit_display["Age"] = top_hit_display["Age"].round(0).astype("Int64")
                 except Exception:
                     pass
+            top_hit_renamed = top_hit_display.rename(columns=rename_map)
+            hit_label = rename_map.get("HitSkillPlus", "HitSkillPlus")
             try:
+                vmin_h = float(df_filtered["HitSkillPlus"].min())
+                vmax_h = float(df_filtered["HitSkillPlus"].max())
                 st.dataframe(
-                    top_hit_display[leaderboard_cols]
-                    .style.background_gradient(subset=["HitSkillPlus"], cmap=elite_cmap),
+                    top_hit_renamed.style.format(precision=2).background_gradient(subset=[hit_label], cmap=elite_cmap, vmin=vmin_h, vmax=vmax_h),
                     use_container_width=True,
                     hide_index=True
                 )
             except Exception:
-                st.dataframe(top_hit_display[leaderboard_cols], use_container_width=True, hide_index=True)
+                st.dataframe(top_hit_renamed, use_container_width=True, hide_index=True)
         else:
             st.info("HitSkillPlus not present in dataset; leaderboard unavailable.")
 
@@ -739,7 +738,7 @@ elif page == "Player":
         unsafe_allow_html=True
     )
 
-    # Rest of Player tab (SHAP, similarity, etc.) remains as before but avoiding removed columns where applicable
+    # Rest of Player tab (SHAP, similarity, etc.)
 
     mech_features_available = [f for f in mechanical_features if f in df.columns]
 
@@ -900,11 +899,11 @@ elif page == "Compare":
             for i, stat in enumerate(stats):
                 valA = rowA.get(stat, "N/A")
                 valA_disp = f"{valA:.2f}" if isinstance(valA, (int, float, np.floating, np.integer)) and not pd.isna(valA) else valA
-                cols_stats[i].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valA_disp}</div><div style="color:#64748b;">{stat} (A)</div></div>', unsafe_allow_html=True)
+                cols_stats[i].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valA_disp}</div><div style="color:#64748b;">{("HitSkill+" if stat=="HitSkillPlus" else "Impact+" if stat=="ImpactPlus" else stat) } (A)</div></div>', unsafe_allow_html=True)
             for i, stat in enumerate(stats):
                 valB = rowB.get(stat, "N/A")
                 valB_disp = f"{valB:.2f}" if isinstance(valB, (int, float, np.floating, np.integer)) and not pd.isna(valB) else valB
-                cols_stats[i+len(stats)].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valB_disp}</div><div style="color:#64748b;">{stat} (B)</div></div>', unsafe_allow_html=True)
+                cols_stats[i+len(stats)].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valB_disp}</div><div style="color:#64748b;">{("HitSkill+" if stat=="HitSkillPlus" else "Impact+" if stat=="ImpactPlus" else stat) } (B)</div></div>', unsafe_allow_html=True)
 
             st.markdown("<hr />", unsafe_allow_html=True)
 
