@@ -85,13 +85,12 @@ def normalize_columns(df):
 
 df = normalize_columns(df)
 
-# Normalize Name to "First Last" if possible
+# Normalize Name to "First Last" if possible (convert "Last, First" -> "First Last")
 def normalize_name(name):
     try:
         if not isinstance(name, str):
             return name
         name = name.strip()
-        # If already "First Last" (no comma) just normalize whitespace
         if "," in name:
             parts = [p.strip() for p in name.split(",", 1)]
             return f"{parts[1]} {parts[0]}".strip()
@@ -163,30 +162,32 @@ FEATURE_LABELS = {
     "year": "Season"
 }
 
-# Sidebar filters: Player name first, then age range (per user request)
+# Sidebar filters: season, player, age, comp swings (kept global)
 st.sidebar.header("Filters")
-search_name = st.sidebar.text_input("Search Player by Name")
 
-min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
-age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, max_age))
-
-# Season filter auto-default to 2025 if present
+# Season filter (global)
 season_col = None
 for c in ["year", "Year", "season"]:
     if c in df.columns:
         season_col = c
         break
 
-season_selected = None
+season_selected_global = None
 if season_col:
     unique_years = sorted(df[season_col].dropna().unique())
     default_season = 2025 if 2025 in unique_years else (unique_years[-1] if unique_years else None)
-    if default_season is None:
-        season_selected = st.sidebar.selectbox("Season", unique_years) if unique_years else None
-    else:
-        season_selected = st.sidebar.selectbox("Season", unique_years, index=unique_years.index(default_season) if default_season in unique_years else 0)
+    if unique_years:
+        default_index = unique_years.index(default_season) if default_season in unique_years else len(unique_years) - 1
+        season_selected_global = st.sidebar.selectbox("Season (global)", unique_years, index=default_index)
 
-# Competitive swings filter (keep, default start 100)
+# Player search
+search_name = st.sidebar.text_input("Search Player by Name")
+
+# Age slider
+min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
+age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, max_age))
+
+# Competitive swings filter
 comp_col = None
 for c in ["swings_competitive", "competitive_swings", "competitive_swings"]:
     if c in df.columns:
@@ -204,18 +205,18 @@ if comp_col:
 else:
     swings_range = None
 
-# Build filtered df
+# Build filtered df (apply sidebar/global season first to match requested order)
 df_filtered = df.copy()
+if season_col and season_selected_global is not None:
+    try:
+        df_filtered = df_filtered[df_filtered[season_col] == season_selected_global]
+    except Exception:
+        pass
+
 if search_name:
     df_filtered = df_filtered[df_filtered["Name"].str.contains(search_name, case=False, na=False)]
 
 df_filtered = df_filtered[(df_filtered["Age"] >= age_range[0]) & (df_filtered["Age"] <= age_range[1])]
-
-if season_col and season_selected is not None:
-    try:
-        df_filtered = df_filtered[df_filtered[season_col] == season_selected]
-    except Exception:
-        pass
 
 if comp_col and swings_range:
     try:
@@ -444,9 +445,7 @@ if page == "Main":
             all_stats.append(c)
 
     # Remove disallowed/removed columns entirely from display if present
-    # User requested removal of: bip, batter_run_value, est_ba, est_slg, est_woba, xwOBA_pred, xba_pred, xslg_pred, side (BT)
     removed_cols = ["bip", "batter_run_value", "est_ba", "est_slg", "est_woba", "xwOBA_pred", "xba_pred", "xslg_pred", "side"]
-    # Ensure removed columns are not included
     display_cols = [c for c in all_stats if c not in removed_cols]
 
     display_df = df_filtered[display_cols].copy()
@@ -472,7 +471,7 @@ if page == "Main":
             except Exception:
                 pass
 
-    # Rename friendly labels
+    # Rename friendly labels (use plus signs consistently)
     rename_map = {}
     if "year" in display_df.columns:
         rename_map["year"] = "Season"
@@ -482,19 +481,16 @@ if page == "Main":
         rename_map[comp_col] = "Competitive Swings"
     if "batted_ball_events" in display_df.columns:
         rename_map["batted_ball_events"] = "Batted Ball Events"
-    # Plus shorthand
     if "Swing+" in display_df.columns:
         rename_map["Swing+"] = "Swing+"
     if "HitSkillPlus" in display_df.columns:
         rename_map["HitSkillPlus"] = "HitSkill+"
     if "ImpactPlus" in display_df.columns:
         rename_map["ImpactPlus"] = "Impact+"
-    # mechanical labels
     for k, v in FEATURE_LABELS.items():
         if k in display_df.columns:
             rename_map[k] = v
 
-    # Apply sort by Swing+ if present
     sort_col = "Swing+" if "Swing+" in display_df.columns else display_df.columns[0]
     styled = (
         display_df
@@ -503,40 +499,36 @@ if page == "Main":
         .reset_index(drop=True)
     )
 
-    # Restore coloring on plus stats
     plus_labels = []
     for p in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
         if p in display_df.columns:
             plus_labels.append(rename_map.get(p, p))
 
-    # Use pandas Styler to add background gradient only to plus stats
     try:
         styler = styled.style.format(precision=2)
         if plus_labels:
-            styler = styler.background_gradient(subset=plus_labels, cmap=elite_cmap)
+            valid_plus = [c for c in plus_labels if c in styled.columns]
+            if valid_plus:
+                styler = styler.background_gradient(subset=valid_plus, cmap=elite_cmap)
         st.dataframe(styler, use_container_width=True, hide_index=True)
     except Exception:
         st.dataframe(styled, use_container_width=True, hide_index=True)
 
-    # Leaderboards (keep Swing+ and HitSkill+ top lists)
+    # Leaderboards (Top 10) - ensure renamed headers and anchor gradient to full dataset so top rows appear darkest red
     st.markdown("<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Top 10 Leaderboards</h2>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
         st.markdown('<div style="text-align:center; font-size:1.15em; font-weight:600; margin-bottom:0.6em; color:#385684;">Top 10 by Swing+</div>', unsafe_allow_html=True)
         if "Swing+" in df_filtered.columns:
             top_swing = df_filtered.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
-            leaderboard_cols = [c for c in ["Name", "Team", "Age", "Swing+", "HitSkillPlus", "ImpactPlus"] if c in top_swing.columns]
             top_swing_display = top_swing.copy()
-            for col in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
-                if col in top_swing_display.columns:
-                    top_swing_display[col] = top_swing_display[col].apply(lambda v: f"{v:.2f}" if pd.notna(v) else v)
             if "Age" in top_swing_display.columns:
                 try:
                     top_swing_display["Age"] = top_swing_display["Age"].round(0).astype("Int64")
                 except Exception:
                     pass
-            # Rename columns for display and apply gradient anchored to global values so top-10 shows dark red for highest scores
             top_swing_renamed = top_swing_display.rename(columns=rename_map)
+            leaderboard_cols = [c for c in ["Name", "Team", "Age", "Swing+", "HitSkillPlus", "ImpactPlus"] if c in top_swing.columns]
             display_cols_renamed = [rename_map.get(c, c) for c in leaderboard_cols]
             swing_label = rename_map.get("Swing+", "Swing+")
             try:
@@ -544,7 +536,8 @@ if page == "Main":
                 vmax = float(df_filtered["Swing+"].max())
                 st.dataframe(
                     top_swing_renamed[display_cols_renamed]
-                    .style.background_gradient(subset=[swing_label], cmap=elite_cmap, vmin=vmin, vmax=vmax),
+                    .style.format(precision=2)
+                    .background_gradient(subset=[swing_label], cmap=elite_cmap, vmin=vmin, vmax=vmax),
                     use_container_width=True,
                     hide_index=True
                 )
@@ -557,26 +550,23 @@ if page == "Main":
         st.markdown('<div style="text-align:center; font-size:1.15em; font-weight:600; margin-bottom:0.6em; color:#385684;">Top 10 by HitSkill+</div>', unsafe_allow_html=True)
         if "HitSkillPlus" in df_filtered.columns:
             top_hit = df_filtered.sort_values("HitSkillPlus", ascending=False).head(10).reset_index(drop=True)
-            leaderboard_cols = [c for c in ["Name", "Team", "Age", "HitSkillPlus", "Swing+", "ImpactPlus"] if c in top_hit.columns]
             top_hit_display = top_hit.copy()
-            for col in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
-                if col in top_hit_display.columns:
-                    top_hit_display[col] = top_hit_display[col].apply(lambda v: f"{v:.2f}" if pd.notna(v) else v)
             if "Age" in top_hit_display.columns:
                 try:
                     top_hit_display["Age"] = top_hit_display["Age"].round(0).astype("Int64")
                 except Exception:
                     pass
-            # Rename and apply gradient anchored to global HitSkillPlus range
             top_hit_renamed = top_hit_display.rename(columns=rename_map)
-            display_cols_hit_renamed = [rename_map.get(c, c) for c in leaderboard_cols]
-            hit_label = rename_map.get("HitSkillPlus", "HitSkillPlus")
+            leaderboard_cols_hit = [c for c in ["Name", "Team", "Age", "HitSkillPlus", "Swing+", "ImpactPlus"] if c in top_hit.columns]
+            display_cols_hit_renamed = [rename_map.get(c, c) for c in leaderboard_cols_hit]
+            hit_label = rename_map.get("HitSkillPlus", "HitSkill+")
             try:
                 vmin_h = float(df_filtered["HitSkillPlus"].min())
                 vmax_h = float(df_filtered["HitSkillPlus"].max())
                 st.dataframe(
                     top_hit_renamed[display_cols_hit_renamed]
-                    .style.background_gradient(subset=[hit_label], cmap=elite_cmap, vmin=vmin_h, vmax=vmax_h),
+                    .style.format(precision=2)
+                    .background_gradient(subset=[hit_label], cmap=elite_cmap, vmin=vmin_h, vmax=vmax_h),
                     use_container_width=True,
                     hide_index=True
                 )
@@ -585,10 +575,18 @@ if page == "Main":
         else:
             st.info("HitSkillPlus not present in dataset; leaderboard unavailable.")
 
-# ---------------- Player tab ----------------
+# ---------------- Player tab: Player Detail view ----------------
 elif page == "Player":
-    st.markdown("<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Player Detail</h2>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <h2 style="text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; letter-spacing:0.01em; color:#2a3757;">
+            Player Detail
+        </h2>
+        """,
+        unsafe_allow_html=True
+    )
 
+    # Allow deep-linking to a player via URL query param ?player=Player+Name
     params = st.experimental_get_query_params()
     qp_player = None
     if "player" in params and len(params["player"]) > 0:
@@ -602,7 +600,12 @@ elif page == "Player":
     if qp_player and qp_player in player_options:
         default_index = player_options.index(qp_player)
 
-    player_select = st.selectbox("Select a Player", player_options, key="player_select", index=default_index)
+    player_select = st.selectbox(
+        "Select a Player",
+        player_options,
+        key="player_select",
+        index=default_index
+    )
     player_row = df[df["Name"] == player_select].iloc[0]
 
     headshot_size = 96
@@ -610,31 +613,37 @@ elif page == "Player":
 
     headshot_html = ""
     if "id" in player_row and pd.notnull(player_row["id"]):
-        try:
-            player_id = str(int(player_row["id"]))
-            headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
-        except Exception:
-            headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-        headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;margin-right:18px;" alt="headshot"/>'
+        player_id = str(int(player_row["id"]))
+        headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
+        headshot_html = (
+            f'<img src="{headshot_url}" '
+            f'style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;'
+            f'box-shadow:0 1px 6px rgba(0,0,0,0.06);margin-right:18px;" alt="headshot"/>'
+        )
     else:
         fallback_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-        headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;margin-right:18px;" alt="headshot"/>'
+        headshot_html = (
+            f'<img src="{fallback_url}" '
+            f'style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;'
+            f'box-shadow:0 1px 6px rgba(0,0,0,0.06);margin-right:18px;" alt="headshot"/>'
+        )
 
-    player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;margin:0 20px;">{player_select}</span>'
+    player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
 
+    # Add team logo back to player page (to the right of the name) when available
     team_logo_html = ""
     if "Team" in player_row and pd.notnull(player_row["Team"]):
         team_abbr = str(player_row["Team"]).strip()
         team_logo_url = image_dict.get(team_abbr, "")
         if team_logo_url:
-            team_logo_html = f'<div style="margin-left:14px; display:flex; align-items:center;"><img src="{team_logo_url}" style="height:{logo_size}px;width:{logo_size}px;border-radius:8px;object-fit:cover;"></div>'
+            team_logo_html = f'<div style="margin-left:14px; display:flex; align-items:center;"><img src="{team_logo_url}" style="height:{logo_size}px;width:{logo_size}px;border-radius:8px;box-shadow:none;background:transparent;border:none;object-fit:contain;" alt="team logo"/></div>'
 
     player_bio = ""
     bat_side = "R"
     if "id" in player_row and pd.notnull(player_row["id"]):
+        player_id = str(int(player_row["id"]))
+        mlb_bio_url = f"https://statsapi.mlb.com/api/v1/people/{player_id}"
         try:
-            player_id = str(int(player_row["id"]))
-            mlb_bio_url = f"https://statsapi.mlb.com/api/v1/people/{player_id}"
             resp = requests.get(mlb_bio_url, timeout=4)
             if resp.status_code == 200:
                 data = resp.json()
@@ -684,18 +693,24 @@ elif page == "Player":
     st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
     total_players = len(df)
-    # Use safe ranking helper to avoid IntCastingNaNError
-    if "Swing+" in df.columns:
-        df["Swing+_rank"] = safe_rank_column(df, "Swing+")
-    if "HitSkillPlus" in df.columns:
-        df["HitSkillPlus_rank"] = safe_rank_column(df, "HitSkillPlus")
-    if "ImpactPlus" in df.columns:
-        df["ImpactPlus_rank"] = safe_rank_column(df, "ImpactPlus")
+    df["Swing+_rank"] = df["Swing+"].rank(ascending=False, method="min").astype(int)
+    # If ProjSwing+ or PowerIndex+ present, fallback names; keep safe lookup
+    if "ProjSwing+" in df.columns:
+        df["ProjSwing+_rank"] = df["ProjSwing+"].rank(ascending=False, method="min").astype(int)
+    else:
+        if "HitSkillPlus" in df.columns:
+            df["ProjSwing+_rank"] = df["HitSkillPlus"].rank(ascending=False, method="min").astype(int)
+    if "PowerIndex+" in df.columns:
+        df["PowerIndex+_rank"] = df["PowerIndex+"].rank(ascending=False, method="min").astype(int)
+    else:
+        if "ImpactPlus" in df.columns:
+            df["PowerIndex+_rank"] = df["ImpactPlus"].rank(ascending=False, method="min").astype(int)
 
     p_swing_rank = int(df.loc[df["Name"] == player_select, "Swing+_rank"].iloc[0]) if "Swing+_rank" in df.columns else None
-    p_hit_rank = int(df.loc[df["Name"] == player_select, "HitSkillPlus_rank"].iloc[0]) if "HitSkillPlus_rank" in df.columns else None
-    p_impact_rank = int(df.loc[df["Name"] == player_select, "ImpactPlus_rank"].iloc[0]) if "ImpactPlus_rank" in df.columns else None
+    p_proj_rank = int(df.loc[df["Name"] == player_select, "ProjSwing+_rank"].iloc[0]) if "ProjSwing+_rank" in df.columns else None
+    p_power_rank = int(df.loc[df["Name"] == player_select, "PowerIndex+_rank"].iloc[0]) if "PowerIndex+_rank" in df.columns else None
 
+    # New plus_color: color by rank (1 = reddest, max = bluest)
     def plus_color_by_rank(rank, total, start_hex="#D32F2F", end_hex="#3B82C4"):
         if rank is None:
             return "#666666"
@@ -716,36 +731,81 @@ elif page == "Player":
         return rgb_to_hex((rr, rg, rb))
 
     swing_color = plus_color_by_rank(p_swing_rank, total_players)
-    hit_color = plus_color_by_rank(p_hit_rank, total_players)
-    impact_color = plus_color_by_rank(p_impact_rank, total_players)
+    proj_color = plus_color_by_rank(p_proj_rank, total_players)
+    power_color = plus_color_by_rank(p_power_rank, total_players)
 
     st.markdown(
         f"""
         <div style="display: flex; justify-content: center; gap: 32px; margin-top: 0px; margin-bottom: 28px;">
-          <div style="background: #fff; border-radius: 16px; padding: 24px 32px; text-align: center; min-width: 160px;">
+          <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
             <div style="font-size: 2.2em; font-weight: 700; color: {swing_color};">{player_row['Swing+']:.2f}</div>
-            <div style="font-size: 1.1em; color: #888; font-weight: 600; margin-bottom: 4px;">Swing+</div>
-            <span style="background: #FFC10733; color: #B71C1C; border-radius: 10px; font-size: 0.98em; padding: 2px 10px;">Rank {p_swing_rank} of {total_players}</span>
+            <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">Swing+</div>
+            <span style="background: #FFC10733; color: #B71C1C; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_swing_rank} of {total_players}</span>
           </div>
-          <div style="background: #fff; border-radius: 16px; padding: 24px 32px; text-align: center; min-width: 160px;">
-            <div style="font-size: 2.2em; font-weight: 700; color: {hit_color};">{player_row['HitSkillPlus']:.2f}</div>
-            <div style="font-size: 1.1em; color: #888; font-weight: 600; margin-bottom: 4px;">HitSkill+</div>
-            <span style="background: #C8E6C933; color: #1B5E20; border-radius: 10px; font-size: 0.98em; padding: 2px 10px;">Rank {p_hit_rank} of {total_players}</span>
+          <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
+            <div style="font-size: 2.2em; font-weight: 700; color: {proj_color};">{player_row.get('ProjSwing+', player_row.get('HitSkillPlus', np.nan)):.2f}</div>
+            <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">HitSkill+</div>
+            <span style="background: #C8E6C933; color: #1B5E20; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_proj_rank} of {total_players}</span>
           </div>
-          <div style="background: #fff; border-radius: 16px; padding: 24px 32px; text-align: center; min-width: 160px;">
-            <div style="font-size: 2.2em; font-weight: 700; color: {impact_color};">{player_row['ImpactPlus']:.2f}</div>
-            <div style="font-size: 1.1em; color: #888; font-weight: 600; margin-bottom: 4px;">Impact+</div>
-            <span style="background: #B3E5FC33; color: #01579B; border-radius: 10px; font-size: 0.98em; padding: 2px 10px;">Rank {p_impact_rank} of {total_players}</span>
+          <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
+            <div style="font-size: 2.2em; font-weight: 700; color: {power_color};">{player_row.get('PowerIndex+', player_row.get('ImpactPlus', np.nan)):.2f}</div>
+            <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">Impact+</div>
+            <span style="background: #B3E5FC33; color: #01579B; border-radius: 10px; font-size: 0.98em; padding: 2px 10px 2px 10px;">Rank {p_power_rank} of {total_players}</span>
           </div>
         </div>
         """,
         unsafe_allow_html=True
     )
 
-    # Rest of Player tab (SHAP, similarity, etc.) remains as before but avoiding removed columns where applicable
+    video_url = None
+    if "id" in player_row and pd.notnull(player_row["id"]):
+        player_id = str(int(player_row["id"]))
+        video_url = f"https://builds.mlbstatic.com/baseballsavant.mlb.com/swing-path/splendid-splinter/cut/{player_id}-2025-{bat_side}.mp4"
+
+    DEFAULT_ONEIL_CRUZ_IDS = ['665833-2025-L', '665833-2025-R', '665833-2025-S']
+    default_name = "Oneil Cruz"
+    showing_default = False
+    if video_url:
+        showing_default = f'{player_id}-2025-{bat_side}' in DEFAULT_ONEIL_CRUZ_IDS
+
+    if video_url:
+        if showing_default:
+            video_note = (
+                f"No custom video data available for this player — showing a default example ({default_name})."
+            )
+        else:
+            video_note = (
+                "Below is the Baseball Savant Swing Path / Attack Angle visualization for this player."
+            )
+
+        st.markdown(
+            f"""
+            <h3 style="text-align:center; margin-top:1.3em; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
+                Baseball Savant Swing Path / Attack Angle Visualization
+            </h3>
+            <div style="text-align:center; color: #7a7a7a; font-size: 0.99em; margin-bottom:10px">
+                {video_note}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            f"""
+            <div id="savantviz-anchor"></div>
+            <div style="display: flex; justify-content: center;">
+                <video id="player-savant-video" width="900" height="480" style="border-radius:9px; box-shadow:0 2px 12px #0002;" autoplay muted playsinline key="{player_id}-{bat_side}">
+                    <source src="{video_url}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
     mech_features_available = [f for f in mechanical_features if f in df.columns]
 
+    # Compute SHAP values for the selected player (Swing+ only)
     shap_df = None
     shap_base = None
     shap_pred = None
@@ -754,20 +814,38 @@ elif page == "Player":
     if model_loaded and explainer is not None and len(mech_features_available) >= 2:
         try:
             X_player = prepare_model_input_for_player(player_row, mech_features_available, model, df_reference=df)
+
+            try:
+                expected_names = None
+                if hasattr(model, "feature_name_") and model.feature_name_ is not None:
+                    expected_names = list(model.feature_name_)
+                elif hasattr(model, "booster_") and hasattr(model.booster_, "feature_name"):
+                    expected_names = list(model.booster_.feature_name())
+                elif hasattr(model, "get_booster") and hasattr(model.get_booster(), "feature_name"):
+                    expected_names = list(model.get_booster().feature_name())
+                if expected_names is not None and X_player.shape[1] != len(expected_names):
+                    model_error = f"Prepared input has {X_player.shape[1]} features but model expects {len(expected_names)} features."
+                    raise ValueError(model_error)
+            except Exception:
+                pass
+
             try:
                 shap_pred = float(model.predict(X_player)[0])
             except Exception:
                 shap_pred = float(model.predict(X_player.values.reshape(1, -1))[0])
+
             try:
                 shap_values = explainer(X_player)
             except Exception:
                 shap_values = explainer(X_player.values)
+
             if hasattr(shap_values, "values"):
                 shap_values_arr = np.array(shap_values.values).flatten()
                 shap_base = float(shap_values.base_values) if np.size(shap_values.base_values) == 1 else float(shap_values.base_values.flatten()[0])
             else:
                 shap_values_arr = np.array(shap_values).flatten()
                 shap_base = None
+
             shap_df = pd.DataFrame({
                 "feature": X_player.columns.tolist(),
                 "raw": [float(X_player.iloc[0][f]) if pd.notna(X_player.iloc[0][f]) else np.nan for f in X_player.columns],
@@ -777,13 +855,26 @@ elif page == "Player":
             total_abs = shap_df["abs_shap"].sum() if shap_df["abs_shap"].sum() != 0 else 1.0
             shap_df["pct_of_abs"] = shap_df["abs_shap"] / total_abs
             shap_df = shap_df.sort_values("abs_shap", ascending=False).reset_index(drop=True)
-        except Exception:
+
+        except Exception as e:
             shap_df = None
+            model_error = str(e)
 
     st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align:center; margin-top:6px; font-size:1.08em; color:#183153;'>Swing+ Feature Contributions (SHAP)</h3>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <h3 style="text-align:center; margin-top:6px; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
+            Swing+ Feature Contributions (SHAP)
+        </h3>
+        <div style="text-align:center; color:#6b7280; margin-bottom:6px; font-size:0.95em;">
+            How each mechanical feature moved the model's Swing+ prediction for this player.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     col1, col2 = st.columns([1, 1])
+
     shap_pred_label = f"{shap_pred:.2f}" if (shap_pred is not None and not pd.isna(shap_pred)) else "N/A"
     swing_actual_label = f"{player_row['Swing+']:.2f}" if (player_row.get("Swing+") is not None and not pd.isna(player_row.get("Swing+"))) else "N/A"
     base_label = f"{shap_base:.2f}" if (shap_base is not None and not pd.isna(shap_base)) else "N/A"
@@ -791,21 +882,41 @@ elif page == "Player":
     with col1:
         st.markdown(f"<div style='text-align:center;font-weight:700;color:#183153;'>Model prediction: {shap_pred_label} &nbsp; | &nbsp; Actual Swing+: {swing_actual_label}</div>", unsafe_allow_html=True)
         if not model_loaded or explainer is None or shap_df is None or len(shap_df) == 0:
-            st.info("Swing+ model or SHAP explainer not available.")
+            st.info("Swing+ model or SHAP explainer not available. Ensure SwingPlus.pkl is a supported model/pipeline.")
             if model_error:
                 st.caption(f"Model load error: {model_error}")
         else:
             TOP_SHOW = min(8, len(shap_df))
             df_plot_top = shap_df.head(TOP_SHOW).copy()
             df_plot_top = df_plot_top.sort_values("pct_of_abs", ascending=False).reset_index(drop=True)
+
             y = df_plot_top["feature"].map(lambda x: FEATURE_LABELS.get(x, x)).tolist()
             x_vals = df_plot_top["shap_value"].astype(float).tolist()
             pct_vals = df_plot_top["pct_of_abs"].astype(float).tolist()
             colors = ["#D8573C" if float(v) > 0 else "#3B82C4" for v in x_vals]
+
             text_labels = [f"{val:.3f}  ({pct:.0%})" for val, pct in zip(x_vals, pct_vals)]
+
             fig = go.Figure()
-            fig.add_trace(go.Bar(x=x_vals, y=y, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}<br>Importance: {p:.0%}" for v, p in zip(x_vals, pct_vals)], text=text_labels, textposition='auto'))
-            fig.update_layout(margin=dict(l=160, r=24, t=12, b=60), xaxis_title="SHAP contribution to Swing+ (signed)", yaxis=dict(autorange="reversed"), height=420, showlegend=False, font=dict(size=12))
+            fig.add_trace(go.Bar(
+                x=x_vals,
+                y=y,
+                orientation='h',
+                marker_color=colors,
+                hoverinfo='text',
+                hovertext=[f"Contribution: {v:.3f}<br>Importance: {p:.0%}" for v, p in zip(x_vals, pct_vals)],
+                text=text_labels,
+                textposition='inside',
+                insidetextanchor='middle'
+            ))
+            fig.update_layout(
+                margin=dict(l=160, r=24, t=12, b=60),
+                xaxis_title="SHAP contribution to Swing+ (signed)",
+                yaxis=dict(autorange="reversed"),
+                height=420,
+                showlegend=False,
+                font=dict(size=11)
+            )
             st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
     with col2:
@@ -816,12 +927,205 @@ elif page == "Player":
             display_df = shap_df.copy()
             display_df["feature_label"] = display_df["feature"].map(lambda x: FEATURE_LABELS.get(x, x))
             display_df = display_df.sort_values("abs_shap", ascending=False).head(12)
-            display_df = display_df[["feature_label", "raw", "shap_value", "pct_of_abs"]].rename(columns={"feature_label": "Feature", "raw": "Value", "shap_value": "Contribution", "pct_of_abs": "PctImportance"})
+            display_df = display_df[["feature_label", "raw", "shap_value", "pct_of_abs"]].rename(columns={
+                "feature_label": "Feature",
+                "raw": "Value",
+                "shap_value": "Contribution",
+                "pct_of_abs": "PctImportance"
+            })
             display_df["Value"] = display_df["Value"].apply(lambda v: f"{v:.2f}" if pd.notna(v) else "NaN")
             display_df["Contribution"] = display_df["Contribution"].apply(lambda v: f"{v:.3f}")
             display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
             display_df = display_df.reset_index(drop=True)
             st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+    # ------------------ Mechanical similarity cluster (PLAYER-SPECIFIC) ------------------
+    name_col = "Name"
+    TOP_N = 10
+
+    mech_features_available = [f for f in mechanical_features if f in df.columns]
+    if len(mech_features_available) >= 2 and name_col in df.columns:
+        df_mech = df.dropna(subset=mech_features_available + [name_col]).reset_index(drop=True)
+        if player_select in df_mech[name_col].values and len(df_mech) > TOP_N:
+            scaler = StandardScaler()
+            X_scaled = scaler.fit_transform(df_mech[mech_features_available])
+            similarity_matrix = cosine_similarity(X_scaled)
+            similarity_df = pd.DataFrame(similarity_matrix, index=df_mech[name_col], columns=df_mech[name_col])
+
+            similar_players = (
+                similarity_df.loc[player_select]
+                .sort_values(ascending=False)
+                .iloc[1:TOP_N+1]
+            )
+
+            top_names = [player_select] + list(similar_players.index)
+            sim_rows = []
+            for sim_name in similar_players.index:
+                sim_row = df_mech[df_mech[name_col] == sim_name]
+                if "id" in sim_row.columns and pd.notnull(sim_row.iloc[0]["id"]):
+                    sim_id = str(int(sim_row.iloc[0]["id"]))
+                    sim_headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{sim_id}/headshot/silo/current.png"
+                else:
+                    sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
+                sim_score = similar_players[sim_name]
+                sim_rows.append({
+                    "name": sim_name,
+                    "headshot_url": sim_headshot_url,
+                    "score": sim_score
+                })
+
+            st.markdown(
+                """
+                <style>
+                .sim-container {
+                    width: 100%;
+                    max-width: 1160px;
+                    margin: 12px auto 10px auto;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                }
+                .sim-list {
+                    width: 100%;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                    align-items: center;
+                }
+                .sim-item {
+                    display: flex;
+                    align-items: center;
+                    background: #ffffff;
+                    border-radius: 12px;
+                    padding: 10px 14px;
+                    gap: 12px;
+                    width: 100%;
+                    border: 1px solid #eef4f8;
+                    box-shadow: 0 6px 18px rgba(15,23,42,0.04);
+                }
+                .sim-rank {
+                    font-size: 1em;
+                    font-weight: 700;
+                    color: #183153;
+                    min-width: 36px;
+                    text-align: center;
+                }
+                .sim-headshot-compact {
+                    height: 48px;
+                    width: 48px;
+                    border-radius: 8px;
+                    object-fit: cover;
+                    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+                }
+                .sim-name-compact {
+                    flex: 1;
+                    font-size: 1em;
+                    color: #183153;
+                }
+                .sim-score-compact {
+                    font-size: 0.98em;
+                    font-weight: 700;
+                    color: #333;
+                    margin-right: 12px;
+                    min-width: 72px;
+                    text-align: right;
+                }
+                .sim-bar-mini {
+                    width: 220px;
+                    height: 10px;
+                    background: #f4f7fa;
+                    border-radius: 999px;
+                    overflow: hidden;
+                    margin-left: 8px;
+                }
+                .sim-bar-fill {
+                    height: 100%;
+                    border-radius: 999px;
+                    transition: width 0.5s ease;
+                }
+                .sim-compare-btn {
+                    background: #ffffff;
+                    color: #000000;
+                    padding: 8px 12px;
+                    border-radius: 10px;
+                    text-decoration: none;
+                    font-weight: 800;
+                    border: 1px solid #d1d5db;
+                    cursor: pointer;
+                }
+                .sim-compare-btn:hover { background: #f3f4f6; transform: translateY(-1px); }
+                @media (max-width: 1100px) {
+                    .sim-container { max-width: 92%; }
+                    .sim-bar-mini { width: 160px; height: 8px; }
+                    .sim-headshot-compact { height: 40px; width: 40px; }
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+
+            st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to {player_select}</div>', unsafe_allow_html=True)
+            st.markdown('<div class="sim-list">', unsafe_allow_html=True)
+
+            for idx, sim in enumerate(sim_rows, 1):
+                pct = max(0.0, min(1.0, float(sim['score'])))
+                width_pct = int(round(pct * 100))
+
+                start_color = "#D32F2F"
+                end_color = "#FFB648"
+
+                sim_pct_text = f"{pct:.1%}"
+
+                href = f"?playerA={quote(player_select)}&playerB={quote(sim['name'])}&page=Compare"
+
+                st.markdown(
+                    f"""
+                    <div class="sim-item">
+                        <div class="sim-rank">{idx}</div>
+                        <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
+                        <div class="sim-name-compact"><a href="?player={quote(sim['name'])}" style="color:#183153;text-decoration:none;font-weight:700;">{sim['name']}</a></div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <div class="sim-score-compact">{sim_pct_text}</div>
+                            <div class="sim-bar-mini" aria-hidden="true">
+                                <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
+                            </div>
+                            <a class="sim-compare-btn" href="{href}" onclick="window.history.pushState(null,'','{href}'); setTimeout(()=>window.location.reload(),30); return false;">Compare</a>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+            st.markdown('</div></div>', unsafe_allow_html=True)
+
+            with st.expander("Mechanical similarity cluster (click to expand)", expanded=False):
+                try:
+                    heat_names = [player_select] + list(similar_players.index)
+                    heat_idx = [df_mech[df_mech[name_col] == n].index[0] for n in heat_names]
+                    heat_mat = similarity_matrix[np.ix_(heat_idx, heat_idx)]
+
+                    fig_h, axh = plt.subplots(figsize=(8, 6))
+                    sns.heatmap(
+                        heat_mat,
+                        xticklabels=heat_names,
+                        yticklabels=heat_names,
+                        cmap="RdYlBu_r",
+                        vmin=0.0,
+                        vmax=1.0,
+                        annot=True,
+                        fmt=".2f",
+                        annot_kws={"fontsize": 9},
+                        square=True,
+                        cbar_kws={"shrink": 0.6, "label": "Cosine Similarity"},
+                        ax=axh
+                    )
+                    axh.set_title(f"Mechanical Similarity Cluster: {player_select}", fontsize=16, pad=12)
+                    axh.set_xlabel("Name")
+                    axh.set_ylabel("Name")
+                    plt.tight_layout()
+                    st.pyplot(fig_h)
+                except Exception:
+                    st.info("Could not render cluster heatmap due to data issues.")
 
 # ---------------- Compare tab ----------------
 elif page == "Compare":
@@ -903,15 +1207,17 @@ elif page == "Compare":
             for i, stat in enumerate(stats):
                 valA = rowA.get(stat, "N/A")
                 valA_disp = f"{valA:.2f}" if isinstance(valA, (int, float, np.floating, np.integer)) and not pd.isna(valA) else valA
-                cols_stats[i].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valA_disp}</div><div style="color:#64748b;">{stat} (A)</div></div>', unsafe_allow_html=True)
+                labelA = ("HitSkill+" if stat=="HitSkillPlus" else "Impact+" if stat=="ImpactPlus" else stat)
+                cols_stats[i].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valA_disp}</div><div style="color:#64748b;">{labelA} (A)</div></div>', unsafe_allow_html=True)
             for i, stat in enumerate(stats):
                 valB = rowB.get(stat, "N/A")
                 valB_disp = f"{valB:.2f}" if isinstance(valB, (int, float, np.floating, np.integer)) and not pd.isna(valB) else valB
-                cols_stats[i+len(stats)].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valB_disp}</div><div style="color:#64748b;">{stat} (B)</div></div>', unsafe_allow_html=True)
+                labelB = ("HitSkill+" if stat=="HitSkillPlus" else "Impact+" if stat=="ImpactPlus" else stat)
+                cols_stats[i+len(stats)].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valB_disp}</div><div style="color:#64748b;">{labelB} (B)</div></div>', unsafe_allow_html=True)
 
             st.markdown("<hr />", unsafe_allow_html=True)
 
-            # Compare SHAP: ensure shap vectors are aligned with feats and filled with zeros if missing
+            # Compare SHAP and rest (unchanged)
             if len(mech_features_available) >= 2:
                 feats = mech_features_available
                 mean_series = df[feats].mean()
@@ -1012,36 +1318,6 @@ elif page == "Compare":
                         figB.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textposition='auto'))
                         figB.update_layout(margin=dict(l=160, r=24, t=28, b=60), xaxis_title="SHAP contribution to Swing+ (signed)", yaxis=dict(autorange="reversed"), height=420, showlegend=False, title=f"{playerB} contributions")
                         st.plotly_chart(figB, use_container_width=True, config={"displayModeBar": False})
-
-                st.markdown("### Percentiles (radar)")
-                try:
-                    pctA_vals = pctA[feats].values
-                    pctB_vals = pctB[feats].values
-                    labels_radar = [FEATURE_LABELS.get(f, f) for f in feats]
-                    fig_r = go.Figure()
-                    fig_r.add_trace(go.Scatterpolar(r=pctA_vals, theta=labels_radar, fill='toself', name=playerA, marker_color="#FF7A1A", fillcolor="rgba(255,122,26,0.25)"))
-                    fig_r.add_trace(go.Scatterpolar(r=pctB_vals, theta=labels_radar, fill='toself', name=playerB, marker_color="#0b6efd", fillcolor="rgba(11,110,253,0.15)"))
-                    fig_r.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0,1])), showlegend=True, height=450)
-                    st.plotly_chart(fig_r, use_container_width=True, config={"displayModeBar": False})
-                except Exception:
-                    st.info("Radar chart not available due to data issues.")
-
-                st.markdown("### Feature distribution")
-                sel_feat_map = {FEATURE_LABELS.get(f, f): f for f in feats}
-                sel_feat_label = st.selectbox("Choose feature for distribution", list(sel_feat_map.keys()), index=0, key="dist_select")
-                sel_feat = sel_feat_map.get(sel_feat_label, feats[0])
-                fig2, ax2 = plt.subplots(figsize=(8, 3))
-                try:
-                    sns.kdeplot(df[sel_feat].dropna(), fill=True, ax=ax2, color="#93c5fd")
-                    ax2.axvline(valsA[sel_feat], color="#FF7A1A", linestyle="--", label=f"{playerA}")
-                    ax2.axvline(valsB[sel_feat], color="#ef4444", linestyle="--", label=f"{playerB}")
-                    ax2.legend(fontsize=9)
-                    ax2.set_xlabel(FEATURE_LABELS.get(sel_feat, sel_feat))
-                    ax2.tick_params(axis='both', which='major', labelsize=10)
-                    plt.tight_layout()
-                    st.pyplot(fig2, use_container_width=True)
-                except Exception:
-                    st.info("Distribution plot not available for this feature.")
 
 # Inject JS helper to ensure Compare links do same-tab navigation
 components.html(
