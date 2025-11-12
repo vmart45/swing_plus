@@ -3,7 +3,6 @@ import streamlit as st
 import os
 import requests
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics.pairwise import cosine_similarity
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -21,7 +20,7 @@ st.set_page_config(
 )
 
 DATA_PATH = "Main.csv"
-MODEL_PATH = "swingplus_model.pkl"
+MODEL_PATH = "SwingPlus.pkl"
 
 if not os.path.exists(DATA_PATH):
     st.error(f"Could not find `{DATA_PATH}` in the app directory.")
@@ -85,6 +84,25 @@ def normalize_columns(df):
 
 df = normalize_columns(df)
 
+# Normalize Name to "First Last" if possible
+def normalize_name(name):
+    try:
+        if not isinstance(name, str):
+            return name
+        name = name.strip()
+        # If already "First Last" (no comma) just normalize whitespace
+        if "," in name:
+            parts = [p.strip() for p in name.split(",", 1)]
+            # handle cases like "Last, First Middle"
+            return f"{parts[1]} {parts[0]}".strip()
+        # Replace multiple spaces
+        return " ".join(name.split())
+    except Exception:
+        return name
+
+if "Name" in df.columns:
+    df["Name"] = df["Name"].apply(normalize_name)
+
 # Check core columns
 expected_core = ["Name", "Age", "Swing+", "HitSkillPlus", "ImpactPlus"]
 missing_core = [c for c in expected_core if c not in df.columns]
@@ -146,14 +164,10 @@ FEATURE_LABELS = {
     "year": "Season"
 }
 
-# Sidebar filters: Player name first, then age range (per user request)
+# Sidebar filters in requested order: season, player, age, comp swings
 st.sidebar.header("Filters")
-search_name = st.sidebar.text_input("Search Player by Name")
 
-min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
-age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, max_age))
-
-# Season filter auto-default to 2025 if present
+# Detect season column
 season_col = None
 for c in ["year", "Year", "season"]:
     if c in df.columns:
@@ -164,12 +178,18 @@ season_selected = None
 if season_col:
     unique_years = sorted(df[season_col].dropna().unique())
     default_season = 2025 if 2025 in unique_years else (unique_years[-1] if unique_years else None)
-    if default_season is None:
-        season_selected = st.sidebar.selectbox("Season", unique_years) if unique_years else None
-    else:
-        season_selected = st.sidebar.selectbox("Season", unique_years, index=unique_years.index(default_season) if default_season in unique_years else 0)
+    if unique_years:
+        default_index = unique_years.index(default_season) if default_season in unique_years else len(unique_years) - 1
+        season_selected = st.sidebar.selectbox("Season", unique_years, index=default_index)
 
-# Competitive swings filter (keep, default start 100)
+# Player search/select
+search_name = st.sidebar.text_input("Search Player by Name (First Last)")
+
+# Age slider
+min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
+age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, max_age))
+
+# Competitive swings filter
 comp_col = None
 for c in ["swings_competitive", "competitive_swings", "competitive_swings"]:
     if c in df.columns:
@@ -189,16 +209,16 @@ else:
 
 # Build filtered df
 df_filtered = df.copy()
-if search_name:
-    df_filtered = df_filtered[df_filtered["Name"].str.contains(search_name, case=False, na=False)]
-
-df_filtered = df_filtered[(df_filtered["Age"] >= age_range[0]) & (df_filtered["Age"] <= age_range[1])]
-
 if season_col and season_selected is not None:
     try:
         df_filtered = df_filtered[df_filtered[season_col] == season_selected]
     except Exception:
         pass
+
+if search_name:
+    df_filtered = df_filtered[df_filtered["Name"].str.contains(search_name, case=False, na=False)]
+
+df_filtered = df_filtered[(df_filtered["Age"] >= age_range[0]) & (df_filtered["Age"] <= age_range[1])]
 
 if comp_col and swings_range:
     try:
@@ -427,7 +447,6 @@ if page == "Main":
             all_stats.append(c)
 
     # Remove disallowed/removed columns entirely from display if present
-    # User requested removal of: bip, batter_run_value, est_ba, est_slg, est_woba, xwOBA_pred, xba_pred, xslg_pred, side (BT)
     removed_cols = ["bip", "batter_run_value", "est_ba", "est_slg", "est_woba", "xwOBA_pred", "xba_pred", "xslg_pred", "side"]
     # Ensure removed columns are not included
     display_cols = [c for c in all_stats if c not in removed_cols]
@@ -465,7 +484,7 @@ if page == "Main":
         rename_map[comp_col] = "Competitive Swings"
     if "batted_ball_events" in display_df.columns:
         rename_map["batted_ball_events"] = "Batted Ball Events"
-    # Plus shorthand
+    # Plus shorthand: use plus signs consistently
     if "Swing+" in display_df.columns:
         rename_map["Swing+"] = "Swing+"
     if "HitSkillPlus" in display_df.columns:
@@ -496,7 +515,10 @@ if page == "Main":
     try:
         styler = styled.style.format(precision=2)
         if plus_labels:
-            styler = styler.background_gradient(subset=plus_labels, cmap=elite_cmap)
+            # Only apply gradient to plus columns that exist after renaming
+            valid_plus = [c for c in plus_labels if c in styled.columns]
+            if valid_plus:
+                styler = styler.background_gradient(subset=valid_plus, cmap=elite_cmap)
         st.dataframe(styler, use_container_width=True, hide_index=True)
     except Exception:
         st.dataframe(styled, use_container_width=True, hide_index=True)
@@ -510,6 +532,7 @@ if page == "Main":
             top_swing = df_filtered.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
             leaderboard_cols = [c for c in ["Name", "Team", "Age", "Swing+", "HitSkillPlus", "ImpactPlus"] if c in top_swing.columns]
             top_swing_display = top_swing.copy()
+            # Apply formatting and renaming
             for col in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
                 if col in top_swing_display.columns:
                     top_swing_display[col] = top_swing_display[col].apply(lambda v: f"{v:.2f}" if pd.notna(v) else v)
@@ -518,12 +541,17 @@ if page == "Main":
                     top_swing_display["Age"] = top_swing_display["Age"].round(0).astype("Int64")
                 except Exception:
                     pass
-            st.dataframe(
-                top_swing_display[leaderboard_cols]
-                .style.background_gradient(subset=["Swing+"], cmap=elite_cmap),
-                use_container_width=True,
-                hide_index=True
-            )
+            # Rename to friendly labels
+            display_top = top_swing_display.rename(columns=rename_map)
+            # Determine which renamed Swing label exists
+            swing_label = rename_map.get("Swing+", "Swing+")
+            try:
+                if swing_label in display_top.columns:
+                    st.dataframe(display_top[ [c for c in display_top.columns if c in display_top.columns] ].style.background_gradient(subset=[swing_label], cmap=elite_cmap), use_container_width=True, hide_index=True)
+                else:
+                    st.dataframe(display_top, use_container_width=True, hide_index=True)
+            except Exception:
+                st.dataframe(display_top, use_container_width=True, hide_index=True)
         else:
             st.info("Swing+ not present in dataset; leaderboard unavailable.")
 
@@ -541,12 +569,15 @@ if page == "Main":
                     top_hit_display["Age"] = top_hit_display["Age"].round(0).astype("Int64")
                 except Exception:
                     pass
-            st.dataframe(
-                top_hit_display[leaderboard_cols]
-                .style.background_gradient(subset=["HitSkillPlus"], cmap=elite_cmap),
-                use_container_width=True,
-                hide_index=True
-            )
+            display_top_hit = top_hit_display.rename(columns=rename_map)
+            hit_label = rename_map.get("HitSkillPlus", "HitSkill+")
+            try:
+                if hit_label in display_top_hit.columns:
+                    st.dataframe(display_top_hit.style.background_gradient(subset=[hit_label], cmap=elite_cmap), use_container_width=True, hide_index=True)
+                else:
+                    st.dataframe(display_top_hit, use_container_width=True, hide_index=True)
+            except Exception:
+                st.dataframe(display_top_hit, use_container_width=True, hide_index=True)
         else:
             st.info("HitSkillPlus not present in dataset; leaderboard unavailable.")
 
@@ -592,7 +623,7 @@ elif page == "Player":
         team_abbr = str(player_row["Team"]).strip()
         team_logo_url = image_dict.get(team_abbr, "")
         if team_logo_url:
-            team_logo_html = f'<div style="margin-left:14px; display:flex; align-items:center;"><img src="{team_logo_url}" style="height:{logo_size}px;width:{logo_size}px;border-radius:8px;object-fit:contain;" alt="team logo"/></div>'
+            team_logo_html = f'<div style="margin-left:14px; display:flex; align-items:center;"><img src="{team_logo_url}" style="height:{logo_size}px;width:{logo_size}px;border-radius:8px;object-fit:cover;"></div>'
 
     player_bio = ""
     bat_side = "R"
@@ -707,7 +738,7 @@ elif page == "Player":
         unsafe_allow_html=True
     )
 
-    # Rest of Player tab (SHAP, similarity, etc.) remains as before but avoiding removed columns where applicable
+    # Rest of Player tab (SHAP, similarity, etc.)
 
     mech_features_available = [f for f in mechanical_features if f in df.columns]
 
@@ -769,8 +800,8 @@ elif page == "Player":
             colors = ["#D8573C" if float(v) > 0 else "#3B82C4" for v in x_vals]
             text_labels = [f"{val:.3f}  ({pct:.0%})" for val, pct in zip(x_vals, pct_vals)]
             fig = go.Figure()
-            fig.add_trace(go.Bar(x=x_vals, y=y, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}<br>Importance: {p:.0%}" for v, p in zip(x_vals, pct_vals)], text=text_labels, textposition='inside', insidetextanchor='middle'))
-            fig.update_layout(margin=dict(l=160, r=24, t=12, b=60), xaxis_title="SHAP contribution to Swing+ (signed)", yaxis=dict(autorange="reversed"), height=420, showlegend=False, font=dict(size=11))
+            fig.add_trace(go.Bar(x=x_vals, y=y, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}<br>Importance: {p:.0%}" for v, p in zip(x_vals, pct_vals)], text=text_labels, textposition='auto'))
+            fig.update_layout(margin=dict(l=160, r=24, t=12, b=60), xaxis_title="SHAP contribution to Swing+ (signed)", yaxis=dict(autorange="reversed"), height=420, showlegend=False, font=dict(size=12))
             st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
     with col2:
@@ -846,7 +877,7 @@ elif page == "Compare":
                 logo_html_a = f'<div style="margin-top:8px;"><img src="{logoA}" style="height:40px;width:40px;border-radius:6px;"></div>' if logoA else ""
                 st.markdown(f'<div style="text-align:center;"><img src="{imgA}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{playerA}</div>{logo_html_a}</div>', unsafe_allow_html=True)
             with col2:
-                st.markdown(f'<div style="text-align:center;padding:8px;border-radius:10px;"><div style="font-size:1.25em;font-weight:800;color:#0b6efd;">Similarity</div><div style="font-size:1.6em;font-weight:800;color:#183153;margin-top:6px;">{sim_pct}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="text-align:center;padding:8px;border-radius:10px;"><div style="font-size:1.25em;font-weight:800;color:#0b6efd;">Similarity</div><div style="font-size:1.6em;font-weight:800;color:#183153;margin-top:4px;">{sim_pct}</div></div>', unsafe_allow_html=True)
             with col3:
                 teamB = rowB["Team"] if "Team" in rowB and pd.notnull(rowB["Team"]) else ""
                 logoB = image_dict.get(teamB, "")
@@ -864,15 +895,16 @@ elif page == "Compare":
             st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
             stats = ["Age", "Swing+", "HitSkillPlus", "ImpactPlus"]
+            # show A row and B row side by side
             cols_stats = st.columns(len(stats)*2)
             for i, stat in enumerate(stats):
                 valA = rowA.get(stat, "N/A")
                 valA_disp = f"{valA:.2f}" if isinstance(valA, (int, float, np.floating, np.integer)) and not pd.isna(valA) else valA
-                cols_stats[i].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valA_disp}</div><div style="color:#64748b;">{stat} (A)</div></div>', unsafe_allow_html=True)
+                cols_stats[i].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valA_disp}</div><div style="color:#64748b;">{("HitSkill+" if stat=="HitSkillPlus" else "Impact+" if stat=="ImpactPlus" else stat) } (A)</div></div>', unsafe_allow_html=True)
             for i, stat in enumerate(stats):
                 valB = rowB.get(stat, "N/A")
                 valB_disp = f"{valB:.2f}" if isinstance(valB, (int, float, np.floating, np.integer)) and not pd.isna(valB) else valB
-                cols_stats[i+len(stats)].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valB_disp}</div><div style="color:#64748b;">{stat} (B)</div></div>', unsafe_allow_html=True)
+                cols_stats[i+len(stats)].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valB_disp}</div><div style="color:#64748b;">{("HitSkill+" if stat=="HitSkillPlus" else "Impact+" if stat=="ImpactPlus" else stat) } (B)</div></div>', unsafe_allow_html=True)
 
             st.markdown("<hr />", unsafe_allow_html=True)
 
@@ -965,8 +997,8 @@ elif page == "Compare":
                         colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]
                         text_labels = [f"{v:.3f}" for v in vals]
                         figA = go.Figure()
-                        figA.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textposition='inside', insidetextanchor='middle'))
-                        figA.update_layout(margin=dict(l=160, r=24, t=28, b=60), xaxis_title="SHAP contribution to Swing+ (signed)", yaxis=dict(autorange="reversed"), height=420, showlegend=False, title=dict(text=f"{playerA} — Model contribution", x=0.01, xanchor='left'), font=dict(size=11))
+                        figA.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textposition='auto'))
+                        figA.update_layout(margin=dict(l=160, r=24, t=28, b=60), xaxis_title="SHAP contribution to Swing+ (signed)", yaxis=dict(autorange="reversed"), height=420, showlegend=False, title=f"{playerA} contributions")
                         st.plotly_chart(figA, use_container_width=True, config={"displayModeBar": False})
 
                     with col_shap_b:
@@ -974,8 +1006,8 @@ elif page == "Compare":
                         colors = ["#F59E0B" if v > 0 else "#60A5FA" for v in vals]
                         text_labels = [f"{v:.3f}" for v in vals]
                         figB = go.Figure()
-                        figB.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textposition='inside', insidetextanchor='middle'))
-                        figB.update_layout(margin=dict(l=160, r=24, t=28, b=60), xaxis_title="SHAP contribution to Swing+ (signed)", yaxis=dict(autorange="reversed"), height=420, showlegend=False, title=dict(text=f"{playerB} — Model contribution", x=0.01, xanchor='left'), font=dict(size=11))
+                        figB.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textposition='auto'))
+                        figB.update_layout(margin=dict(l=160, r=24, t=28, b=60), xaxis_title="SHAP contribution to Swing+ (signed)", yaxis=dict(autorange="reversed"), height=420, showlegend=False, title=f"{playerB} contributions")
                         st.plotly_chart(figB, use_container_width=True, config={"displayModeBar": False})
 
                 st.markdown("### Percentiles (radar)")
