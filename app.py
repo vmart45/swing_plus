@@ -1,6 +1,3 @@
-# Full Swing+ Streamlit app - updated to use Main.csv and load SwingPlus/HitSkill/ImpactPlus models
-# NOTE: This is the full complete script file as requested.
-
 import os
 import sys
 import math
