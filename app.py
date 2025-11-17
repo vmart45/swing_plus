@@ -1289,7 +1289,7 @@ elif page == "Player":
                                 st.info("Could not render cluster heatmap due to data issues.")
             # end else similar_pos
         # end if player present
-        else:
+        except else:
             st.info("Not enough mechanical data for this player/season to compute similarities.")
 
 # ---------------- Compare tab ----------------
