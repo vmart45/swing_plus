@@ -185,10 +185,10 @@ FEATURE_LABELS = {
     "year": "Season"
 }
 
-# Sidebar filters: season, player, age, comp swings (kept global)
+# Sidebar filters: season, player, age, comp swings (kept global visually but will only be applied to Main tab)
 st.sidebar.header("Filters")
 
-# Season filter (global)
+# Season filter (global UI only)
 season_col = None
 for c in ["year", "Year", "season"]:
     if c in df.columns:
@@ -205,14 +205,14 @@ if season_col:
 else:
     season_selected_global = None
 
-# Player search
+# Player search (UI only; will be applied to Main tab only)
 search_name = st.sidebar.text_input("Search Player by Name")
 
-# Age slider
+# Age slider (UI only; will be applied to Main tab only)
 min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
 age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, max_age))
 
-# Competitive swings filter
+# Competitive swings filter (UI only; will be applied to Main tab only)
 comp_col = None
 for c in ["swings_competitive", "competitive_swings", "competitive_swings"]:
     if c in df.columns:
@@ -230,24 +230,24 @@ if comp_col:
 else:
     swings_range = None
 
-# Build filtered df (apply sidebar/global season first to match requested order)
-df_filtered = df.copy()
+# Build filtered df for MAIN tab only (apply sidebar filters here)
+df_main_filtered = df.copy()
 if season_col and season_selected_global is not None:
     try:
-        df_filtered = df_filtered[df_filtered[season_col] == season_selected_global]
+        df_main_filtered = df_main_filtered[df_main_filtered[season_col] == season_selected_global]
     except Exception:
         pass
 
 if search_name:
-    df_filtered = df_filtered[df_filtered["Name"].str.contains(search_name, case=False, na=False)]
+    df_main_filtered = df_main_filtered[df_main_filtered["Name"].str.contains(search_name, case=False, na=False)]
 
-df_filtered = df_filtered[(df_filtered["Age"] >= age_range[0]) & (df_filtered["Age"] <= age_range[1])]
+df_main_filtered = df_main_filtered[(df_main_filtered["Age"] >= age_range[0]) & (df_main_filtered["Age"] <= age_range[1])]
 
 if comp_col and swings_range:
     try:
-        df_filtered = df_filtered[
-            (df_filtered[comp_col] >= swings_range[0]) &
-            (df_filtered[comp_col] <= swings_range[1])
+        df_main_filtered = df_main_filtered[
+            (df_main_filtered[comp_col] >= swings_range[0]) &
+            (df_main_filtered[comp_col] <= swings_range[1])
         ]
     except Exception:
         pass
@@ -454,22 +454,23 @@ def open_compare_in_same_tab(playerA, playerB, seasonA=None, seasonB=None):
 if page == "Main":
     st.markdown("<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Player Metrics Table</h2>", unsafe_allow_html=True)
 
+    # Use df_main_filtered here so sidebar filters only affect Main tab
     # Build display columns with plus stats moved directly after counts (PA, Competitive Swings, Batted Ball Events)
     all_stats = []
 
     # Always show basic columns first
     all_stats.extend(["Name", "Team"])
     # season if present
-    if "year" in df_filtered.columns:
+    if "year" in df_main_filtered.columns:
         all_stats.append("year")
     # Counts: pa, competitive swings, batted ball events (round these later)
     for c in ["pa", comp_col if comp_col else None, "batted_ball_events"]:
-        if c and c in df_filtered.columns and c not in all_stats:
+        if c and c in df_main_filtered.columns and c not in all_stats:
             all_stats.append(c)
 
     # Move plus stats to front after counts
     for c in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
-        if c in df_filtered.columns and c not in all_stats:
+        if c in df_main_filtered.columns and c not in all_stats:
             all_stats.append(c)
 
     # Then add remaining mechanical and other useful columns, excluding removed ones
@@ -479,14 +480,14 @@ if page == "Main":
         "avg_foot_sep", "avg_stance_angle"
     ]
     for c in remaining:
-        if c in df_filtered.columns and c not in all_stats:
+        if c in df_main_filtered.columns and c not in all_stats:
             all_stats.append(c)
 
     # Remove disallowed/removed columns entirely from display if present
     removed_cols = ["bip", "batter_run_value", "est_ba", "est_slg", "est_woba", "xwOBA_pred", "xba_pred", "xslg_pred", "side"]
     display_cols = [c for c in all_stats if c not in removed_cols]
 
-    display_df = df_filtered[display_cols].copy()
+    display_df = df_main_filtered[display_cols].copy()
 
     # Round counts to 0 decimals (pa, competitive swings, batted ball events)
     for c in ["pa", comp_col if comp_col else None, "batted_ball_events"]:
@@ -557,8 +558,8 @@ if page == "Main":
     col1, col2 = st.columns(2)
     with col1:
         st.markdown('<div style="text-align:center; font-size:1.15em; font-weight:600; margin-bottom:0.6em; color:#385684;">Top 10 by Swing+</div>', unsafe_allow_html=True)
-        if "Swing+" in df_filtered.columns:
-            top_swing = df_filtered.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
+        if "Swing+" in df_main_filtered.columns:
+            top_swing = df_main_filtered.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
             top_swing_display = top_swing.copy()
             if "Age" in top_swing_display.columns:
                 try:
@@ -570,8 +571,8 @@ if page == "Main":
             display_cols_renamed = [rename_map.get(c, c) for c in leaderboard_cols]
             swing_label = rename_map.get("Swing+", "Swing+")
             try:
-                vmin = min(70, float(df_filtered["Swing+"].min()))
-                vmax = max(130, float(df_filtered["Swing+"].max()))
+                vmin = min(70, float(df_main_filtered["Swing+"].min()))
+                vmax = max(130, float(df_main_filtered["Swing+"].max()))
                 centered_cmap = create_centered_cmap(center=100, vmin=vmin, vmax=vmax)
                 st.dataframe(
                     top_swing_renamed[display_cols_renamed]
@@ -587,8 +588,8 @@ if page == "Main":
 
     with col2:
         st.markdown('<div style="text-align:center; font-size:1.15em; font-weight:600; margin-bottom:0.6em; color:#385684;">Top 10 by HitSkill+</div>', unsafe_allow_html=True)
-        if "HitSkillPlus" in df_filtered.columns:
-            top_hit = df_filtered.sort_values("HitSkillPlus", ascending=False).head(10).reset_index(drop=True)
+        if "HitSkillPlus" in df_main_filtered.columns:
+            top_hit = df_main_filtered.sort_values("HitSkillPlus", ascending=False).head(10).reset_index(drop=True)
             top_hit_display = top_hit.copy()
             if "Age" in top_hit_display.columns:
                 try:
@@ -600,8 +601,8 @@ if page == "Main":
             display_cols_hit_renamed = [rename_map.get(c, c) for c in leaderboard_cols_hit]
             hit_label = rename_map.get("HitSkillPlus", "HitSkill+")
             try:
-                vmin_h = min(70, float(df_filtered["HitSkillPlus"].min()))
-                vmax_h = max(130, float(df_filtered["HitSkillPlus"].max()))
+                vmin_h = min(70, float(df_main_filtered["HitSkillPlus"].min()))
+                vmax_h = max(130, float(df_main_filtered["HitSkillPlus"].max()))
                 centered_cmap = create_centered_cmap(center=100, vmin=vmin_h, vmax=vmax_h)
                 st.dataframe(
                     top_hit_renamed[display_cols_hit_renamed]
@@ -635,7 +636,8 @@ elif page == "Player":
         except Exception:
             qp_player = params["player"][0]
 
-    player_options = sorted(df_filtered["Name"].unique())
+    # Use full df for player selection so sidebar filters do NOT affect this tab
+    player_options = sorted(df["Name"].unique())
     default_index = 0
     if qp_player and qp_player in player_options:
         default_index = player_options.index(qp_player)
@@ -734,14 +736,14 @@ elif page == "Player":
             headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
         except Exception:
             headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-        headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;margin-right:18px;background:transparent;" alt="headshot" />'
+        headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;margin-right:18px;background:trans[...]
     else:
         fallback_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-        headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;margin-right:18px;background:transparent;" alt="headshot" />'
+        headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;margin-right:18px;background:trans[...]
 
     # Build player title with smaller year (no parentheses)
     if player_season_selected is not None:
-        player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select} <span style="font-size:0.6em;color:#64748b;font-weight:600;">{player_season_selected}</span></span>'
+        player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select} <span style="font-size:0.6em;color:#[...]
         player_title = f"{player_select} {player_season_selected}"  # For use elsewhere (no parentheses)
     else:
         player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
@@ -753,7 +755,7 @@ elif page == "Player":
         team_abbr = str(player_row["Team"]).strip()
         team_logo_url = image_dict.get(team_abbr, "")
         if team_logo_url:
-            team_logo_html = f'<div style="margin-left:14px; display:flex; align-items:center;"><img src="{team_logo_url}" style="height:{logo_size}px;width:{logo_size}px;border-radius:8px;object-fit:contain;background:transparent;" alt="team logo" /></div>'
+            team_logo_html = f'<div style="margin-left:14px; display:flex; align-items:center;"><img src="{team_logo_url}" style="height:{logo_size}px;width:{logo_size}px;border-radius:8px;object-fit:[...]
 
     # Display the header
     st.markdown(
@@ -770,13 +772,13 @@ elif page == "Player":
         unsafe_allow_html=True
     )
 
-    # Compute ranks within the selected season context (player-specific if chosen, else global season filter)
+    # Compute ranks within the selected season context (player-specific if chosen, else global season filter removed)
     if season_col:
         season_context = None
         if player_season_selected is not None:
             season_context = player_season_selected
-        elif season_selected_global is not None:
-            season_context = season_selected_global
+        else:
+            season_context = None
 
         if season_context is not None:
             try:
@@ -850,24 +852,24 @@ elif page == "Player":
           <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
             <div style="font-size: 2.2em; font-weight: 700; color: {swing_color};">{player_row.get('Swing+', np.nan):.2f}</div>
             <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">Swing+</div>
-            <span style="background: #FFC10733; color: #B71C1C; border-radius: 10px; font-size: 0.98em; padding: 2px 10px;">Rank {p_swing_rank if p_swing_rank is not None else 'N/A'} of {total_players}</span>
+            <span style="background: #FFC10733; color: #B71C1C; border-radius: 10px; font-size: 0.98em; padding: 2px 10px;">Rank {p_swing_rank if p_swing_rank is not None else 'N/A'} of {total_players[...]
           </div>
           <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
             <div style="font-size: 2.2em; font-weight: 700; color: {proj_color};">{player_row.get('ProjSwing+', player_row.get('HitSkillPlus', np.nan)):.2f}</div>
             <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">HitSkill+</div>
-            <span style="background: #C8E6C933; color: #1B5E20; border-radius: 10px; font-size: 0.98em; padding: 2px 10px;">Rank {p_proj_rank if p_proj_rank is not None else 'N/A'} of {total_players}</span>
+            <span style="background: #C8E6C933; color: #1B5E20; border-radius: 10px; font-size: 0.98em; padding: 2px 10px;">Rank {p_proj_rank if p_proj_rank is not None else 'N/A'} of {total_players}<[...]
           </div>
           <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
             <div style="font-size: 2.2em; font-weight: 700; color: {power_color};">{player_row.get('PowerIndex+', player_row.get('ImpactPlus', np.nan)):.2f}</div>
             <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">Impact+</div>
-            <span style="background: #B3E5FC33; color: #01579B; border-radius: 10px; font-size: 0.98em; padding: 2px 10px;">Rank {p_power_rank if p_power_rank is not None else 'N/A'} of {total_players}</span>
+            <span style="background: #B3E5FC33; color: #01579B; border-radius: 10px; font-size: 0.98em; padding: 2px 10px;">Rank {p_power_rank if p_power_rank is not None else 'N/A'} of {total_players[...]
           </div>
         </div>
         """,
         unsafe_allow_html=True
     )
 
-    # Build video URL using selected season (player_season_selected) first, fallback to global season, fallback to player row year, then 2025
+    # Build video URL using selected season (player_season_selected) first, fallback to player row year, then 2025
     video_url = None
     if "id" in player_row and pd.notnull(player_row["id"]):
         try:
@@ -879,8 +881,6 @@ elif page == "Player":
         try:
             if player_season_selected is not None:
                 video_year = int(player_season_selected)
-            elif season_selected_global is not None:
-                video_year = int(season_selected_global)
             elif "year" in player_row and pd.notna(player_row["year"]):
                 video_year = int(player_row["year"])
             else:
@@ -1009,7 +1009,7 @@ elif page == "Player":
     base_label = f"{shap_base:.2f}" if (shap_base is not None and not pd.isna(shap_base)) else "N/A"
 
     with col1:
-        st.markdown(f"<div style='text-align:center;font-weight:700;color:#183153;'>Model prediction: {shap_pred_label} &nbsp; | &nbsp; Actual Swing+: {swing_actual_label}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='text-align:center;font-weight:700;color:#183153;'>Model prediction: {shap_pred_label} &nbsp; | &nbsp; Actual Swing+: {swing_actual_label}</div>", unsafe_allow_html=Tr[...]
         if not model_loaded or explainer is None or shap_df is None or len(shap_df) == 0:
             st.info("Swing+ model or SHAP explainer not available. Ensure SwingPlus.pkl is a supported model/pipeline.")
             if model_error:
@@ -1077,7 +1077,7 @@ elif page == "Player":
         # Build df_mech including season context if available, then reset_index so positions align with similarity matrix rows
         df_mech = df.dropna(subset=mech_features_available + [name_col]).copy()
         if season_col:
-            season_ctx = player_season_selected if player_season_selected is not None else season_selected_global
+            season_ctx = player_season_selected if player_season_selected is not None else None
             if season_ctx is not None:
                 try:
                     df_mech = df_mech[df_mech[season_col] == season_ctx].copy()
@@ -1131,7 +1131,7 @@ elif page == "Player":
                             if "id" in sim_row and pd.notnull(sim_row["id"]):
                                 try:
                                     sim_id = str(int(sim_row["id"]))
-                                    sim_headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{sim_id}/headshot/silo/current.png"
+                                    sim_headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{sim_id}/headshot/silo/c[...]
                                 except Exception:
                                     sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
                             else:
@@ -1247,7 +1247,7 @@ elif page == "Player":
 
                         # FIX 1: Use player_title variable in header
                         st.markdown(
-                            f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to {player_title}</div>',
+                            f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to[...]
                             unsafe_allow_html=True
                         )
                         st.markdown('<div class="sim-list">', unsafe_allow_html=True)
@@ -1260,7 +1260,7 @@ elif page == "Player":
                             sim_pct_text = f"{pct:.1%}"
 
                             # Build compare href including season context if available
-                            seasonA_param = player_season_selected if player_season_selected is not None else season_selected_global
+                            seasonA_param = player_season_selected if player_season_selected is not None else None
                             seasonB_param = sim.get("season", "")
                             href_compare = f"?playerA={quote(player_select)}&playerB={quote(sim['name'])}&page=Compare"
                             if seasonA_param:
@@ -1282,7 +1282,7 @@ elif page == "Player":
                                 <div class="sim-item">
                                     <div class="sim-rank">{idx}</div>
                                     <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                                    <div class="sim-name-compact"><a href="{href_player_link}" onclick="{onclick_player}" style="color:#183153;text-decoration:none;font-weight:700;">{sim['name']}</a><div style="color:#64748b;font-size:0.86em;">{f'Season: {sim["season"]}' if sim.get("season") else ''}</div></div>
+                                    <div class="sim-name-compact"><a href="{href_player_link}" onclick="{onclick_player}" style="color:#183153;text-decoration:none;font-weight:700;">{sim['name']}</a><[...]
                                     <div style="display:flex;align-items:center;gap:8px;">
                                         <div class="sim-score-compact">{sim_pct_text}</div>
                                         <div class="sim-bar-mini" aria-hidden="true">
@@ -1368,7 +1368,7 @@ elif page == "Compare":
     st.markdown('<h2 style="text-align:center; margin-top:10px; margin-bottom:6px; font-size:1.4em; color:#183153;">Compare Players (season-specific)</h2>', unsafe_allow_html=True)
 
     # Player options come from full df (not just filtered) to allow cross-season selection,
-    # but we will respect the global season filter for defaults.
+    # and sidebar filters do NOT affect this tab.
     player_options = sorted(df["Name"].unique())
     if not player_options:
         st.info("No players available for comparison.")
@@ -1388,12 +1388,10 @@ elif page == "Compare":
             if season_col:
                 seasonsA = sorted(df[df["Name"] == playerA][season_col].dropna().unique())
                 if seasonsA:
-                    # default to query param seasonA if provided, then global season, else most recent season for player
+                    # default to query param seasonA if provided, else most recent season for player
                     defaultA = None
                     if qp_season_a and qp_season_a in seasonsA:
                         defaultA = int(qp_season_a)
-                    elif season_selected_global in seasonsA:
-                        defaultA = season_selected_global
                     else:
                         defaultA = seasonsA[-1]
                     try:
@@ -1411,8 +1409,6 @@ elif page == "Compare":
                     defaultB = None
                     if qp_season_b and qp_season_b in seasonsB:
                         defaultB = int(qp_season_b)
-                    elif season_selected_global in seasonsB:
-                        defaultB = season_selected_global
                     else:
                         defaultB = seasonsB[-1]
                     try:
@@ -1439,7 +1435,7 @@ elif page == "Compare":
             rowA = get_player_row_for_season(playerA, seasonA if season_col else None)
             rowB = get_player_row_for_season(playerB, seasonB if season_col else None)
 
-            # Build df_for_comparison: use seasonA and seasonB if present, otherwise use global season filter
+            # Build df_for_comparison: use seasonA and seasonB if present, otherwise use full df (sidebar global season removed)
             mech_features_available = [f for f in mechanical_features if f in df.columns]
             if season_col:
                 seasons_to_use = []
@@ -1447,14 +1443,12 @@ elif page == "Compare":
                     seasons_to_use.append(seasonA)
                 if seasonB is not None and seasonB not in seasons_to_use:
                     seasons_to_use.append(seasonB)
-                # if empty, use global season_selected_global else full df
+                # if empty, use full df without applying sidebar global season
                 if seasons_to_use:
                     try:
                         df_comp = df[df[season_col].isin(seasons_to_use)].dropna(subset=mech_features_available + [name_col]).copy()
                     except Exception:
                         df_comp = df.dropna(subset=mech_features_available + [name_col]).copy()
-                elif season_selected_global is not None:
-                    df_comp = df[df[season_col] == season_selected_global].dropna(subset=mech_features_available + [name_col]).copy()
                 else:
                     df_comp = df.dropna(subset=mech_features_available + [name_col]).copy()
             else:
@@ -1515,9 +1509,9 @@ elif page == "Compare":
                     imgA = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
                 logo_html_a = f'<div style="margin-top:8px;"><img src="{logoA}" style="height:40px;width:40px;border-radius:6px;"></div>' if logoA else ""
                 titleA = f"{playerA} ({seasonA})" if (season_col and seasonA is not None) else playerA
-                st.markdown(f'<div style="text-align:center;"><img src="{imgA}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{titleA}</div>{logo_html_a}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="text-align:center;"><img src="{imgA}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{titleA}</[...]
             with col2:
-                st.markdown(f'<div style="text-align:center;padding:8px;border-radius:10px;"><div style="font-size:1.25em;font-weight:800;color:#0b6efd;">Similarity</div><div style="font-size:1.6em;font-weight:800;color:#183153;margin-top:6px;">{sim_pct}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="text-align:center;padding:8px;border-radius:10px;"><div style="font-size:1.25em;font-weight:800;color:#0b6efd;">Similarity</div><div style="font-size:1.6em;fo[...]
             with col3:
                 teamB = rowB["Team"] if "Team" in rowB and pd.notnull(rowB["Team"]) else ""
                 logoB = image_dict.get(teamB, "")
@@ -1531,7 +1525,7 @@ elif page == "Compare":
                     imgB = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
                 logo_html_b = f'<div style="margin-top:8px;"><img src="{logoB}" style="height:40px;width:40px;border-radius:6px;"></div>' if logoB else ""
                 titleB = f"{playerB} ({seasonB})" if (season_col and seasonB is not None) else playerB
-                st.markdown(f'<div style="text-align:center;"><img src="{imgB}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{titleB}</div>{logo_html_b}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="text-align:center;"><img src="{imgB}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{titleB}</[...]
 
             st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
@@ -1541,12 +1535,12 @@ elif page == "Compare":
                 valA = rowA.get(stat, "N/A")
                 valA_disp = f"{valA:.2f}" if isinstance(valA, (int, float, np.floating, np.integer)) and not pd.isna(valA) else valA
                 labelA = ("HitSkill+" if stat=="HitSkillPlus" else "Impact+" if stat=="ImpactPlus" else stat)
-                cols_stats[i].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valA_disp}</div><div style="color:#64748b;">{labelA} (A)</div></div>', unsafe_allow_html=True)
+                cols_stats[i].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valA_disp}</div><div style="color:#64748b;">{labelA} (A)</div></div>', unsafe_allo[...]
             for i, stat in enumerate(stats):
                 valB = rowB.get(stat, "N/A")
                 valB_disp = f"{valB:.2f}" if isinstance(valB, (int, float, np.floating, np.integer)) and not pd.isna(valB) else valB
                 labelB = ("HitSkill+" if stat=="HitSkillPlus" else "Impact+" if stat=="ImpactPlus" else stat)
-                cols_stats[i+len(stats)].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valB_disp}</div><div style="color:#64748b;">{labelB} (B)</div></div>', unsafe_allow_html=True)
+                cols_stats[i+len(stats)].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valB_disp}</div><div style="color:#64748b;">{labelB} (B)</div></div>', [...]
 
             st.markdown("<hr />", unsafe_allow_html=True)
 
@@ -1646,7 +1640,7 @@ elif page == "Compare":
                         colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]
                         text_labels = [f"{v:.3f}" for v in vals]
                         figA = go.Figure()
-                        figA.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textposition='inside', insidetextanchor='middle'))
+                        figA.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textpositi[...]
                         figA.update_layout(margin=dict(l=160, r=24, t=28, b=60), xaxis_title="SHAP contribution to Swing+ (signed)", yaxis=dict(autorange="reversed"), height=420, showlegend=False)
                         st.plotly_chart(figA, use_container_width=True, config={"displayModeBar": False})
 
@@ -1655,7 +1649,7 @@ elif page == "Compare":
                         colors = ["#F59E0B" if v > 0 else "#60A5FA" for v in vals]
                         text_labels = [f"{v:.3f}" for v in vals]
                         figB = go.Figure()
-                        figB.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textposition='inside', insidetextanchor='middle'))
+                        figB.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textpositi[...]
                         figB.update_layout(margin=dict(l=160, r=24, t=28, b=60), xaxis_title="SHAP contribution to Swing+ (signed)", yaxis=dict(autorange="reversed"), height=420, showlegend=False)
                         st.plotly_chart(figB, use_container_width=True, config={"displayModeBar": False})
 
