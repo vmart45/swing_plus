@@ -569,7 +569,7 @@ if page == "Main":
             leaderboard_cols = [c for c in ["Name", "Team", "Age", "Swing+", "HitSkillPlus", "ImpactPlus"] if c in top_swing.columns]
             display_cols_renamed = [rename_map.get(c, c) for c in leaderboard_cols]
             swing_label = rename_map.get("Swing+", "Swing+")
-        try:
+            try:
                 vmin = min(70, float(df_filtered["Swing+"].min()))
                 vmax = max(130, float(df_filtered["Swing+"].max()))
                 centered_cmap = create_centered_cmap(center=100, vmin=vmin, vmax=vmax)
@@ -599,7 +599,7 @@ if page == "Main":
             leaderboard_cols_hit = [c for c in ["Name", "Team", "Age", "HitSkillPlus", "Swing+", "ImpactPlus"] if c in top_hit.columns]
             display_cols_hit_renamed = [rename_map.get(c, c) for c in leaderboard_cols_hit]
             hit_label = rename_map.get("HitSkillPlus", "HitSkill+")
-        try:
+            try:
                 vmin_h = min(70, float(df_filtered["HitSkillPlus"].min()))
                 vmax_h = max(130, float(df_filtered["HitSkillPlus"].max()))
                 centered_cmap = create_centered_cmap(center=100, vmin=vmin_h, vmax=vmax_h)
