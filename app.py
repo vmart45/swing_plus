@@ -521,13 +521,13 @@ if page == "Main":
         if p in display_df.columns:
             plus_labels.append(rename_map.get(p, p))
     try:
-    styler = styled.style.format(precision=2)
-    if plus_labels:
-        valid_plus = [c for c in plus_labels if c in styled.columns]
-        if valid_plus:
+        styler = styled.style.format(precision=2)
+        if plus_labels:
+            valid_plus = [c for c in plus_labels if c in styled.columns]
+            if valid_plus:
             # Set vmin lower to make 100+ values appear darker red
-            styler = styler.background_gradient(subset=valid_plus, cmap="Reds", vmin=70, vmax=130)
-        st.dataframe(styler, use_container_width=True, hide_index=True)
+                styler = styler.background_gradient(subset=valid_plus, cmap="Reds", vmin=70, vmax=130)
+            st.dataframe(styler, use_container_width=True, hide_index=True)
     except Exception:
         st.dataframe(styled, use_container_width=True, hide_index=True)
 
