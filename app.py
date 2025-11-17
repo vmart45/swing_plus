@@ -526,7 +526,7 @@ if page == "Main":
         if plus_labels:
             valid_plus = [c for c in plus_labels if c in styled.columns]
             if valid_plus:
-                styler = styler.background_gradient(subset=valid_plus, cmap=elite_cmap)
+                styler = styler.background_gradient(subset=valid_plus, cmap="coolwarm")  # Changed from elite_cmap
         st.dataframe(styler, use_container_width=True, hide_index=True)
     except Exception:
         st.dataframe(styled, use_container_width=True, hide_index=True)
