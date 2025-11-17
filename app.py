@@ -727,7 +727,7 @@ elif page == "Player":
             {headshot_html}
             <div style="display:flex;flex-direction:column;align-items:center;">
                 {player_name_html}
-                {"<span style='font-size:0.98em;color:#495366;margin-top:7px;margin-bottom:0;font-weight:500;letter-spacing:0.02em;opacity:0.82;'>{}</span>".format(player_bio) if player_bio else ""}
+                {"<span style='font-size:0.98em;color:#495366;margin-top:7px;margin-bottom:0;font-weight:500;letter-spacing:0.02em;'>{}</span>".format(player_bio) if player_bio else ""}
             </div>
             {team_logo_html}
         </div>
@@ -1053,8 +1053,8 @@ elif page == "Player":
                 except Exception:
                     pass
 
-        # Ensure we have the player's row in df_mech by name (without season suffix)
-        if player_select in df_mech[name_col].values and len(df_mech) > TOP_N:
+        # Ensure we have the player's row in df_mech by name and at least one other player to compare
+        if player_select in df_mech[name_col].values and len(df_mech) > 1:
             scaler = StandardScaler()
             try:
                 X_scaled = scaler.fit_transform(df_mech[mech_features_available])
@@ -1077,8 +1077,10 @@ elif page == "Player":
                     idx = idx_player[0]
                     sim_arr = similarity_matrix[idx]
                     sim_series = pd.Series(sim_arr, index=df_mech_names)
-                    # drop self (matching by name) but if there are duplicates, also drop same index position
-                    sim_series.loc[player_select] = np.nan
+                    # drop self entries (set to NaN by index positions matching)
+                    # If there are duplicate names, ensure we drop the exact position by replacing using position
+                    # We'll set the value at the player's positional index to NaN
+                    sim_series.iloc[idx] = np.nan
                     sim_series = sim_series.sort_values(ascending=False).dropna().head(TOP_N)
                     similar_players = sim_series
             except Exception:
@@ -1211,7 +1213,7 @@ elif page == "Player":
                     unsafe_allow_html=True
                 )
 
-                st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to {player_title}</div>')
+                st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to {player_title}</div>', unsafe_allow_html=True)
                 st.markdown('<div class="sim-list">', unsafe_allow_html=True)
 
                 for idx, sim in enumerate(sim_rows, 1):
