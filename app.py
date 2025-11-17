@@ -1139,7 +1139,10 @@ elif page == "Player":
                                 <div class="sim-item">
                                     <div class="sim-rank">{idx}</div>
                                     <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                                    <div class="sim-name-compact"><a href="{href_player_link}" onclick="{onclick_player}" style="color:#183153;text-decoration:none;font-weight:700;">{sim['name']}</a></div>
+                                    <div class="sim-name-compact">
+                                        <a href="{href_player_link}" onclick="{onclick_player}" style="color:#183153;text-decoration:none;font-weight:700;">{sim['name']}</a>
+                                        <div style="color:#64748b;font-size:0.86em;">{f'Season: {sim["season"]}' if sim.get("season") else ''}</div>
+                                    </div>
                                     <div style="display:flex;align-items:center;gap:8px;">
                                         <div class="sim-score-compact">{sim_pct_text}</div>
                                         <div class="sim-bar-mini" aria-hidden="true">
