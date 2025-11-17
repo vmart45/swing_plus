@@ -1264,7 +1264,6 @@ elif page == "Player":
 
                         st.markdown('</div></div>', unsafe_allow_html=True)
 
-                        # FIX 2: Heatmap inside expander - improved error handling and index access
 # Heatmap inside expander - improved styling to match original design
                         with st.expander("Mechanical similarity cluster (click to expand)", expanded=False):
                             try:
@@ -1284,64 +1283,41 @@ elif page == "Player":
                                         except Exception:
                                             heat_names.append(f"Player_{p}")
                                     
-                                    # Create figure with better styling
-                                    fig_h, axh = plt.subplots(
-                                        figsize=(max(10, len(heat_positions)*0.8), max(8, len(heat_positions)*0.7))
-                                    )
+                                    # Create figure with compact sizing (matching your original 8x6)
+                                    num_players = len(heat_positions)
+                                    fig_width = min(10, max(6, num_players * 0.6))  # Scale but cap at 10
+                                    fig_height = min(8, max(5, num_players * 0.5))  # Scale but cap at 8
+                                    fig_h, axh = plt.subplots(figsize=(fig_width, fig_height))
                                     
-                                    # Use updated seaborn style
-                                    sns.set_style("white")
-                                    
-                                    # Create heatmap with improved aesthetics
-                                    heatmap = sns.heatmap(
+                                    # Create heatmap with coolwarm colormap (like your original)
+                                    sns.heatmap(
                                         heat_mat,
                                         xticklabels=heat_names,
                                         yticklabels=heat_names,
-                                        cmap="RdYlGn",  # Red-Yellow-Green colormap (similar to your original)
+                                        cmap="coolwarm",  # Blue to Red colormap (matches your original)
                                         vmin=0.0,
                                         vmax=1.0,
                                         annot=True,
                                         fmt=".2f",
-                                        annot_kws={"fontsize": 10, "fontweight": "bold"},
+                                        annot_kws={"fontsize": 9},
                                         square=True,
-                                        linewidths=2,  # Add white gridlines
-                                        linecolor='white',
-                                        cbar_kws={
-                                            "shrink": 0.8,
-                                            "label": "Cosine Similarity",
-                                            "orientation": "vertical",
-                                            "pad": 0.02
-                                        },
+                                        linewidths=0.5,  # Thin gridlines like original
+                                        linecolor='gray',
+                                        cbar_kws={"label": "Cosine Similarity", "shrink": 0.8},
                                         ax=axh
                                     )
                                     
-                                    # Customize colorbar
-                                    cbar = heatmap.collections[0].colorbar
-                                    cbar.ax.tick_params(labelsize=10)
-                                    cbar.set_label("Cosine Similarity", fontsize=11, fontweight='bold')
-                                    
-                                    # Set title with better styling
+                                    # Set title with styling
                                     axh.set_title(
                                         f"Mechanical Similarity Cluster: {player_title}",
-                                        fontsize=18,
+                                        fontsize=14,
                                         fontweight='bold',
-                                        pad=20,
-                                        color='#2a3757'
+                                        pad=12
                                     )
                                     
-                                    # Improve axis labels
-                                    axh.set_xlabel("Name", fontsize=12, fontweight='bold', labelpad=10)
-                                    axh.set_ylabel("Name", fontsize=12, fontweight='bold', labelpad=10)
-                                    
                                     # Rotate labels for better readability
-                                    axh.set_xticklabels(heat_names, rotation=45, ha='right', fontsize=10)
-                                    axh.set_yticklabels(heat_names, rotation=0, fontsize=10)
-                                    
-                                    # Remove top and right spines for cleaner look
-                                    axh.spines['top'].set_visible(False)
-                                    axh.spines['right'].set_visible(False)
-                                    axh.spines['bottom'].set_visible(False)
-                                    axh.spines['left'].set_visible(False)
+                                    axh.set_xticklabels(heat_names, rotation=45, ha='right', fontsize=9)
+                                    axh.set_yticklabels(heat_names, rotation=0, fontsize=9)
                                     
                                     plt.tight_layout()
                                     st.pyplot(fig_h)
