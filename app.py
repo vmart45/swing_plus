@@ -13,6 +13,7 @@ import shap
 import plotly.graph_objects as go
 import streamlit.components.v1 as components
 from urllib.parse import quote, unquote
+import matplotlib.colors as mcolors
 
 st.set_page_config(
     page_title="Swing+ & HitSkill+ Dashboard",
@@ -22,6 +23,26 @@ st.set_page_config(
 
 DATA_PATH = "Main.csv"
 MODEL_PATH = "SwingPlus.pkl"
+
+# Add this function near the top of your file (after imports, around line 20)
+def create_centered_cmap(center=100, vmin=70, vmax=130):
+    """
+    Create a diverging colormap centered at a specific value (default 100).
+    Below center = blue, at center = white, above center = red
+    """
+    # Normalize to 0-1 range
+    norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+    center_normalized = norm(center)
+    
+    # Create color segments
+    colors_below = plt.cm.Blues_r(np.linspace(0.4, 0.95, int(center_normalized * 256)))
+    colors_center = np.array([[1, 1, 1, 1]])  # white at center
+    colors_above = plt.cm.Reds(np.linspace(0.05, 0.95, int((1 - center_normalized) * 256)))
+    
+    all_colors = np.vstack((colors_below, colors_center, colors_above))
+    custom_cmap = mcolors.LinearSegmentedColormap.from_list('centered_coolwarm', all_colors)
+    
+    return custom_cmap
 
 if not os.path.exists(DATA_PATH):
     st.error(f"Could not find `{DATA_PATH}` in the app directory.")
@@ -525,9 +546,9 @@ if page == "Main":
         if plus_labels:
             valid_plus = [c for c in plus_labels if c in styled.columns]
             if valid_plus:
-            # Set vmin lower to make 100+ values appear darker red
-                styler = styler.background_gradient(subset=valid_plus, cmap="Reds", vmin=70, vmax=130)
-            st.dataframe(styler, use_container_width=True, hide_index=True)
+                centered_cmap = create_centered_cmap(center=100, vmin=70, vmax=130)
+                styler = styler.background_gradient(subset=valid_plus, cmap=centered_cmap, vmin=70, vmax=130)
+        st.dataframe(styler, use_container_width=True, hide_index=True)
     except Exception:
         st.dataframe(styled, use_container_width=True, hide_index=True)
 
