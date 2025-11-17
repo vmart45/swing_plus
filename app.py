@@ -1301,10 +1301,11 @@ elif page == "Player":
                                     st.pyplot(fig_h)
                             except Exception:
                                 st.info("Could not render cluster heatmap due to data issues.")
-            # end if similar players exist
+            # end inner if handling player_positions and similar players
         else:
+            # else for the outer-most if inside try: player_select not in df_mech
             st.info("Player not present in mechanical dataset for the selected season/context.")
-        # end outer try
+        # end try
         except Exception:
             st.info("Not enough mechanical data for this player/season to compute similarities.")
 
