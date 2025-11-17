@@ -569,13 +569,14 @@ if page == "Main":
             leaderboard_cols = [c for c in ["Name", "Team", "Age", "Swing+", "HitSkillPlus", "ImpactPlus"] if c in top_swing.columns]
             display_cols_renamed = [rename_map.get(c, c) for c in leaderboard_cols]
             swing_label = rename_map.get("Swing+", "Swing+")
-            try:
-                vmin = float(df_filtered["Swing+"].min())
-                vmax = float(df_filtered["Swing+"].max())
+        try:
+                vmin = min(70, float(df_filtered["Swing+"].min()))
+                vmax = max(130, float(df_filtered["Swing+"].max()))
+                centered_cmap = create_centered_cmap(center=100, vmin=vmin, vmax=vmax)
                 st.dataframe(
                     top_swing_renamed[display_cols_renamed]
                     .style.format(precision=2)
-                    .background_gradient(subset=[swing_label], cmap=elite_cmap, vmin=vmin, vmax=vmax),
+                    .background_gradient(subset=[swing_label], cmap=centered_cmap, vmin=vmin, vmax=vmax),
                     use_container_width=True,
                     hide_index=True
                 )
@@ -598,13 +599,14 @@ if page == "Main":
             leaderboard_cols_hit = [c for c in ["Name", "Team", "Age", "HitSkillPlus", "Swing+", "ImpactPlus"] if c in top_hit.columns]
             display_cols_hit_renamed = [rename_map.get(c, c) for c in leaderboard_cols_hit]
             hit_label = rename_map.get("HitSkillPlus", "HitSkill+")
-            try:
-                vmin_h = float(df_filtered["HitSkillPlus"].min())
-                vmax_h = float(df_filtered["HitSkillPlus"].max())
+        try:
+                vmin_h = min(70, float(df_filtered["HitSkillPlus"].min()))
+                vmax_h = max(130, float(df_filtered["HitSkillPlus"].max()))
+                centered_cmap = create_centered_cmap(center=100, vmin=vmin_h, vmax=vmax_h)
                 st.dataframe(
                     top_hit_renamed[display_cols_hit_renamed]
                     .style.format(precision=2)
-                    .background_gradient(subset=[hit_label], cmap=elite_cmap, vmin=vmin_h, vmax=vmax_h),
+                    .background_gradient(subset=[hit_label], cmap=centered_cmap, vmin=vmin_h, vmax=vmax_h),
                     use_container_width=True,
                     hide_index=True
                 )
