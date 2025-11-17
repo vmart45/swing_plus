@@ -756,7 +756,7 @@ elif page == "Player":
             {headshot_html}
             <div style="display:flex;flex-direction:column;align-items:center;">
                 {player_name_html}
-                {"<span style='font-size:0.98em;color:#495366;margin-top:7px;margin-bottom:0;font-weight:500;letter-spacing:0.02em;opacity:0.82;'>{}</span>".format(player_bio) if player_bio else ""}
+                {player_bio_html}
             </div>
             {team_logo_html}
         </div>
