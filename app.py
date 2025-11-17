@@ -664,10 +664,10 @@ elif page == "Player":
             headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
         except Exception:
             headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-        headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;margin-right:18px;" alt="headshot" />'
+        headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;margin-right:18px;" alt="headshot"/>'
     else:
         fallback_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-        headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;margin-right:18px;" alt="headshot" />'
+        headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;margin-right:18px;" alt="headshot"/>'
 
     player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_title}</span>'
 
@@ -676,7 +676,7 @@ elif page == "Player":
         team_abbr = str(player_row["Team"]).strip()
         team_logo_url = image_dict.get(team_abbr, "")
         if team_logo_url:
-            team_logo_html = f'<div style="margin-left:14px; display:flex; align-items:center;"><img src="{team_logo_url}" style="height:{logo_size}px;width:{logo_size}px;border-radius:8px;object-fit:contain;" alt="team logo" /></div>'
+            team_logo_html = f'<div style="margin-left:14px; display:flex; align-items:center;"><img src="{team_logo_url}" style="height:{logo_size}px;width:{logo_size}px;border-radius:8px;box-shadow:none;background:transparent;border:none;object-fit:contain;" alt="team logo"/></div>'
 
     player_bio = ""
     bat_side = "R"
@@ -716,15 +716,13 @@ elif page == "Player":
         except Exception:
             player_bio = ""
 
-    player_bio_html = f"<span style='font-size:0.98em;color:#495366;margin-top:7px;margin-bottom:0;font-weight:500;letter-spacing:0.02em;opacity:0.82;'>{player_bio}</span>" if player_bio else ""
-
     st.markdown(
         f"""
         <div style="display:flex;justify-content:center;align-items:center;margin-bottom:6px;margin-top:8px;">
             {headshot_html}
             <div style="display:flex;flex-direction:column;align-items:center;">
                 {player_name_html}
-                {player_bio_html}
+                {"<span style='font-size:0.98em;color:#495366;margin-top:7px;margin-bottom:0;font-weight:500;letter-spacing:0.02em;opacity:0.82;'>" + player_bio + "</span>" if player_bio else ""}
             </div>
             {team_logo_html}
         </div>
@@ -808,31 +806,21 @@ elif page == "Player":
     proj_color = plus_color_by_rank(p_proj_rank, total_players)
     power_color = plus_color_by_rank(p_power_rank, total_players)
 
-    swing_val = player_row.get('Swing+', np.nan)
-    proj_val = player_row.get('HitSkillPlus', player_row.get('ProjSwing+', np.nan))
-    power_val = player_row.get('ImpactPlus', player_row.get('PowerIndex+', np.nan))
-
-    def fmt_num(v):
-        try:
-            return f"{v:.2f}"
-        except Exception:
-            return "N/A"
-
     st.markdown(
         f"""
         <div style="display: flex; justify-content: center; gap: 32px; margin-top: 0px; margin-bottom: 28px;">
           <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
-            <div style="font-size: 2.2em; font-weight: 700; color: {swing_color};">{fmt_num(swing_val)}</div>
+            <div style="font-size: 2.2em; font-weight: 700; color: {swing_color};">{player_row.get('Swing+', np.nan):.2f}</div>
             <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">Swing+</div>
             <span style="background: #FFC10733; color: #B71C1C; border-radius: 10px; font-size: 0.98em; padding: 2px 10px;">Rank {p_swing_rank if p_swing_rank is not None else 'N/A'} of {total_players}</span>
           </div>
           <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
-            <div style="font-size: 2.2em; font-weight: 700; color: {proj_color};">{fmt_num(proj_val)}</div>
+            <div style="font-size: 2.2em; font-weight: 700; color: {proj_color};">{player_row.get('ProjSwing+', player_row.get('HitSkillPlus', np.nan)):.2f}</div>
             <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">HitSkill+</div>
             <span style="background: #C8E6C933; color: #1B5E20; border-radius: 10px; font-size: 0.98em; padding: 2px 10px;">Rank {p_proj_rank if p_proj_rank is not None else 'N/A'} of {total_players}</span>
           </div>
           <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
-            <div style="font-size: 2.2em; font-weight: 700; color: {power_color};">{fmt_num(power_val)}</div>
+            <div style="font-size: 2.2em; font-weight: 700; color: {power_color};">{player_row.get('PowerIndex+', player_row.get('ImpactPlus', np.nan)):.2f}</div>
             <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">Impact+</div>
             <span style="background: #B3E5FC33; color: #01579B; border-radius: 10px; font-size: 0.98em; padding: 2px 10px;">Rank {p_power_rank if p_power_rank is not None else 'N/A'} of {total_players}</span>
           </div>
@@ -1062,23 +1050,23 @@ elif page == "Player":
         df_mech = df_mech.reset_index(drop=True)
 
         # Need at least the player and one other player to compute similarity/top list
-        try:
-            if player_select in df_mech[name_col].values and len(df_mech) > 1:
-                scaler = StandardScaler()
-                # Coerce mechanical columns to numeric and fill NaN with column means (or 0)
-                try:
-                    X_numeric = df_mech[mech_features_available].apply(pd.to_numeric, errors='coerce')
-                    col_means = X_numeric.mean().fillna(0.0)
-                    X_numeric = X_numeric.fillna(col_means)
-                    X_scaled = scaler.fit_transform(X_numeric)
-                except Exception:
-                    X_tmp = df_mech[mech_features_available].apply(pd.to_numeric, errors='coerce').fillna(0.0)
-                    X_scaled = scaler.fit_transform(X_tmp)
+        if player_select in df_mech[name_col].values and len(df_mech) > 1:
+            scaler = StandardScaler()
+            # Coerce mechanical columns to numeric and fill NaN with column means (or 0)
+            try:
+                X_numeric = df_mech[mech_features_available].apply(pd.to_numeric, errors='coerce')
+                col_means = X_numeric.mean().fillna(0.0)
+                X_numeric = X_numeric.fillna(col_means)
+                X_scaled = scaler.fit_transform(X_numeric)
+            except Exception:
+                X_tmp = df_mech[mech_features_available].apply(pd.to_numeric, errors='coerce').fillna(0.0)
+                X_scaled = scaler.fit_transform(X_tmp)
 
-                similarity_matrix = cosine_similarity(X_scaled)
-                # similarity_matrix rows correspond to df_mech.reset_index order
+            similarity_matrix = cosine_similarity(X_scaled)
+            # similarity_matrix rows correspond to df_mech.reset_index order
 
-                # Find the positional index (0..n-1) for the selected player (use first occurrence)
+            # Find the positional index (0..n-1) for the selected player (use first occurrence)
+            try:
                 player_positions = df_mech.index[df_mech[name_col] == player_select].tolist()
                 if not player_positions:
                     st.info("Player not present in mechanical dataset for the selected season/context.")
@@ -1220,7 +1208,7 @@ elif page == "Player":
                         )
 
                         # Ensure header HTML is rendered (unsafe_allow_html=True)
-                        st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to {player_title}</div>', unsafe_allow_html=True)
                         st.markdown('<div class="sim-list">', unsafe_allow_html=True)
 
                         for idx, sim in enumerate(sim_rows, 1):
@@ -1246,20 +1234,18 @@ elif page == "Player":
                                 href_player_link += f"&season={quote(str(sim['season']))}"
                             onclick_player = f"window.history.pushState(null,'','{href_player_link}'); setTimeout(()=>window.location.reload(),30); return false;"
 
-                            onclick_compare = f"window.history.pushState(null,'','{href_compare}'); setTimeout(()=>window.location.reload(),30); return false;"
-
                             st.markdown(
                                 f"""
                                 <div class="sim-item">
                                     <div class="sim-rank">{idx}</div>
                                     <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                                    <div class="sim-name-compact"><a href="{href_player_link}" onclick="{onclick_player}" style="color:#183153;text-decoration:none;font-weight:700;">{sim['name']}</a><div style="color:#64748b;font-size:0.86em;">{f'Season: {sim["season"]}' if sim.get("season") else ''}</div></div>
+                                    <div class="sim-name-compact"><a href="{href_player_link}" onclick="{onclick_player}" style="color:#183153;text-decoration:none;font-weight:700;">{sim['name']}</a></div>
                                     <div style="display:flex;align-items:center;gap:8px;">
                                         <div class="sim-score-compact">{sim_pct_text}</div>
                                         <div class="sim-bar-mini" aria-hidden="true">
                                             <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
                                         </div>
-                                        <a class="sim-compare-btn" href="{href_compare}" onclick="{onclick_compare}">Compare</a>
+                                        <a class="sim-compare-btn" href="{href_compare}" onclick="window.history.pushState(null,'','{href_compare}'); setTimeout(()=>window.location.reload(),30); return false;">Compare</a>
                                     </div>
                                 </div>
                                 """,
@@ -1301,11 +1287,8 @@ elif page == "Player":
                                     st.pyplot(fig_h)
                             except Exception:
                                 st.info("Could not render cluster heatmap due to data issues.")
-            # end inner if handling player_positions and similar players
-        else:
-            # else for the outer-most if inside try: player_select not in df_mech
-            st.info("Player not present in mechanical dataset for the selected season/context.")
-        # end try
+            # end else similar_pos
+        # end if player present
         except Exception:
             st.info("Not enough mechanical data for this player/season to compute similarities.")
 
@@ -1463,7 +1446,7 @@ elif page == "Compare":
                 titleA = f"{playerA} ({seasonA})" if (season_col and seasonA is not None) else playerA
                 st.markdown(f'<div style="text-align:center;"><img src="{imgA}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{titleA}</div>{logo_html_a}</div>', unsafe_allow_html=True)
             with col2:
-                st.markdown(f'<div style="text-align:center;padding:8px;border-radius:10px;"><div style="font-size:1.25em;font-weight:800;color:#0b6efd;">Similarity</div><div style="font-size:1.6em;font-weight:900;color:#183153;margin-top:6px;">{sim_pct}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="text-align:center;padding:8px;border-radius:10px;"><div style="font-size:1.25em;font-weight:800;color:#0b6efd;">Similarity</div><div style="font-size:1.6em;font-weight:800;color:#183153;margin-top:6px;">{sim_pct}</div></div>', unsafe_allow_html=True)
             with col3:
                 teamB = rowB["Team"] if "Team" in rowB and pd.notnull(rowB["Team"]) else ""
                 logoB = image_dict.get(teamB, "")
@@ -1592,7 +1575,7 @@ elif page == "Compare":
                         colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]
                         text_labels = [f"{v:.3f}" for v in vals]
                         figA = go.Figure()
-                        figA.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textposition='inside'))
+                        figA.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textposition='inside', insidetextanchor='middle'))
                         figA.update_layout(margin=dict(l=160, r=24, t=28, b=60), xaxis_title="SHAP contribution to Swing+ (signed)", yaxis=dict(autorange="reversed"), height=420, showlegend=False)
                         st.plotly_chart(figA, use_container_width=True, config={"displayModeBar": False})
 
@@ -1601,7 +1584,7 @@ elif page == "Compare":
                         colors = ["#F59E0B" if v > 0 else "#60A5FA" for v in vals]
                         text_labels = [f"{v:.3f}" for v in vals]
                         figB = go.Figure()
-                        figB.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textposition='inside'))
+                        figB.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textposition='inside', insidetextanchor='middle'))
                         figB.update_layout(margin=dict(l=160, r=24, t=28, b=60), xaxis_title="SHAP contribution to Swing+ (signed)", yaxis=dict(autorange="reversed"), height=420, showlegend=False)
                         st.plotly_chart(figB, use_container_width=True, config={"displayModeBar": False})
 
@@ -1625,7 +1608,6 @@ components.html(
             } catch (err) {}
         }, true);
     })();
-    </script>
     """,
     height=0
 )
