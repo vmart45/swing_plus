@@ -685,33 +685,7 @@ elif page == "Player":
     headshot_size = 96
     logo_size = 80
 
-    headshot_html = ""
-    if "id" in player_row and pd.notnull(player_row["id"]):
-        try:
-            player_id = str(int(player_row["id"]))
-            headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
-        except Exception:
-            headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-        headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;margin-right:18px;background:transparent;" alt="headshot" />'
-    else:
-        fallback_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-        headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;margin-right:18px;background:transparent;" alt="headshot" />'
-
-    # Build player title with smaller year (no parentheses)
-    if player_season_selected is not None:
-        player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select} <span style="font-size:0.6em;color:#64748b;font-weight:600;">{player_season_selected}</span></span>'
-        player_title = f"{player_select} {player_season_selected}"  # For use elsewhere (no parentheses)
-    else:
-        player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
-        player_title = player_select
-
-    team_logo_html = ""
-    if "Team" in player_row and pd.notnull(player_row["Team"]):
-        team_abbr = str(player_row["Team"]).strip()
-        team_logo_url = image_dict.get(team_abbr, "")
-        if team_logo_url:
-            team_logo_html = f'<div style="margin-left:14px; display:flex; align-items:center;"><img src="{team_logo_url}" style="height:{logo_size}px;width:{logo_size}px;border-radius:8px;object-fit:contain;background:transparent;" alt="team logo" /></div>'
-            
+    # First, fetch player bio and bat side
     player_bio = ""
     bat_side = "R"
     if "id" in player_row and pd.notnull(player_row["id"]):
@@ -750,6 +724,38 @@ elif page == "Player":
         except Exception:
             player_bio = ""
 
+    player_bio_html = f"<span style='font-size:0.98em;color:#495366;margin-top:7px;margin-bottom:0;font-weight:500;letter-spacing:0.02em;opacity:0.82;'>{player_bio}</span>" if player_bio else ""
+
+    # Now build headshot HTML
+    headshot_html = ""
+    if "id" in player_row and pd.notnull(player_row["id"]):
+        try:
+            player_id = str(int(player_row["id"]))
+            headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
+        except Exception:
+            headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
+        headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;margin-right:18px;background:transparent;" alt="headshot" />'
+    else:
+        fallback_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
+        headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;margin-right:18px;background:transparent;" alt="headshot" />'
+
+    # Build player title with smaller year (no parentheses)
+    if player_season_selected is not None:
+        player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select} <span style="font-size:0.6em;color:#64748b;font-weight:600;">{player_season_selected}</span></span>'
+        player_title = f"{player_select} {player_season_selected}"  # For use elsewhere (no parentheses)
+    else:
+        player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
+        player_title = player_select
+
+    # Build team logo HTML
+    team_logo_html = ""
+    if "Team" in player_row and pd.notnull(player_row["Team"]):
+        team_abbr = str(player_row["Team"]).strip()
+        team_logo_url = image_dict.get(team_abbr, "")
+        if team_logo_url:
+            team_logo_html = f'<div style="margin-left:14px; display:flex; align-items:center;"><img src="{team_logo_url}" style="height:{logo_size}px;width:{logo_size}px;border-radius:8px;object-fit:contain;background:transparent;" alt="team logo" /></div>'
+
+    # Display the header
     st.markdown(
         f"""
         <div style="display:flex;justify-content:center;align-items:center;margin-bottom:6px;margin-top:8px;">
@@ -763,8 +769,6 @@ elif page == "Player":
         """,
         unsafe_allow_html=True
     )
-
-    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
     # Compute ranks within the selected season context (player-specific if chosen, else global season filter)
     if season_col:
