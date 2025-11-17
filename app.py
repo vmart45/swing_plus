@@ -734,24 +734,17 @@ elif page == "Player":
             headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{player_id}/headshot/silo/current.png"
         except Exception:
             headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-        headshot_html =
-        f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:
-        cover;border-radius:14px;vertical-align:middle;margin-right:18px;background:transparent;" alt="headshot" />'
+        headshot_html = f'<img src="{headshot_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;margin-right:18px;background:transparent;" alt="headshot" />'
     else:
         fallback_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-        headshot_html =
-        f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;
-        object-fit:cover;border-radius:14px;vertical-align:middle;margin-right:18px;background:transparent;" alt="headshot" />'
+        headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;margin-right:18px;background:transparent;" alt="headshot" />'
 
     # Build player title with smaller year (no parentheses)
     if player_season_selected is not None:
-        player_name_html = 
-        f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}
-        <span style="font-size:0.6em;color:#64748b;font-weight:600;">{player_season_selected}</span></span>'
+        player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select} <span style="font-size:0.6em;color:#64748b;font-weight:600;">{player_season_selected}</span></span>'
         player_title = f"{player_select} {player_season_selected}"  # For use elsewhere (no parentheses)
     else:
-        player_name_html = 
-        f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
+        player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
         player_title = player_select
 
     # Build team logo HTML
@@ -760,8 +753,7 @@ elif page == "Player":
         team_abbr = str(player_row["Team"]).strip()
         team_logo_url = image_dict.get(team_abbr, "")
         if team_logo_url:
-            team_logo_html = f'<div style="margin-left:14px; display:flex; align-items:center;"><img src="{team_logo_url}" 
-            style="height:{logo_size}px;width:{logo_size}px;border-radius:8px;object-fit:contain;background:transparent;" alt="team logo" /></div>'
+            team_logo_html = f'<div style="margin-left:14px; display:flex; align-items:center;"><img src="{team_logo_url}" style="height:{logo_size}px;width:{logo_size}px;border-radius:8px;object-fit:contain;background:transparent;" alt="team logo" /></div>'
 
     # Display the header
     st.markdown(
@@ -931,8 +923,7 @@ elif page == "Player":
             f"""
             <div id="savantviz-anchor"></div>
             <div style="display: flex; justify-content: center;">
-                <video id="player-savant-video" width="900" height="480" style="border-radius:
-                9px; box-shadow:0 2px 12px #0002;" autoplay muted playsinline key="{player_id}-{video_year}-{bat_side}">
+                <video id="player-savant-video" width="900" height="480" style="border-radius:9px; box-shadow:0 2px 12px #0002;" autoplay muted playsinline key="{player_id}-{video_year}-{bat_side}">
                     <source src="{video_url}" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
@@ -1291,9 +1282,7 @@ elif page == "Player":
                                 <div class="sim-item">
                                     <div class="sim-rank">{idx}</div>
                                     <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                                    <div class="sim-name-compact"><a href="{href_player_link}" onclick="{onclick_player}" 
-                                    style="color:#183153;text-decoration:none;font-weight:700;">{sim['name']}</a><div style="color:#64748b;font-size:0.86em;">{f'Season: {sim["season"]}'
-                                    if sim.get("season") else ''}</div></div>
+                                    <div class="sim-name-compact"><a href="{href_player_link}" onclick="{onclick_player}" style="color:#183153;text-decoration:none;font-weight:700;">{sim['name']}</a><div style="color:#64748b;font-size:0.86em;">{f'Season: {sim["season"]}' if sim.get("season") else ''}</div></div>
                                     <div style="display:flex;align-items:center;gap:8px;">
                                         <div class="sim-score-compact">{sim_pct_text}</div>
                                         <div class="sim-bar-mini" aria-hidden="true">
@@ -1308,6 +1297,7 @@ elif page == "Player":
 
                         st.markdown('</div></div>', unsafe_allow_html=True)
 
+# Heatmap inside expander - improved styling to match original design
                         with st.expander("Mechanical similarity cluster (click to expand)", expanded=False):
                             try:
                                 heat_positions = [player_pos] + [int(p) for p in similar_pos.index.tolist()]
@@ -1525,12 +1515,9 @@ elif page == "Compare":
                     imgA = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
                 logo_html_a = f'<div style="margin-top:8px;"><img src="{logoA}" style="height:40px;width:40px;border-radius:6px;"></div>' if logoA else ""
                 titleA = f"{playerA} ({seasonA})" if (season_col and seasonA is not None) else playerA
-                st.markdown(f'<div style="text-align:center;"><img src="{imgA}" style="height:84px;width:84px;border-radius:12px;"><div 
-                style="font-weight:800;margin-top:6px;color:#183153;">{titleA}</div>{logo_html_a}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="text-align:center;"><img src="{imgA}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{titleA}</div>{logo_html_a}</div>', unsafe_allow_html=True)
             with col2:
-                st.markdown(f'<div style="text-align:center;padding:8px;border-radius:10px;"><div 
-                style="font-size:1.25em;font-weight:800;color:#0b6efd;">Similarity</div><div style="font-size:1.6em;font-weight:800;color:#183153;margin-top:6px;">{sim_pct}</div></div>', 
-                unsafe_allow_html=True)
+                st.markdown(f'<div style="text-align:center;padding:8px;border-radius:10px;"><div style="font-size:1.25em;font-weight:800;color:#0b6efd;">Similarity</div><div style="font-size:1.6em;font-weight:800;color:#183153;margin-top:6px;">{sim_pct}</div></div>', unsafe_allow_html=True)
             with col3:
                 teamB = rowB["Team"] if "Team" in rowB and pd.notnull(rowB["Team"]) else ""
                 logoB = image_dict.get(teamB, "")
@@ -1544,8 +1531,7 @@ elif page == "Compare":
                     imgB = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
                 logo_html_b = f'<div style="margin-top:8px;"><img src="{logoB}" style="height:40px;width:40px;border-radius:6px;"></div>' if logoB else ""
                 titleB = f"{playerB} ({seasonB})" if (season_col and seasonB is not None) else playerB
-                st.markdown(f'<div style="text-align:center;"><img src="{imgB}" style="height:84px;width:84px;border-radius:12px;"><div
-                style="font-weight:800;margin-top:6px;color:#183153;">{titleB}</div>{logo_html_b}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="text-align:center;"><img src="{imgB}" style="height:84px;width:84px;border-radius:12px;"><div style="font-weight:800;margin-top:6px;color:#183153;">{titleB}</div>{logo_html_b}</div>', unsafe_allow_html=True)
 
             st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
@@ -1555,14 +1541,12 @@ elif page == "Compare":
                 valA = rowA.get(stat, "N/A")
                 valA_disp = f"{valA:.2f}" if isinstance(valA, (int, float, np.floating, np.integer)) and not pd.isna(valA) else valA
                 labelA = ("HitSkill+" if stat=="HitSkillPlus" else "Impact+" if stat=="ImpactPlus" else stat)
-                cols_stats[i].markdown(f'<div style="text-align:center;">
-                <div style="font-weight:700;color:#183153;">{valA_disp}</div><div style="color:#64748b;">{labelA} (A)</div></div>', unsafe_allow_html=True)
+                cols_stats[i].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valA_disp}</div><div style="color:#64748b;">{labelA} (A)</div></div>', unsafe_allow_html=True)
             for i, stat in enumerate(stats):
                 valB = rowB.get(stat, "N/A")
                 valB_disp = f"{valB:.2f}" if isinstance(valB, (int, float, np.floating, np.integer)) and not pd.isna(valB) else valB
                 labelB = ("HitSkill+" if stat=="HitSkillPlus" else "Impact+" if stat=="ImpactPlus" else stat)
-                cols_stats[i+len(stats)].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valB_disp}
-                </div><div style="color:#64748b;">{labelB} (B)</div></div>', unsafe_allow_html=True)
+                cols_stats[i+len(stats)].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valB_disp}</div><div style="color:#64748b;">{labelB} (B)</div></div>', unsafe_allow_html=True)
 
             st.markdown("<hr />", unsafe_allow_html=True)
 
@@ -1662,10 +1646,8 @@ elif page == "Compare":
                         colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]
                         text_labels = [f"{v:.3f}" for v in vals]
                         figA = go.Figure()
-                        figA.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text',
-                        hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textposition='inside', insidetextanchor='middle'))
-                        figA.update_layout(margin=dict(l=160, r=24, t=28, b=60), 
-                        xaxis_title="SHAP contribution to Swing+ (signed)", yaxis=dict(autorange="reversed"), height=420, showlegend=False)
+                        figA.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textposition='inside', insidetextanchor='middle'))
+                        figA.update_layout(margin=dict(l=160, r=24, t=28, b=60), xaxis_title="SHAP contribution to Swing+ (signed)", yaxis=dict(autorange="reversed"), height=420, showlegend=False)
                         st.plotly_chart(figA, use_container_width=True, config={"displayModeBar": False})
 
                     with col_shap_b:
@@ -1673,10 +1655,8 @@ elif page == "Compare":
                         colors = ["#F59E0B" if v > 0 else "#60A5FA" for v in vals]
                         text_labels = [f"{v:.3f}" for v in vals]
                         figB = go.Figure()
-                        figB.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text',
-                        hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textposition='inside', insidetextanchor='middle'))
-                        figB.update_layout(margin=dict(l=160, r=24, t=28, b=60), xaxis_title="SHAP contribution to Swing+ (signed)",
-                        yaxis=dict(autorange="reversed"), height=420, showlegend=False)
+                        figB.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textposition='inside', insidetextanchor='middle'))
+                        figB.update_layout(margin=dict(l=160, r=24, t=28, b=60), xaxis_title="SHAP contribution to Swing+ (signed)", yaxis=dict(autorange="reversed"), height=420, showlegend=False)
                         st.plotly_chart(figB, use_container_width=True, config={"displayModeBar": False})
 
 # Inject JS helper to ensure Compare links do same-tab navigation
