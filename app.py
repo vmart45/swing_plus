@@ -1035,272 +1035,280 @@ elif page == "Player":
             display_df = display_df.reset_index(drop=True)
             st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-    # ------------------ Mechanical similarity cluster (PLAYER-SPECIFIC) ------------------
+# ------------------ Mechanical similarity cluster (PLAYER-SPECIFIC, robust) ------------------
     name_col = "Name"
     TOP_N = 10
 
     mech_features_available = [f for f in mechanical_features if f in df.columns]
     if len(mech_features_available) >= 2 and name_col in df.columns:
-        # Build df_mech including season context if available
+        # Build df_mech including season context if available, then reset_index so positions align with similarity matrix rows
         df_mech = df.dropna(subset=mech_features_available + [name_col]).copy()
-
-        # Apply season context if we have one (player-level or global)
         if season_col:
             season_ctx = player_season_selected if player_season_selected is not None else season_selected_global
             if season_ctx is not None:
                 try:
-                    df_mech = df_mech[df_mech[season_col] == season_ctx]
+                    df_mech = df_mech[df_mech[season_col] == season_ctx].copy()
                 except Exception:
                     pass
 
-        # Ensure we have the player's row in df_mech by name (without season suffix)
-        if player_select in df_mech[name_col].values and len(df_mech) > TOP_N:
-            scaler = StandardScaler()
-            try:
-                X_scaled = scaler.fit_transform(df_mech[mech_features_available])
-            except Exception:
-                # If any non-numeric sneaks in, coerce
-                X_tmp = df_mech[mech_features_available].apply(pd.to_numeric, errors='coerce').fillna(0.0)
-                X_scaled = scaler.fit_transform(X_tmp)
+        # reset index to guarantee 0..n-1 consecutive positions for similarity matrix alignment
+        df_mech = df_mech.reset_index(drop=True)
 
-            similarity_matrix = cosine_similarity(X_scaled)
-            # Use a copy of names as a list aligned with df_mech.index
-            df_mech_names = df_mech[name_col].tolist()
+        # Need at least the player and one other player to compute similarity/top list
+        try:
+            if player_select in df_mech[name_col].values and len(df_mech) > 1:
+                scaler = StandardScaler()
+                # Coerce mechanical columns to numeric and fill NaN with column means (or 0)
+                try:
+                    X_numeric = df_mech[mech_features_available].apply(pd.to_numeric, errors='coerce')
+                    col_means = X_numeric.mean().fillna(0.0)
+                    X_numeric = X_numeric.fillna(col_means)
+                    X_scaled = scaler.fit_transform(X_numeric)
+                except Exception:
+                    X_tmp = df_mech[mech_features_available].apply(pd.to_numeric, errors='coerce').fillna(0.0)
+                    X_scaled = scaler.fit_transform(X_tmp)
 
-            # Robust selection/sorting of similar players to avoid sort type errors
-            try:
-                # find the first index of the player
-                idx_player = df_mech.index[df_mech[name_col] == player_select].tolist()
-                if not idx_player:
-                    similar_players = pd.Series(dtype=float)
+                similarity_matrix = cosine_similarity(X_scaled)
+                # similarity_matrix rows correspond to df_mech.reset_index order
+
+                # Find the positional index (0..n-1) for the selected player (use first occurrence)
+                player_positions = df_mech.index[df_mech[name_col] == player_select].tolist()
+                if not player_positions:
+                    st.info("Player not present in mechanical dataset for the selected season/context.")
                 else:
-                    idx = idx_player[0]
-                    sim_arr = similarity_matrix[idx]
-                    sim_series = pd.Series(sim_arr, index=df_mech_names)
-                    # drop self (matching by name) but if there are duplicates, also drop same index position
-                    sim_series.loc[player_select] = np.nan
-                    sim_series = sim_series.sort_values(ascending=False).dropna().head(TOP_N)
-                    similar_players = sim_series
-            except Exception:
-                similar_players = pd.Series(dtype=float)
-
-            if similar_players.empty:
-                st.info("No mechanically similar players found (or not enough data).")
-            else:
-                sim_rows = []
-                # iterate via items() to avoid Series-vs-scalar conversion errors
-                for sim_name, sim_score_val in similar_players.items():
-                    # find first row for that name
-                    sim_row_df = df_mech[df_mech[name_col] == sim_name]
-                    if len(sim_row_df) == 0:
-                        continue
-                    sim_row = sim_row_df.iloc[0]
-                    if "id" in sim_row and pd.notnull(sim_row["id"]):
-                        try:
-                            sim_id = str(int(sim_row["id"]))
-                            sim_headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{sim_id}/headshot/silo/current.png"
-                        except Exception:
-                            sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
+                    player_pos = player_positions[0]
+                    # Build a series indexed by positions (ints) to avoid name-duplication issues
+                    sim_arr = similarity_matrix[player_pos]
+                    sim_series_pos = pd.Series(sim_arr, index=df_mech.index)  # index is integer positions
+                    # exclude self by position
+                    sim_series_pos.iloc[player_pos] = np.nan
+                    similar_pos = sim_series_pos.sort_values(ascending=False).dropna().head(TOP_N)
+                    if similar_pos.empty:
+                        st.info("No mechanically similar players found (or not enough data).")
                     else:
-                        sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-                    try:
-                        sim_score = float(sim_score_val)
-                    except Exception:
-                        sim_score = 0.0
-                    # Determine sim season for compare link if available
-                    sim_season = None
-                    if season_col and season_col in sim_row.index:
-                        try:
-                            sim_season = sim_row[season_col]
-                        except Exception:
-                            sim_season = None
-                    sim_rows.append({
-                        "name": sim_name,
-                        "headshot_url": sim_headshot_url,
-                        "score": sim_score,
-                        "season": sim_season
-                    })
-
-                st.markdown(
-                    """
-                    <style>
-                    .sim-container {
-                        width: 100%;
-                        max-width: 1160px;
-                        margin: 12px auto 10px auto;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                    }
-                    .sim-list {
-                        width: 100%;
-                        display: flex;
-                        flex-direction: column;
-                        gap: 10px;
-                        align-items: center;
-                    }
-                    .sim-item {
-                        display: flex;
-                        align-items: center;
-                        background: #ffffff;
-                        border-radius: 12px;
-                        padding: 10px 14px;
-                        gap: 12px;
-                        width: 100%;
-                        border: 1px solid #eef4f8;
-                        box-shadow: 0 6px 18px rgba(15,23,42,0.04);
-                    }
-                    .sim-rank {
-                        font-size: 1em;
-                        font-weight: 700;
-                        color: #183153;
-                        min-width: 36px;
-                        text-align: center;
-                    }
-                    .sim-headshot-compact {
-                        height: 48px;
-                        width: 48px;
-                        border-radius: 8px;
-                        object-fit: cover;
-                        box-shadow: 0 1px 6px rgba(0,0,0,0.06);
-                    }
-                    .sim-name-compact {
-                        flex: 1;
-                        font-size: 1em;
-                        color: #183153;
-                    }
-                    .sim-score-compact {
-                        font-size: 0.98em;
-                        font-weight: 700;
-                        color: #333;
-                        margin-right: 12px;
-                        min-width: 72px;
-                        text-align: right;
-                    }
-                    .sim-bar-mini {
-                        width: 220px;
-                        height: 10px;
-                        background: #f4f7fa;
-                        border-radius: 999px;
-                        overflow: hidden;
-                        margin-left: 8px;
-                    }
-                    .sim-bar-fill {
-                        height: 100%;
-                        border-radius: 999px;
-                        transition: width 0.5s ease;
-                    }
-                    .sim-compare-btn {
-                        background: #ffffff;
-                        color: #000000;
-                        padding: 8px 12px;
-                        border-radius: 10px;
-                        text-decoration: none;
-                        font-weight: 800;
-                        border: 1px solid #d1d5db;
-                        cursor: pointer;
-                    }
-                    .sim-compare-btn:hover { background: #f3f4f6; transform: translateY(-1px); }
-                    @media (max-width: 1100px) {
-                        .sim-container { max-width: 92%; }
-                        .sim-bar-mini { width: 160px; height: 8px; }
-                        .sim-headshot-compact { height: 40px; width: 40px; }
-                    }
-                    </style>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-                st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to {player_title}</div>')
-                st.markdown('<div class="sim-list">', unsafe_allow_html=True)
-
-                for idx, sim in enumerate(sim_rows, 1):
-                    pct = max(0.0, min(1.0, float(sim['score'])))
-                    width_pct = int(round(pct * 100))
-
-                    start_color = "#D32F2F"
-                    end_color = "#FFB648"
-
-                    sim_pct_text = f"{pct:.1%}"
-
-                    # Build compare href including season context if available
-                    seasonA_param = player_season_selected if player_season_selected is not None else season_selected_global
-                    seasonB_param = sim.get("season", "")
-                    href_compare = f"?playerA={quote(player_select)}&playerB={quote(sim['name'])}&page=Compare"
-                    if seasonA_param:
-                        href_compare += f"&seasonA={quote(str(seasonA_param))}"
-                    if seasonB_param:
-                        href_compare += f"&seasonB={quote(str(seasonB_param))}"
-
-                    # Player link: include page=Player and ensure onclick to force navigation/reload
-                    href_player_link = f"?player={quote(sim['name'])}&page=Player"
-                    onclick_player = f"window.history.pushState(null,'','{href_player_link}'); setTimeout(()=>window.location.reload(),30); return false;"
-
-                    st.markdown(
-                        f"""
-                        <div class="sim-item">
-                            <div class="sim-rank">{idx}</div>
-                            <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                            <div class="sim-name-compact"><a href="{href_player_link}" onclick="{onclick_player}" style="color:#183153;text-decoration:none;font-weight:700;">{sim['name']}</a></div>
-                            <div style="display:flex;align-items:center;gap:8px;">
-                                <div class="sim-score-compact">{sim_pct_text}</div>
-                                <div class="sim-bar-mini" aria-hidden="true">
-                                    <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
-                                </div>
-                                <a class="sim-compare-btn" href="{href_compare}" onclick="window.history.pushState(null,'','{href_compare}'); setTimeout(()=>window.location.reload(),30); return false;">Compare</a>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-
-                st.markdown('</div></div>', unsafe_allow_html=True)
-
-                with st.expander("Mechanical similarity cluster (click to expand)", expanded=False):
-                    try:
-                        # Use the raw player name (player_select) and the similar player names (they come from similar_players)
-                        heat_names = [player_select] + list(similar_players.index)
-
-                        # Keep only names that actually exist in df_mech (defensive)
-                        present_heat_names = [n for n in heat_names if n in df_mech[name_col].values]
-
-                        if len(present_heat_names) < 2:
-                            st.info("Not enough data to build cluster heatmap.")
-                        else:
-                            # find indices in df_mech for the heatmap selection (take first match for each name)
-                            heat_idx = []
-                            for n in present_heat_names:
-                                idxs = df_mech.index[df_mech[name_col] == n].tolist()
-                                if idxs:
-                                    heat_idx.append(idxs[0])
-
-                            if len(heat_idx) < 2:
-                                st.info("Not enough distinct rows to render heatmap.")
+                        # build rows from positions (robust even with duplicate names)
+                        sim_rows = []
+                        for pos, score in similar_pos.items():
+                            try:
+                                sim_row = df_mech.loc[pos]
+                            except Exception:
+                                continue
+                            sim_name = sim_row[name_col]
+                            # headshot url handling
+                            if "id" in sim_row and pd.notnull(sim_row["id"]):
+                                try:
+                                    sim_id = str(int(sim_row["id"]))
+                                    sim_headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{sim_id}/headshot/silo/current.png"
+                                except Exception:
+                                    sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
                             else:
-                                heat_mat = similarity_matrix[np.ix_(heat_idx, heat_idx)]
+                                sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
+                            try:
+                                sim_score = float(score)
+                            except Exception:
+                                sim_score = 0.0
+                            sim_season = None
+                            if season_col and season_col in sim_row.index:
+                                try:
+                                    sim_season = sim_row[season_col]
+                                except Exception:
+                                    sim_season = None
+                            sim_rows.append({
+                                "name": sim_name,
+                                "headshot_url": sim_headshot_url,
+                                "score": sim_score,
+                                "season": sim_season,
+                                "pos": int(pos)
+                            })
 
-                                fig_h, axh = plt.subplots(figsize=(max(6, len(heat_idx)*1.2), max(4, len(heat_idx)*0.9)))
-                                sns.heatmap(
-                                    heat_mat,
-                                    xticklabels=present_heat_names,
-                                    yticklabels=present_heat_names,
-                                    cmap="RdYlBu_r",
-                                    vmin=0.0,
-                                    vmax=1.0,
-                                    annot=True,
-                                    fmt=".2f",
-                                    annot_kws={"fontsize": 9},
-                                    square=True,
-                                    cbar_kws={"shrink": 0.6, "label": "Cosine Similarity"},
-                                    ax=axh
-                                )
-                                axh.set_title(f"Mechanical Similarity Cluster: {player_title}", fontsize=16, pad=12)
-                                axh.set_xlabel("Name")
-                                axh.set_ylabel("Name")
-                                plt.tight_layout()
-                                st.pyplot(fig_h)
-                    except Exception:
-                        st.info("Could not render cluster heatmap due to data issues.")
+                        # CSS
+                        st.markdown(
+                            """
+                            <style>
+                            .sim-container {
+                                width: 100%;
+                                max-width: 1160px;
+                                margin: 12px auto 10px auto;
+                                display: flex;
+                                flex-direction: column;
+                                align-items: center;
+                            }
+                            .sim-list {
+                                width: 100%;
+                                display: flex;
+                                flex-direction: column;
+                                gap: 10px;
+                                align-items: center;
+                            }
+                            .sim-item {
+                                display: flex;
+                                align-items: center;
+                                background: #ffffff;
+                                border-radius: 12px;
+                                padding: 10px 14px;
+                                gap: 12px;
+                                width: 100%;
+                                border: 1px solid #eef4f8;
+                                box-shadow: 0 6px 18px rgba(15,23,42,0.04);
+                            }
+                            .sim-rank {
+                                font-size: 1em;
+                                font-weight: 700;
+                                color: #183153;
+                                min-width: 36px;
+                                text-align: center;
+                            }
+                            .sim-headshot-compact {
+                                height: 48px;
+                                width: 48px;
+                                border-radius: 8px;
+                                object-fit: cover;
+                                box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+                            }
+                            .sim-name-compact {
+                                flex: 1;
+                                font-size: 1em;
+                                color: #183153;
+                            }
+                            .sim-score-compact {
+                                font-size: 0.98em;
+                                font-weight: 700;
+                                color: #333;
+                                margin-right: 12px;
+                                min-width: 72px;
+                                text-align: right;
+                            }
+                            .sim-bar-mini {
+                                width: 220px;
+                                height: 10px;
+                                background: #f4f7fa;
+                                border-radius: 999px;
+                                overflow: hidden;
+                                margin-left: 8px;
+                            }
+                            .sim-bar-fill {
+                                height: 100%;
+                                border-radius: 999px;
+                                transition: width 0.5s ease;
+                            }
+                            .sim-compare-btn {
+                                background: #ffffff;
+                                color: #000000;
+                                padding: 8px 12px;
+                                border-radius: 10px;
+                                text-decoration: none;
+                                font-weight: 800;
+                                border: 1px solid #d1d5db;
+                                cursor: pointer;
+                            }
+                            .sim-compare-btn:hover { background: #f3f4f6; transform: translateY(-1px); }
+                            @media (max-width: 1100px) {
+                                .sim-container { max-width: 92%; }
+                                .sim-bar-mini { width: 160px; height: 8px; }
+                                .sim-headshot-compact { height: 40px; width: 40px; }
+                            }
+                            </style>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                        # FIX 1: Use player_title variable in header
+                        st.markdown(
+                            f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to {player_title}</div>',
+                            unsafe_allow_html=True
+                        )
+                        st.markdown('<div class="sim-list">', unsafe_allow_html=True)
+
+                        for idx, sim in enumerate(sim_rows, 1):
+                            pct = max(0.0, min(1.0, float(sim['score'])))
+                            width_pct = int(round(pct * 100))
+                            start_color = "#D32F2F"
+                            end_color = "#FFB648"
+                            sim_pct_text = f"{pct:.1%}"
+
+                            # Build compare href including season context if available
+                            seasonA_param = player_season_selected if player_season_selected is not None else season_selected_global
+                            seasonB_param = sim.get("season", "")
+                            href_compare = f"?playerA={quote(player_select)}&playerB={quote(sim['name'])}&page=Compare"
+                            if seasonA_param:
+                                href_compare += f"&seasonA={quote(str(seasonA_param))}"
+                            if seasonB_param:
+                                href_compare += f"&seasonB={quote(str(seasonB_param))}"
+
+                            # Player link (navigate to Player page and optionally set season in URL)
+                            href_player_link = f"?player={quote(sim['name'])}&page=Player"
+                            # include season param if available for clicked player so it opens the specific row
+                            if sim.get("season", None):
+                                href_player_link += f"&season={quote(str(sim['season']))}"
+                            onclick_player = f"window.history.pushState(null,'','{href_player_link}'); setTimeout(()=>window.location.reload(),30); return false;"
+
+                            onclick_compare = f"window.history.pushState(null,'','{href_compare}'); setTimeout(()=>window.location.reload(),30); return false;"
+
+                            st.markdown(
+                                f"""
+                                <div class="sim-item">
+                                    <div class="sim-rank">{idx}</div>
+                                    <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
+                                    <div class="sim-name-compact"><a href="{href_player_link}" onclick="{onclick_player}" style="color:#183153;text-decoration:none;font-weight:700;">{sim['name']}</a><div style="color:#64748b;font-size:0.86em;">{f'Season: {sim["season"]}' if sim.get("season") else ''}</div></div>
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <div class="sim-score-compact">{sim_pct_text}</div>
+                                        <div class="sim-bar-mini" aria-hidden="true">
+                                            <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
+                                        </div>
+                                        <a class="sim-compare-btn" href="{href_compare}" onclick="{onclick_compare}">Compare</a>
+                                    </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                        st.markdown('</div></div>', unsafe_allow_html=True)
+
+                        # FIX 2: Heatmap inside expander - improved error handling and index access
+                        with st.expander("Mechanical similarity cluster (click to expand)", expanded=False):
+                            try:
+                                heat_positions = [player_pos] + [int(p) for p in similar_pos.index.tolist()]
+                                # ensure uniqueness and at least 2 positions
+                                heat_positions = list(dict.fromkeys(heat_positions))
+                                if len(heat_positions) < 2:
+                                    st.info("Not enough data to build cluster heatmap.")
+                                else:
+                                    # Build heatmap matrix and names using robust indexing
+                                    heat_mat = similarity_matrix[np.ix_(heat_positions, heat_positions)]
+                                    heat_names = []
+                                    for p in heat_positions:
+                                        try:
+                                            # Use iloc for positional indexing since df_mech is reset_index
+                                            heat_names.append(df_mech.iloc[int(p)][name_col])
+                                        except Exception:
+                                            heat_names.append(f"Player_{p}")
+                                    
+                                    fig_h, axh = plt.subplots(figsize=(max(6, len(heat_positions)*1.2), max(4, len(heat_positions)*0.9)))
+                                    sns.heatmap(
+                                        heat_mat,
+                                        xticklabels=heat_names,
+                                        yticklabels=heat_names,
+                                        cmap="RdYlBu_r",
+                                        vmin=0.0,
+                                        vmax=1.0,
+                                        annot=True,
+                                        fmt=".2f",
+                                        annot_kws={"fontsize": 9},
+                                        square=True,
+                                        cbar_kws={"shrink": 0.6, "label": "Cosine Similarity"},
+                                        ax=axh
+                                    )
+                                    axh.set_title(f"Mechanical Similarity Cluster: {player_title}", fontsize=16, pad=12)
+                                    axh.set_xlabel("Name")
+                                    axh.set_ylabel("Name")
+                                    plt.tight_layout()
+                                    st.pyplot(fig_h)
+                            except Exception as e:
+                                st.info(f"Could not render cluster heatmap: {str(e)}")
+            else:
+                st.info("Player not present in mechanical dataset for the selected season/context.")
+        except Exception as e:
+            st.info(f"Not enough mechanical data for this player/season to compute similarities: {str(e)}")
 
 # ---------------- Compare tab ----------------
 elif page == "Compare":
