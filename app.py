@@ -972,7 +972,7 @@ elif page == "Player":
     col1, col2 = st.columns([1, 1])
 
     shap_pred_label = f"{shap_pred:.2f}" if (shap_pred is not None and not pd.isna(shap_pred)) else "N/A"
-    swing_actual_label = f"{player_row['Swing+']:.2f}" if (player_row.get("Swing+") is not None and not pd.isna(player_row.get("Swing+"))) else "N/A"
+    swing_actual_label = f"{player_row.get('Swing+', np.nan):.2f}" if (player_row.get("Swing+") is not None and not pd.isna(player_row.get("Swing+"))) else "N/A"
     base_label = f"{shap_base:.2f}" if (shap_base is not None and not pd.isna(shap_base)) else "N/A"
 
     with col1:
@@ -1053,53 +1053,65 @@ elif page == "Player":
                 except Exception:
                     pass
 
+        # Ensure we have the player's row in df_mech by name (without season suffix)
         if player_select in df_mech[name_col].values and len(df_mech) > TOP_N:
             scaler = StandardScaler()
-            X_scaled = scaler.fit_transform(df_mech[mech_features_available])
+            try:
+                X_scaled = scaler.fit_transform(df_mech[mech_features_available])
+            except Exception:
+                # If any non-numeric sneaks in, coerce
+                X_tmp = df_mech[mech_features_available].apply(pd.to_numeric, errors='coerce').fillna(0.0)
+                X_scaled = scaler.fit_transform(X_tmp)
+
             similarity_matrix = cosine_similarity(X_scaled)
-            similarity_df = pd.DataFrame(similarity_matrix, index=df_mech[name_col], columns=df_mech[name_col])
+            # Use a copy of names as a list aligned with df_mech.index
+            df_mech_names = df_mech[name_col].tolist()
 
             # Robust selection/sorting of similar players to avoid sort type errors
             try:
-                sim_series = similarity_df.loc[player_select]
-                sim_series = pd.to_numeric(sim_series, errors='coerce').fillna(0)
-                sim_series_no_self = sim_series.drop(index=player_select, errors='ignore')
-                similar_players = sim_series_no_self.sort_values(ascending=False).head(TOP_N)
-            except Exception:
-                try:
-                    idx = df_mech[df_mech[name_col] == player_select].index[0]
-                    sim_arr = similarity_matrix[idx]
-                    sim_series = pd.Series(sim_arr, index=df_mech[name_col])
-                    sim_series_no_self = sim_series.drop(index=player_select, errors='ignore')
-                    similar_players = sim_series_no_self.sort_values(ascending=False).head(TOP_N)
-                except Exception:
+                # find the first index of the player
+                idx_player = df_mech.index[df_mech[name_col] == player_select].tolist()
+                if not idx_player:
                     similar_players = pd.Series(dtype=float)
+                else:
+                    idx = idx_player[0]
+                    sim_arr = similarity_matrix[idx]
+                    sim_series = pd.Series(sim_arr, index=df_mech_names)
+                    # drop self (matching by name) but if there are duplicates, also drop same index position
+                    sim_series.loc[player_select] = np.nan
+                    sim_series = sim_series.sort_values(ascending=False).dropna().head(TOP_N)
+                    similar_players = sim_series
+            except Exception:
+                similar_players = pd.Series(dtype=float)
 
             if similar_players.empty:
                 st.info("No mechanically similar players found (or not enough data).")
             else:
-                top_names = [player_select] + list(similar_players.index)
                 sim_rows = []
                 # iterate via items() to avoid Series-vs-scalar conversion errors
                 for sim_name, sim_score_val in similar_players.items():
-                    sim_row = df_mech[df_mech[name_col] == sim_name]
-                    if "id" in sim_row.columns and pd.notnull(sim_row.iloc[0]["id"]):
-                        sim_id = str(int(sim_row.iloc[0]["id"]))
-                        sim_headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{sim_id}/headshot/silo/current.png"
+                    # find first row for that name
+                    sim_row_df = df_mech[df_mech[name_col] == sim_name]
+                    if len(sim_row_df) == 0:
+                        continue
+                    sim_row = sim_row_df.iloc[0]
+                    if "id" in sim_row and pd.notnull(sim_row["id"]):
+                        try:
+                            sim_id = str(int(sim_row["id"]))
+                            sim_headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_640,q_auto:best/v1/people/{sim_id}/headshot/silo/current.png"
+                        except Exception:
+                            sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
                     else:
                         sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
                     try:
                         sim_score = float(sim_score_val)
                     except Exception:
-                        try:
-                            sim_score = float(sim_score_val.iloc[0])
-                        except Exception:
-                            sim_score = 0.0
+                        sim_score = 0.0
                     # Determine sim season for compare link if available
                     sim_season = None
-                    if season_col and season_col in sim_row.columns:
+                    if season_col and season_col in sim_row.index:
                         try:
-                            sim_season = sim_row.iloc[0][season_col]
+                            sim_season = sim_row[season_col]
                         except Exception:
                             sim_season = None
                     sim_rows.append({
@@ -1246,7 +1258,7 @@ elif page == "Player":
 
                 with st.expander("Mechanical similarity cluster (click to expand)", expanded=False):
                     try:
-                        # Use the raw player name (player_select) and the similar player names (they come from df_mech)
+                        # Use the raw player name (player_select) and the similar player names (they come from similar_players)
                         heat_names = [player_select] + list(similar_players.index)
 
                         # Keep only names that actually exist in df_mech (defensive)
