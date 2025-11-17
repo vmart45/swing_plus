@@ -32,9 +32,13 @@ def create_centered_cmap(center=100, vmin=70, vmax=130):
     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
     center_normalized = norm(center)
 
-    colors_below = plt.cm.Blues_r(np.linspace(0.4, 0.95, max(2, int(center_normalized * 256))))
+    # Ensure at least a small number of steps to avoid zero-length arrays
+    nb_below = max(2, int(center_normalized * 256))
+    nb_above = max(2, int((1 - center_normalized) * 256))
+
+    colors_below = plt.cm.Blues_r(np.linspace(0.4, 0.95, nb_below))
     colors_center = np.array([[1, 1, 1, 1]])  # white at center
-    colors_above = plt.cm.Reds(np.linspace(0.05, 0.95, max(2, int((1 - center_normalized) * 256))))
+    colors_above = plt.cm.Reds(np.linspace(0.05, 0.95, nb_above))
 
     all_colors = np.vstack((colors_below, colors_center, colors_above))
     custom_cmap = mcolors.LinearSegmentedColormap.from_list('centered_coolwarm', all_colors)
@@ -118,12 +122,14 @@ def normalize_name(name):
 if "Name" in df.columns:
     df["Name"] = df["Name"].apply(normalize_name)
 
+# Check core columns
 expected_core = ["Name", "Age", "Swing+", "HitSkillPlus", "ImpactPlus"]
 missing_core = [c for c in expected_core if c not in df.columns]
 if missing_core:
     st.error(f"Missing required columns from data: {missing_core}")
     st.stop()
 
+# Team logos
 mlb_teams = [
     {"team": "ARI", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/ari.png&h=500&w=500"},
     {"team": "TOT", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/mlb.png&w=500&h=500"},
@@ -178,67 +184,19 @@ FEATURE_LABELS = {
     "year": "Season"
 }
 
-st.sidebar.header("Filters")
-
+# We'll place filters inside the Main tab UI (not sidebar) so they visibly apply to Main only.
+# Detect season column presence and comp column names so we can build filters in Main tab.
 season_col = None
 for c in ["year", "Year", "season"]:
     if c in df.columns:
         season_col = c
         break
 
-season_selected_global = None
-if season_col:
-    unique_years = sorted(df[season_col].dropna().unique())
-    default_season = 2025 if 2025 in unique_years else (unique_years[-1] if unique_years else None)
-    if unique_years:
-        default_index = unique_years.index(default_season) if default_season in unique_years else len(unique_years) - 1
-        season_selected_global = st.sidebar.selectbox("Season (global)", unique_years, index=default_index)
-else:
-    season_selected_global = None
-
-search_name = st.sidebar.text_input("Search Player by Name")
-
-min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
-age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, max_age))
-
 comp_col = None
 for c in ["swings_competitive", "competitive_swings", "competitive_swings"]:
     if c in df.columns:
         comp_col = c
         break
-
-if comp_col:
-    try:
-        swings_min = int(df[comp_col].min())
-        swings_max = int(df[comp_col].max())
-        default_low = 100 if swings_max >= 100 else swings_min
-        swings_range = st.sidebar.slider("Competitive Swings", swings_min, swings_max, (default_low, swings_max))
-    except Exception:
-        swings_range = None
-else:
-    swings_range = None
-
-# Build filtered df for MAIN tab only (sidebar filters applied to main)
-df_main_filtered = df.copy()
-if season_col and season_selected_global is not None:
-    try:
-        df_main_filtered = df_main_filtered[df_main_filtered[season_col] == season_selected_global]
-    except Exception:
-        pass
-
-if search_name:
-    df_main_filtered = df_main_filtered[df_main_filtered["Name"].str.contains(search_name, case=False, na=False)]
-
-df_main_filtered = df_main_filtered[(df_main_filtered["Age"] >= age_range[0]) & (df_main_filtered["Age"] <= age_range[1])]
-
-if comp_col and swings_range:
-    try:
-        df_main_filtered = df_main_filtered[
-            (df_main_filtered[comp_col] >= swings_range[0]) &
-            (df_main_filtered[comp_col] <= swings_range[1])
-        ]
-    except Exception:
-        pass
 
 main_cmap = "RdYlBu_r"
 elite_cmap = "Reds"
@@ -371,6 +329,7 @@ def safe_rank_column(df_in, col):
     filled = ranks.fillna(len(df_in) + 1).astype(int)
     return filled
 
+# Page navigation
 params = st.experimental_get_query_params()
 qp_player = None
 qp_player_b = None
@@ -434,32 +393,97 @@ def open_compare_in_same_tab(playerA, playerB, seasonA=None, seasonB=None):
 if page == "Main":
     st.markdown("<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Player Metrics Table</h2>", unsafe_allow_html=True)
 
+    # Filters appear here (on the Main tab) so users clearly see they apply to Main only
+    with st.container():
+        cols = st.columns([1.5, 2, 2, 2])  # season, search, age, competitive swings
+        # Season filter (Main)
+        if season_col:
+            unique_years = sorted(df[season_col].dropna().unique())
+            default_season = 2025 if 2025 in unique_years else (unique_years[-1] if unique_years else None)
+            if unique_years:
+                default_index = unique_years.index(default_season) if default_season in unique_years else len(unique_years) - 1
+                season_selected_main = cols[0].selectbox("Season (Main)", unique_years, index=default_index, key="main_season_select")
+            else:
+                season_selected_main = None
+        else:
+            season_selected_main = None
+
+        # Player search (Main)
+        search_name_main = cols[1].text_input("Search Player by Name", key="main_search_name")
+
+        # Age slider (Main)
+        min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
+        age_range_main = cols[2].slider("Age Range", min_age, max_age, (min_age, max_age), key="main_age_range")
+
+        # Competitive swings filter (Main)
+        if comp_col:
+            try:
+                swings_min = int(df[comp_col].min())
+                swings_max = int(df[comp_col].max())
+                default_low = 100 if swings_max >= 100 else swings_min
+                swings_range_main = cols[3].slider("Competitive Swings", swings_min, swings_max, (default_low, swings_max), key="main_swings_range")
+            except Exception:
+                swings_range_main = None
+        else:
+            swings_range_main = None
+
+    # Build filtered df for Main tab using the filters above
+    df_filtered_main = df.copy()
+    if season_col and season_selected_main is not None:
+        try:
+            df_filtered_main = df_filtered_main[df_filtered_main[season_col] == season_selected_main]
+        except Exception:
+            pass
+
+    if search_name_main:
+        df_filtered_main = df_filtered_main[df_filtered_main["Name"].str.contains(search_name_main, case=False, na=False)]
+
+    df_filtered_main = df_filtered_main[(df_filtered_main["Age"] >= age_range_main[0]) & (df_filtered_main["Age"] <= age_range_main[1])]
+
+    if comp_col and swings_range_main:
+        try:
+            df_filtered_main = df_filtered_main[
+                (df_filtered_main[comp_col] >= swings_range_main[0]) &
+                (df_filtered_main[comp_col] <= swings_range_main[1])
+            ]
+        except Exception:
+            pass
+
+    # Build display columns with plus stats moved directly after counts (PA, Competitive Swings, Batted Ball Events)
     all_stats = []
+
+    # Always show basic columns first
     all_stats.extend(["Name", "Team"])
-    if "year" in df_main_filtered.columns:
-        all_stats.append("year")
+    # season if present
+    if season_col in df_filtered_main.columns:
+        all_stats.append(season_col)
+    # Counts: pa, competitive swings, batted ball events (round these later)
     for c in ["pa", comp_col if comp_col else None, "batted_ball_events"]:
-        if c and c in df_main_filtered.columns and c not in all_stats:
+        if c and c in df_filtered_main.columns and c not in all_stats:
             all_stats.append(c)
 
+    # Move plus stats to front after counts
     for c in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
-        if c in df_main_filtered.columns and c not in all_stats:
+        if c in df_filtered_main.columns and c not in all_stats:
             all_stats.append(c)
 
+    # Then add remaining mechanical and other useful columns, excluding removed ones
     remaining = [
         "swing_length", "avg_bat_speed", "swing_tilt", "attack_angle", "attack_direction",
         "avg_intercept_y_vs_plate", "avg_intercept_y_vs_batter", "avg_batter_y_position", "avg_batter_x_position",
         "avg_foot_sep", "avg_stance_angle"
     ]
     for c in remaining:
-        if c in df_main_filtered.columns and c not in all_stats:
+        if c in df_filtered_main.columns and c not in all_stats:
             all_stats.append(c)
 
+    # Remove disallowed/removed columns entirely from display if present
     removed_cols = ["bip", "batter_run_value", "est_ba", "est_slg", "est_woba", "xwOBA_pred", "xba_pred", "xslg_pred", "side"]
     display_cols = [c for c in all_stats if c not in removed_cols]
 
-    display_df = df_main_filtered[display_cols].copy()
+    display_df = df_filtered_main[display_cols].copy()
 
+    # Round counts to 0 decimals (pa, competitive swings, batted ball events)
     for c in ["pa", comp_col if comp_col else None, "batted_ball_events"]:
         if c and c in display_df.columns:
             try:
@@ -470,6 +494,7 @@ if page == "Main":
                 except Exception:
                     pass
 
+    # Round age to 0 decimals
     if "Age" in display_df.columns:
         try:
             display_df["Age"] = display_df["Age"].round(0).astype("Int64")
@@ -479,9 +504,10 @@ if page == "Main":
             except Exception:
                 pass
 
+    # Rename friendly labels (use plus signs consistently)
     rename_map = {}
-    if "year" in display_df.columns:
-        rename_map["year"] = "Season"
+    if season_col in display_df.columns:
+        rename_map[season_col] = "Season"
     if "pa" in display_df.columns:
         rename_map["pa"] = "PA"
     if comp_col and comp_col in display_df.columns:
@@ -515,75 +541,102 @@ if page == "Main":
         if plus_labels:
             valid_plus = [c for c in plus_labels if c in styled.columns]
             if valid_plus:
+                # Anchor gradient to a centered colormap around 100
                 centered_cmap = create_centered_cmap(center=100, vmin=70, vmax=130)
                 styler = styler.background_gradient(subset=valid_plus, cmap=centered_cmap, vmin=70, vmax=130)
         st.dataframe(styler, use_container_width=True, hide_index=True)
     except Exception:
         st.dataframe(styled, use_container_width=True, hide_index=True)
 
+    # Leaderboards (Top 10) - include season printed under player name
     st.markdown("<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Top 10 Leaderboards</h2>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
         st.markdown('<div style="text-align:center; font-size:1.15em; font-weight:600; margin-bottom:0.6em; color:#385684;">Top 10 by Swing+</div>', unsafe_allow_html=True)
-        if "Swing+" in df_main_filtered.columns:
-            top_swing = df_main_filtered.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
+        if "Swing+" in df_filtered_main.columns:
+            top_swing = df_filtered_main.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
             top_swing_display = top_swing.copy()
+            # Create a PlayerDisplay column that shows Name and Season underneath
+            if season_col in top_swing_display.columns:
+                top_swing_display["PlayerDisplay"] = top_swing_display.apply(lambda r: f"{r['Name']}\nSeason: {r[season_col]}", axis=1)
+            else:
+                top_swing_display["PlayerDisplay"] = top_swing_display["Name"]
             if "Age" in top_swing_display.columns:
                 try:
                     top_swing_display["Age"] = top_swing_display["Age"].round(0).astype("Int64")
                 except Exception:
                     pass
-            top_swing_renamed = top_swing_display.rename(columns=rename_map)
-            leaderboard_cols = [c for c in ["Name", "Team", "Age", "Swing+", "HitSkillPlus", "ImpactPlus"] if c in top_swing.columns]
-            display_cols_renamed = [rename_map.get(c, c) for c in leaderboard_cols]
-            swing_label = rename_map.get("Swing+", "Swing+")
+            # Prepare display columns: PlayerDisplay, Team, Age, Swing+, HitSkill+, Impact+
+            leaderboard_cols = []
+            leaderboard_cols.append("PlayerDisplay")
+            if "Team" in top_swing_display.columns:
+                leaderboard_cols.append("Team")
+            if "Age" in top_swing_display.columns:
+                leaderboard_cols.append("Age")
+            for c in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
+                if c in top_swing_display.columns:
+                    leaderboard_cols.append(c)
+            # Rename for display: map PlayerDisplay -> Player, plus others via rename_map
+            display_renames = {**rename_map}
+            display_renames["PlayerDisplay"] = "Player"
+            top_swing_show = top_swing_display[leaderboard_cols].rename(columns=display_renames)
+            swing_label = display_renames.get("Swing+", "Swing+")
             try:
-                vmin = min(70, float(df_main_filtered["Swing+"].min()))
-                vmax = max(130, float(df_main_filtered["Swing+"].max()))
+                vmin = min(70, float(df_filtered_main["Swing+"].min()))
+                vmax = max(130, float(df_filtered_main["Swing+"].max()))
                 centered_cmap = create_centered_cmap(center=100, vmin=vmin, vmax=vmax)
                 st.dataframe(
-                    top_swing_renamed[display_cols_renamed]
-                    .style.format(precision=2)
-                    .background_gradient(subset=[swing_label], cmap=centered_cmap, vmin=vmin, vmax=vmax),
+                    top_swing_show.style.format(precision=2).background_gradient(subset=[swing_label], cmap=centered_cmap, vmin=vmin, vmax=vmax),
                     use_container_width=True,
                     hide_index=True
                 )
             except Exception:
-                st.dataframe(top_swing_renamed[display_cols_renamed], use_container_width=True, hide_index=True)
+                st.dataframe(top_swing_show, use_container_width=True, hide_index=True)
         else:
             st.info("Swing+ not present in dataset; leaderboard unavailable.")
 
     with col2:
         st.markdown('<div style="text-align:center; font-size:1.15em; font-weight:600; margin-bottom:0.6em; color:#385684;">Top 10 by HitSkill+</div>', unsafe_allow_html=True)
-        if "HitSkillPlus" in df_main_filtered.columns:
-            top_hit = df_main_filtered.sort_values("HitSkillPlus", ascending=False).head(10).reset_index(drop=True)
+        if "HitSkillPlus" in df_filtered_main.columns:
+            top_hit = df_filtered_main.sort_values("HitSkillPlus", ascending=False).head(10).reset_index(drop=True)
             top_hit_display = top_hit.copy()
+            if season_col in top_hit_display.columns:
+                top_hit_display["PlayerDisplay"] = top_hit_display.apply(lambda r: f"{r['Name']}\nSeason: {r[season_col]}", axis=1)
+            else:
+                top_hit_display["PlayerDisplay"] = top_hit_display["Name"]
             if "Age" in top_hit_display.columns:
                 try:
                     top_hit_display["Age"] = top_hit_display["Age"].round(0).astype("Int64")
                 except Exception:
                     pass
-            top_hit_renamed = top_hit_display.rename(columns=rename_map)
-            leaderboard_cols_hit = [c for c in ["Name", "Team", "Age", "HitSkillPlus", "Swing+", "ImpactPlus"] if c in top_hit.columns]
-            display_cols_hit_renamed = [rename_map.get(c, c) for c in leaderboard_cols_hit]
-            hit_label = rename_map.get("HitSkillPlus", "HitSkill+")
+            leaderboard_cols_hit = []
+            leaderboard_cols_hit.append("PlayerDisplay")
+            if "Team" in top_hit_display.columns:
+                leaderboard_cols_hit.append("Team")
+            if "Age" in top_hit_display.columns:
+                leaderboard_cols_hit.append("Age")
+            for c in ["HitSkillPlus", "Swing+", "ImpactPlus"]:
+                if c in top_hit_display.columns:
+                    leaderboard_cols_hit.append(c)
+            display_renames_hit = {**rename_map}
+            display_renames_hit["PlayerDisplay"] = "Player"
+            top_hit_show = top_hit_display[leaderboard_cols_hit].rename(columns=display_renames_hit)
+            hit_label = display_renames_hit.get("HitSkillPlus", "HitSkill+")
             try:
-                vmin_h = min(70, float(df_main_filtered["HitSkillPlus"].min()))
-                vmax_h = max(130, float(df_main_filtered["HitSkillPlus"].max()))
+                vmin_h = min(70, float(df_filtered_main["HitSkillPlus"].min()))
+                vmax_h = max(130, float(df_filtered_main["HitSkillPlus"].max()))
                 centered_cmap = create_centered_cmap(center=100, vmin=vmin_h, vmax=vmax_h)
                 st.dataframe(
-                    top_hit_renamed[display_cols_hit_renamed]
-                    .style.format(precision=2)
-                    .background_gradient(subset=[hit_label], cmap=centered_cmap, vmin=vmin_h, vmax=vmax_h),
+                    top_hit_show.style.format(precision=2).background_gradient(subset=[hit_label], cmap=centered_cmap, vmin=vmin_h, vmax=vmax_h),
                     use_container_width=True,
                     hide_index=True
                 )
             except Exception:
-                st.dataframe(top_hit_renamed[display_cols_hit_renamed], use_container_width=True, hide_index=True)
+                st.dataframe(top_hit_show, use_container_width=True, hide_index=True)
         else:
             st.info("HitSkillPlus not present in dataset; leaderboard unavailable.")
 
-# ---------------- Player tab ----------------
+# ---------------- Player tab: Player Detail view ----------------
 elif page == "Player":
     st.markdown(
         """
@@ -594,6 +647,7 @@ elif page == "Player":
         unsafe_allow_html=True
     )
 
+    # Allow deep-linking to a player via URL query param ?player=Player+Name
     params = st.experimental_get_query_params()
     qp_player = None
     if "player" in params and len(params["player"]) > 0:
@@ -602,7 +656,7 @@ elif page == "Player":
         except Exception:
             qp_player = params["player"][0]
 
-    # Player selector uses full df so tab not affected by main filters
+    # Player selector uses full df (not affected by Main filters)
     player_options = sorted(df["Name"].unique())
     default_index = 0
     if qp_player and qp_player in player_options:
@@ -615,6 +669,7 @@ elif page == "Player":
         index=default_index
     )
 
+    # Season selector for player (per-player control)
     player_season_selected = None
     if season_col:
         try:
@@ -628,6 +683,7 @@ elif page == "Player":
         except Exception:
             player_season_selected = None
 
+    # Choose the player_row based on player and selected season (if available)
     if player_season_selected is not None and season_col:
         try:
             pr_df = df[(df["Name"] == player_select) & (df[season_col] == player_season_selected)]
@@ -640,6 +696,7 @@ elif page == "Player":
     else:
         player_row = df[df["Name"] == player_select].iloc[0]
 
+    # Build player header (headshot, title, bio, etc.)
     player_title = player_select
     if player_season_selected is not None:
         player_title = f"{player_select} ({player_season_selected})"
@@ -727,14 +784,11 @@ elif page == "Player":
         unsafe_allow_html=True
     )
 
-    # Compute ranks within season context (player-specific if chosen)
+    # Compute ranks within the selected season context (player-specific if chosen, else full df)
     if season_col:
         season_context = None
         if player_season_selected is not None:
             season_context = player_season_selected
-        elif season_selected_global is not None:
-            season_context = season_selected_global
-
         if season_context is not None:
             try:
                 df_rank = df[df[season_col] == season_context].copy()
@@ -821,7 +875,7 @@ elif page == "Player":
         unsafe_allow_html=True
     )
 
-    # Build video URL
+    # Build video URL using selected season (player_season_selected) first, fallback to player row year, then 2025
     video_url = None
     if "id" in player_row and pd.notnull(player_row["id"]):
         try:
@@ -833,8 +887,6 @@ elif page == "Player":
         try:
             if player_season_selected is not None:
                 video_year = int(player_season_selected)
-            elif season_selected_global is not None:
-                video_year = int(season_selected_global)
             elif "year" in player_row and pd.notna(player_row["year"]):
                 video_year = int(player_row["year"])
             else:
@@ -882,6 +934,7 @@ elif page == "Player":
             unsafe_allow_html=True
         )
 
+    # Compute SHAP values for the selected player (Swing+ only)
     mech_features_available = [f for f in mechanical_features if f in df.columns]
 
     shap_df = None
@@ -892,6 +945,7 @@ elif page == "Player":
     if model_loaded and explainer is not None and len(mech_features_available) >= 2:
         try:
             X_player = prepare_model_input_for_player(player_row, mech_features_available, model, df_reference=df)
+
             try:
                 expected_names = None
                 if hasattr(model, "feature_name_") and model.feature_name_ is not None:
@@ -1016,205 +1070,11 @@ elif page == "Player":
             display_df = display_df.reset_index(drop=True)
             st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-    # Mechanical similarity cluster
-    TOP_N = 10
-    mech_features_available = [f for f in mechanical_features if f in df.columns]
-    if len(mech_features_available) >= 2 and name_col in df.columns:
-        df_mech = df.dropna(subset=mech_features_available + [name_col]).copy()
-        if season_col:
-            season_ctx = player_season_selected if player_season_selected is not None else season_selected_global
-            if season_ctx is not None:
-                try:
-                    df_mech = df_mech[df_mech[season_col] == season_ctx].copy()
-                except Exception:
-                    pass
-
-        df_mech = df_mech.reset_index(drop=True)
-
-        try:
-            if player_select in df_mech[name_col].values and len(df_mech) > 1:
-                scaler = StandardScaler()
-                try:
-                    X_numeric = df_mech[mech_features_available].apply(pd.to_numeric, errors='coerce')
-                    col_means = X_numeric.mean().fillna(0.0)
-                    X_numeric = X_numeric.fillna(col_means)
-                    X_scaled = scaler.fit_transform(X_numeric)
-                except Exception:
-                    X_tmp = df_mech[mech_features_available].apply(pd.to_numeric, errors='coerce').fillna(0.0)
-                    X_scaled = scaler.fit_transform(X_tmp)
-
-                similarity_matrix = cosine_similarity(X_scaled)
-
-                player_positions = df_mech.index[df_mech[name_col] == player_select].tolist()
-                if not player_positions:
-                    st.info("Player not present in mechanical dataset for the selected season/context.")
-                else:
-                    player_pos = player_positions[0]
-                    sim_arr = similarity_matrix[player_pos]
-                    sim_series_pos = pd.Series(sim_arr, index=df_mech.index)
-                    sim_series_pos.iloc[player_pos] = np.nan
-                    similar_pos = sim_series_pos.sort_values(ascending=False).dropna().head(TOP_N)
-                    if similar_pos.empty:
-                        st.info("No mechanically similar players found (or not enough data).")
-                    else:
-                        sim_rows = []
-                        for pos, score in similar_pos.items():
-                            try:
-                                sim_row = df_mech.loc[pos]
-                            except Exception:
-                                continue
-                            sim_name = sim_row[name_col]
-                            if "id" in sim_row and pd.notnull(sim_row["id"]):
-                                try:
-                                    sim_id = str(int(sim_row["id"]))
-                                    sim_headshot_url = f"https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/{sim_id}/headshot/silo/current.png"
-                                except Exception:
-                                    sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-                            else:
-                                sim_headshot_url = "https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/0/headshot/silo/current.png"
-                            try:
-                                sim_score = float(score)
-                            except Exception:
-                                sim_score = 0.0
-                            sim_season = None
-                            if season_col and season_col in sim_row.index:
-                                try:
-                                    sim_season = sim_row[season_col]
-                                except Exception:
-                                    sim_season = None
-                            sim_rows.append({
-                                "name": sim_name,
-                                "headshot_url": sim_headshot_url,
-                                "score": sim_score,
-                                "season": sim_season,
-                                "pos": int(pos)
-                            })
-
-                        st.markdown(
-                            """
-                            <style>
-                            .sim-container { width: 100%; max-width: 1160px; margin: 12px auto 10px auto; display: flex; flex-direction: column; align-items: center; }
-                            .sim-list { width: 100%; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-                            .sim-item { display: flex; align-items: center; background: #ffffff; border-radius: 12px; padding: 10px 14px; gap: 12px; width: 100%; border: 1px solid #eef4f8; box-shadow: 0 6px 18px rgba(15,23,42,0.04); }
-                            .sim-rank { font-size: 1em; font-weight: 700; color: #183153; min-width: 36px; text-align: center; }
-                            .sim-headshot-compact { height: 48px; width: 48px; border-radius: 8px; object-fit: cover; box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
-                            .sim-name-compact { flex: 1; font-size: 1em; color: #183153; }
-                            .sim-score-compact { font-size: 0.98em; font-weight: 700; color: #333; margin-right: 12px; min-width: 72px; text-align: right; }
-                            .sim-bar-mini { width: 220px; height: 10px; background: #f4f7fa; border-radius: 999px; overflow: hidden; margin-left: 8px; }
-                            .sim-bar-fill { height: 100%; border-radius: 999px; transition: width 0.5s ease; }
-                            .sim-compare-btn { background: #ffffff; color: #000000; padding: 8px 12px; border-radius: 10px; text-decoration: none; font-weight: 800; border: 1px solid #d1d5db; cursor: pointer; }
-                            .sim-compare-btn:hover { background: #f3f4f6; transform: translateY(-1px); }
-                            @media (max-width: 1100px) { .sim-container { max-width: 92%; } .sim-bar-mini { width: 160px; height: 8px; } .sim-headshot-compact { height: 40px; width: 40px; } }
-                            </style>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-                        st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to {player_title}</div>', unsafe_allow_html=True)
-                        st.markdown('<div class="sim-list">', unsafe_allow_html=True)
-
-                        for idx, sim in enumerate(sim_rows, 1):
-                            pct = max(0.0, min(1.0, float(sim['score'])))
-                            width_pct = int(round(pct * 100))
-                            start_color = "#D32F2F"
-                            end_color = "#FFB648"
-                            sim_pct_text = f"{pct:.1%}"
-
-                            seasonA_param = player_season_selected if player_season_selected is not None else season_selected_global
-                            seasonB_param = sim.get("season", "")
-                            href_compare = f"?playerA={quote(player_select)}&playerB={quote(sim['name'])}&page=Compare"
-                            if seasonA_param:
-                                href_compare += f"&seasonA={quote(str(seasonA_param))}"
-                            if seasonB_param:
-                                href_compare += f"&seasonB={quote(str(seasonB_param))}"
-
-                            href_player_link = f"?player={quote(sim['name'])}&page=Player"
-                            if sim.get("season", None):
-                                href_player_link += f"&season={quote(str(sim['season']))}"
-                            onclick_player = f"window.history.pushState(null,'','{href_player_link}'); setTimeout(()=>window.location.reload(),30); return false;"
-                            onclick_compare = f"window.history.pushState(null,'','{href_compare}'); setTimeout(()=>window.location.reload(),30); return false;"
-
-                            st.markdown(
-                                f"""
-                                <div class="sim-item">
-                                    <div class="sim-rank">{idx}</div>
-                                    <img src="{sim['headshot_url']}" class="sim-headshot-compact" alt="headshot"/>
-                                    <div class="sim-name-compact"><a href="{href_player_link}" onclick="{onclick_player}" style="color:#183153;text-decoration:none;font-weight:700;">{sim['name']}</a></div>
-                                    <div style="display:flex;align-items:center;gap:8px;">
-                                        <div class="sim-score-compact">{sim_pct_text}</div>
-                                        <div class="sim-bar-mini" aria-hidden="true">
-                                            <div class="sim-bar-fill" style="width:{width_pct}%; background: linear-gradient(90deg, {start_color}, {end_color});"></div>
-                                        </div>
-                                        <a class="sim-compare-btn" href="{href_compare}" onclick="{onclick_compare}">Compare</a>
-                                    </div>
-                                </div>
-                                """,
-                                unsafe_allow_html=True
-                            )
-
-                        st.markdown('</div></div>', unsafe_allow_html=True)
-
-                        with st.expander("Mechanical similarity cluster (click to expand)", expanded=False):
-                            try:
-                                heat_positions = [player_pos] + [int(p) for p in similar_pos.index.tolist()]
-                                heat_positions = list(dict.fromkeys(heat_positions))
-                                if len(heat_positions) < 2:
-                                    st.info("Not enough data to build cluster heatmap.")
-                                else:
-                                    heat_mat = similarity_matrix[np.ix_(heat_positions, heat_positions)]
-                                    heat_names = []
-                                    for p in heat_positions:
-                                        try:
-                                            heat_names.append(df_mech.iloc[int(p)][name_col])
-                                        except Exception:
-                                            heat_names.append(f"Player_{p}")
-
-                                    num_players = len(heat_positions)
-                                    fig_width = min(10, max(6, num_players * 0.6))
-                                    fig_height = min(8, max(5, num_players * 0.5))
-                                    fig_h, axh = plt.subplots(figsize=(fig_width, fig_height))
-
-                                    sns.heatmap(
-                                        heat_mat,
-                                        xticklabels=heat_names,
-                                        yticklabels=heat_names,
-                                        cmap="coolwarm",
-                                        vmin=0.0,
-                                        vmax=1.0,
-                                        annot=True,
-                                        fmt=".2f",
-                                        annot_kws={"fontsize": 9},
-                                        square=True,
-                                        linewidths=0.5,
-                                        linecolor='gray',
-                                        cbar_kws={"label": "Cosine Similarity", "shrink": 0.8},
-                                        ax=axh
-                                    )
-
-                                    axh.set_title(
-                                        f"Mechanical Similarity Cluster: {player_title}",
-                                        fontsize=14,
-                                        fontweight='bold',
-                                        pad=12
-                                    )
-
-                                    axh.set_xticklabels(heat_names, rotation=45, ha='right', fontsize=9)
-                                    axh.set_yticklabels(heat_names, rotation=0, fontsize=9)
-
-                                    plt.tight_layout()
-                                    st.pyplot(fig_h)
-                                    plt.close(fig_h)
-                            except Exception as e:
-                                st.info(f"Could not render cluster heatmap: {str(e)}")
-            else:
-                st.info("Player not present in mechanical dataset for the selected season/context.")
-        except Exception as e:
-            st.info(f"Not enough mechanical data for this player/season to compute similarities: {str(e)}")
-
 # ---------------- Compare tab ----------------
 elif page == "Compare":
     st.markdown('<h2 style="text-align:center; margin-top:10px; margin-bottom:6px; font-size:1.4em; color:#183153;">Compare Players (season-specific)</h2>', unsafe_allow_html=True)
 
+    # Player options come from full df (not just filtered) to allow cross-season selection
     player_options = sorted(df["Name"].unique())
     if not player_options:
         st.info("No players available for comparison.")
@@ -1229,6 +1089,7 @@ elif page == "Compare":
         col_a, col_b = st.columns([1, 1])
         with col_a:
             playerA = st.selectbox("Player A", player_options, index=default_a_idx, key="compare_player_a")
+            # season selector for A
             seasonA = None
             if season_col:
                 seasonsA = sorted(df[df["Name"] == playerA][season_col].dropna().unique())
@@ -1236,8 +1097,8 @@ elif page == "Compare":
                     defaultA = None
                     if qp_season_a and qp_season_a in seasonsA:
                         defaultA = int(qp_season_a)
-                    elif season_selected_global in seasonsA:
-                        defaultA = season_selected_global
+                    elif season_col in df.columns and None in seasonsA:
+                        defaultA = seasonsA[-1]
                     else:
                         defaultA = seasonsA[-1]
                     try:
@@ -1247,6 +1108,7 @@ elif page == "Compare":
                     seasonA = st.selectbox("Season A", seasonsA, index=idxA, key="season_a_select")
         with col_b:
             playerB = st.selectbox("Player B", player_options, index=default_b_idx, key="compare_player_b")
+            # season selector for B
             seasonB = None
             if season_col:
                 seasonsB = sorted(df[df["Name"] == playerB][season_col].dropna().unique())
@@ -1254,8 +1116,8 @@ elif page == "Compare":
                     defaultB = None
                     if qp_season_b and qp_season_b in seasonsB:
                         defaultB = int(qp_season_b)
-                    elif season_selected_global in seasonsB:
-                        defaultB = season_selected_global
+                    elif season_col in df.columns and None in seasonsB:
+                        defaultB = seasonsB[-1]
                     else:
                         defaultB = seasonsB[-1]
                     try:
@@ -1273,6 +1135,7 @@ elif page == "Compare":
                         r = df[(df["Name"] == name) & (df[season_col] == season_selected)]
                         if len(r) > 0:
                             return r.iloc[0]
+                    # fallback to latest row for the player
                     return df[df["Name"] == name].iloc[0]
                 except Exception:
                     return df[df["Name"] == name].iloc[0]
@@ -1280,6 +1143,7 @@ elif page == "Compare":
             rowA = get_player_row_for_season(playerA, seasonA if season_col else None)
             rowB = get_player_row_for_season(playerB, seasonB if season_col else None)
 
+            # Build df_for_comparison: use seasonA and seasonB if present, otherwise use full df
             mech_features_available = [f for f in mechanical_features if f in df.columns]
             if season_col:
                 seasons_to_use = []
@@ -1287,6 +1151,7 @@ elif page == "Compare":
                     seasons_to_use.append(seasonA)
                 if seasonB is not None and seasonB not in seasons_to_use:
                     seasons_to_use.append(seasonB)
+                # if empty, use full df
                 if seasons_to_use:
                     try:
                         df_comp = df[df[season_col].isin(seasons_to_use)].dropna(subset=mech_features_available + [name_col]).copy()
@@ -1300,6 +1165,7 @@ elif page == "Compare":
             if len(mech_features_available) >= 2 and not df_comp.empty:
                 try:
                     scaler, df_scaled = get_scaler_and_scaled_df(mech_features_available, df_comp)
+                    # indices for A and B in df_comp - try to get exact season-specific index if possible
                     try:
                         idxA = df_comp[(df_comp["Name"] == playerA) & ((df_comp[season_col] == seasonA) if season_col and seasonA is not None else True)].index[0]
                     except Exception:
@@ -1321,6 +1187,7 @@ elif page == "Compare":
                         cosine_sim = compute_cosine_similarity_between_rows(vecA, vecB)
                         sim_pct = f"{cosine_sim*100:.1f}%"
                     else:
+                        # try transforming raw rows directly if indices not found in df_comp
                         try:
                             vecA = scaler.transform(pd.DataFrame([rowA[mech_features_available].astype(float)]))[0]
                             vecB = scaler.transform(pd.DataFrame([rowB[mech_features_available].astype(float)]))[0]
@@ -1385,6 +1252,7 @@ elif page == "Compare":
 
             st.markdown("<hr />", unsafe_allow_html=True)
 
+            # Compare SHAP and rest (season-aware)
             if len(mech_features_available) >= 2 and not df_comp.empty:
                 feats = mech_features_available
                 mean_series = df_comp[feats].mean()
