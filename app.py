@@ -1481,26 +1481,17 @@ if not use_shap:
     importance = importance.replace(0, 1e-9)
     importance = importance / importance.sum()
 
-# ==========================================
-# TABLE CSS WITH OUTER BORDER
-# ==========================================
 st.markdown("""
 <style>
-.comp-table-wrapper {
-    border: 2px solid #111827;
-    border-radius: 10px;
-    overflow: hidden;
-    display: block;
-    width: 100%;
-    margin-top: 18px;
-    background: #FFFFFF;
-}
-
 .comp-table {
     width: 100%;
     border-collapse: collapse;
+    margin-top: 18px;
     font-size: 0.88em;
-    background: transparent;
+    background: #FFFFFF;
+    border: 2px solid #111827;   /* OUTER BORDER */
+    border-radius: 10px;
+    overflow: hidden;
 }
 
 .comp-table th {
@@ -1530,6 +1521,44 @@ st.markdown("""
 }
 </style>
 """, unsafe_allow_html=True)
+
+# ==========================================
+# BUILD TABLE
+# ==========================================
+html_rows = ""
+for f in feats:
+    html_rows += (
+        "<tr>"
+        f"<td class='comp-feature'>{FEATURE_LABELS.get(f, f)}</td>"
+        f"<td>{valsA[f]:.2f}</td>"
+        f"<td>{valsB[f]:.2f}</td>"
+        f"<td>{(valsA[f]-valsB[f]):.2f}</td>"
+        f"<td>{z_diff[f]:.2f}</td>"
+        f"<td>{pctA[f]:.0%}</td>"
+        f"<td>{pctB[f]:.0%}</td>"
+        f"<td>{importance[f]:.3f}</td>"
+        "</tr>"
+    )
+
+html_table = (
+f"<table class='comp-table'>"
+f"<thead>"
+f"<tr>"
+f"<th>Feature</th>"
+f"<th>{playerA} ({seasonA})</th>"
+f"<th>{playerB} ({seasonB})</th>"
+f"<th>Diff</th>"
+f"<th>Z-Diff</th>"
+f"<th>Pct A</th>"
+f"<th>Pct B</th>"
+f"<th>Importance</th>"
+f"</tr>"
+f"</thead>"
+f"<tbody>{html_rows}</tbody>"
+f"</table>"
+)
+
+st.markdown(html_table, unsafe_allow_html=True)
 
 # ==========================================
 # BUILD TABLE
