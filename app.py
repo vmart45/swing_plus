@@ -1560,44 +1560,6 @@ f"</table>"
 
 st.markdown(html_table, unsafe_allow_html=True)
 
-# ==========================================
-# BUILD TABLE
-# ==========================================
-html_rows = ""
-for f in feats:
-    html_rows += (
-        "<tr>"
-        f"<td class='comp-feature'>{FEATURE_LABELS.get(f, f)}</td>"
-        f"<td>{valsA[f]:.2f}</td>"
-        f"<td>{valsB[f]:.2f}</td>"
-        f"<td>{(valsA[f]-valsB[f]):.2f}</td>"
-        f"<td>{z_diff[f]:.2f}</td>"
-        f"<td>{pctA[f]:.0%}</td>"
-        f"<td>{pctB[f]:.0%}</td>"
-        f"<td>{importance[f]:.3f}</td>"
-        "</tr>"
-    )
-
-html_table = (
-f"<table class='comp-table'>"
-f"<thead>"
-f"<tr>"
-f"<th>Feature</th>"
-f"<th>{playerA} ({seasonA})</th>"
-f"<th>{playerB} ({seasonB})</th>"
-f"<th>Diff</th>"
-f"<th>Z-Diff</th>"
-f"<th>Pct A</th>"
-f"<th>Pct B</th>"
-f"<th>Importance</th>"
-f"</tr>"
-f"</thead>"
-f"<tbody>{html_rows}</tbody>"
-f"</table>"
-)
-
-st.markdown(f"<div class='comp-table-wrapper'>{html_table}</div>", unsafe_allow_html=True)
-
 # -------------------------------------
 # SHAP Comparison
 # -------------------------------------
