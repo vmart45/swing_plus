@@ -1281,6 +1281,7 @@ elif page == "Compare":
         playerA = st.selectbox("", player_options, index=default_a_idx, key="compare_player_a")
 
         if season_col:
+            playerA = st.selectbox("Player A", player_options, index=default_a_idx, key="compare_player_a")
             seasonsA = sorted(df[df["Name"] == playerA][season_col].dropna().unique())
             qpA = int(qp_season_a) if qp_season_a and int(qp_season_a) in seasonsA else None
             defaultA = qpA if qpA is not None else seasonsA[-1]
