@@ -1457,12 +1457,28 @@ if model_loaded and explainer is not None:
             raise Exception("No SHAP values")
     except:
         use_shap = False
+        
+if page == "Compare" and 'feats' in locals() and len(feats) > 0:
+    try:
+        if model_loaded and explainer is not None and 'df_comp' in locals():
+            sampleX = df_comp[feats].head(200).fillna(df_comp[feats].mean())
+            sample_shap = explainer(sampleX)
+            if hasattr(sample_shap, "values"):
+                mean_abs_shap = abs(sample_shap.values).mean(axis=0)
+                importance = pd.Series(mean_abs_shap, index=feats)
+                use_shap = True
+    except Exception:
+        use_shap = False
 
 if not use_shap:
-    # fallback importance based on data variation (NOT all 1s)
-    importance = (abs(zA) + abs(zB))
-    importance = importance.replace(0, 1e-9)
-    importance = importance / importance.sum()
+    if 'zA' in locals() and 'zB' in locals() and 'feats' in locals():
+        importance = (abs(zA) + abs(zB)).replace(0, 1e-9)
+        importance = importance / importance.sum()
+    else:
+        if 'feats' in locals():
+            importance = pd.Series(1.0, index=feats)
+        else:
+            importance = pd.Series()
 
 # ==========================================
 # FIXED IMPORTANCE COMPUTATION
