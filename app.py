@@ -1593,40 +1593,71 @@ elif page == "Compare":
 
         st.markdown(html_table, unsafe_allow_html=True)
 
-        # -------------------------------------
-        # SHAP Comparison
-        # -------------------------------------
-        st.markdown("""
-            <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
-                Model Contributions (SHAP)
-            </h3>
-        """, unsafe_allow_html=True)
-
+        # Replace the SHAP Comparison block in the Compare tab with this snippet
         order = importance.sort_values(ascending=False).index
         shapA_ord = shapA.reindex(order).fillna(0)
         shapB_ord = shapB.reindex(order).fillna(0)
         labels = [FEATURE_LABELS.get(f, f) for f in order]
-
+        
+        # compute importance percentages for hover/text
+        imp_pct = importance.reindex(order).fillna(0)
+        if imp_pct.sum() == 0:
+            imp_pct_vals = [0.0] * len(imp_pct)
+        else:
+            imp_pct_vals = (imp_pct / imp_pct.sum()).values.astype(float)
+        
         colA_shap, colB_shap = st.columns(2)
-
+        
         with colA_shap:
             fig = go.Figure()
             vals = shapA_ord.values.astype(float)
             colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]
-            fig.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors))
-            fig.update_layout(margin=dict(l=160, r=24, t=28, b=60),
-                              height=430, showlegend=False,
-                              xaxis_title="SHAP contribution",
-                              yaxis=dict(autorange="reversed"))
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-
+            text_labels = [f"{v:.3f}  ({p:.0%})" for v, p in zip(vals, imp_pct_vals)]
+            hover_text = [f"Contribution: {v:.3f}<br>Importance: {p:.0%}" for v, p in zip(vals, imp_pct_vals)]
+            fig.add_trace(go.Bar(
+                x=vals,
+                y=labels,
+                orientation='h',
+                marker_color=colors,
+                hoverinfo='text',
+                hovertext=hover_text,
+                text=text_labels,
+                textposition='inside',
+                insidetextanchor='middle'
+            ))
+            fig.update_layout(
+                margin=dict(l=160, r=24, t=28, b=60),
+                height=430,
+                showlegend=False,
+                xaxis_title="SHAP contribution",
+                yaxis=dict(autorange="reversed"),
+                font=dict(size=11)
+            )
+            st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
+        
         with colB_shap:
             fig = go.Figure()
             vals = shapB_ord.values.astype(float)
-            colors = ["#F59E0B" if v > 0 else "#60A5FA" for v in vals]
-            fig.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors))
-            fig.update_layout(margin=dict(l=160, r=24, t=28, b=60),
-                              height=430, showlegend=False,
-                              xaxis_title="SHAP contribution",
-                              yaxis=dict(autorange="reversed"))
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+            colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]  # same red/blue scheme as player tab
+            text_labels = [f"{v:.3f}  ({p:.0%})" for v, p in zip(vals, imp_pct_vals)]
+            hover_text = [f"Contribution: {v:.3f}<br>Importance: {p:.0%}" for v, p in zip(vals, imp_pct_vals)]
+            fig.add_trace(go.Bar(
+                x=vals,
+                y=labels,
+                orientation='h',
+                marker_color=colors,
+                hoverinfo='text',
+                hovertext=hover_text,
+                text=text_labels,
+                textposition='inside',
+                insidetextanchor='middle'
+            ))
+            fig.update_layout(
+                margin=dict(l=160, r=24, t=28, b=60),
+                height=430,
+                showlegend=False,
+                xaxis_title="SHAP contribution",
+                yaxis=dict(autorange="reversed"),
+                font=dict(size=11)
+            )
+            st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
