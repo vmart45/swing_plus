@@ -1509,9 +1509,12 @@ elif page == "Compare":
             st.markdown(f"- **Difference driver:** {FEATURE_LABELS.get(f,f)}")
 
         st.markdown(
-            f"""
+            """
             <h3 style="text-align:center; margin-top:6px; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
                 Swing+ Feature Contributions
+            </h3>
+            <div style="text-align:center; color:#6b7280; margin-bottom:6px; font-size:0.95em;">
+                How each mechanical feature moved the model's Swing+ prediction for this player.
             </div>
             """,
             unsafe_allow_html=True
