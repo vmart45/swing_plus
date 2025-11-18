@@ -1439,13 +1439,13 @@ elif page == "Compare":
         )
         
         # ============================
-        # TABLE CSS (FULL OUTER BORDER)
+        # TABLE CSS
         # ============================
         st.markdown("""
         <style>
         
         .comp-table-wrapper {
-            border: 2px solid #1F2937;      /* FULL OUTER BORDER */
+            border: 2px solid #1F2937;
             border-radius: 10px;
             overflow: hidden;
             margin-top: 10px;
@@ -1455,7 +1455,7 @@ elif page == "Compare":
             width: 100%;
             border-collapse: collapse;
             font-size: 0.88em;
-            background: #FFFFFF;
+            background: #FFF;
         }
         
         .comp-table th {
@@ -1474,21 +1474,21 @@ elif page == "Compare":
             color: #111827;
         }
         
-        .comp-table tr:last-child td {
-            border-bottom: 1px solid #E5E7EB;
-        }
-        
         .comp-feature {
             text-align: left;
             font-weight: 600;
             color: #1F2937;
         }
         
+        .comp-table tr:last-child td {
+            border-bottom: 1px solid #E5E7EB;
+        }
+        
         </style>
         """, unsafe_allow_html=True)
         
         # ============================
-        # BUILD HTML ROWS
+        # BUILD ROWS
         # ============================
         html_rows = ""
         for f in feats:
@@ -1497,7 +1497,7 @@ elif page == "Compare":
                 <td class="comp-feature">{FEATURE_LABELS.get(f, f)}</td>
                 <td>{valsA[f]:.2f}</td>
                 <td>{valsB[f]:.2f}</td>
-                <td>{(valsA[f] - valsB[f]):.2f}</td>
+                <td>{(valsA[f]-valsB[f]):.2f}</td>
                 <td>{z_diff[f]:.2f}</td>
                 <td>{pctA[f]:.0%}</td>
                 <td>{pctB[f]:.0%}</td>
@@ -1506,7 +1506,7 @@ elif page == "Compare":
             """
         
         # ============================
-        # FINAL WRAPPED TABLE (border works)
+        # FINAL TABLE RENDER
         # ============================
         html_table = f"""
         <div class="comp-table-wrapper">
@@ -1531,6 +1531,7 @@ elif page == "Compare":
         """
         
         st.markdown(html_table, unsafe_allow_html=True)
+
 
 
         # -------------------------------------------------
