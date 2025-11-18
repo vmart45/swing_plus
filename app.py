@@ -1422,112 +1422,193 @@ elif page == "Compare":
     st.markdown("</div>", unsafe_allow_html=True)
     st.markdown("<hr style='margin-top:30px;margin-bottom:20px;'/>", unsafe_allow_html=True)
 
-    if len(mech_features_available) >= 2 and not df_comp.empty:
-                feats = mech_features_available
-                mean_series = df_comp[feats].mean()
-                std_series = df_comp[feats].std().replace(0, 1e-9)
-                valsA = rowA[feats].astype(float)
-                valsB = rowB[feats].astype(float)
-                zA = (valsA - mean_series) / std_series
-                zB = (valsB - mean_series) / std_series
-                abs_diff = (valsA - valsB).abs()
-                z_diff = (zA - zB).abs()
-                pctile = df_comp[feats].rank(pct=True)
+        if len(mech_features_available) >= 2 and not df_comp.empty:
+            feats = mech_features_available
+
+            # ------------------------------
+            # Z-scores & differences
+            # ------------------------------
+            mean_series = df_comp[feats].mean()
+            std_series = df_comp[feats].std().replace(0, 1e-9)
+
+            valsA = rowA[feats].astype(float)
+            valsB = rowB[feats].astype(float)
+
+            zA = (valsA - mean_series) / std_series
+            zB = (valsB - mean_series) / std_series
+
+            abs_diff = (valsA - valsB).abs()
+            z_diff = (zA - zB).abs()
+
+            # ------------------------------
+            # Percentiles
+            # ------------------------------
+            pctile = df_comp[feats].rank(pct=True)
+
+            try:
+                pctA = pctile.loc[rowA.name]
+            except Exception:
+                idxA_p = df_comp[df_comp["Name"] == playerA].index
+                pctA = pctile.loc[idxA_p[0]] if len(idxA_p) else pd.Series(0, index=feats)
+
+            try:
+                pctB = pctile.loc[rowB.name]
+            except Exception:
+                idxB_p = df_comp[df_comp["Name"] == playerB].index
+                pctB = pctile.loc[idxB_p[0]] if len(idxB_p) else pd.Series(0, index=feats)
+
+            # ------------------------------
+            # SHAP
+            # ------------------------------
+            shapA, predA, baseA = compute_shap(rowA, feats)
+            shapB, predB, baseB = compute_shap(rowB, feats)
+
+            if shapA is not None:
+                shapA = shapA.reindex(feats).fillna(0)
+            else:
+                shapA = pd.Series(0, index=feats)
+
+            if shapB is not None:
+                shapB = shapB.reindex(feats).fillna(0)
+            else:
+                shapB = pd.Series(0, index=feats)
+
+            # ------------------------------
+            # Feature importance
+            # ------------------------------
+            if model_loaded and explainer is not None:
                 try:
-                    pctA = pctile.loc[rowA.name]
-                except Exception:
-                    pctA = pctile.loc[df_comp[df_comp["Name"] == playerA].index[0]] if len(df_comp[df_comp["Name"] == playerA]) > 0 else pd.Series(0, index=feats)
-                try:
-                    pctB = pctile.loc[rowB.name]
-                except Exception:
-                    pctB = pctile.loc[df_comp[df_comp["Name"] == playerB].index[0]] if len(df_comp[df_comp["Name"] == playerB]) > 0 else pd.Series(0, index=feats)
+                    sampleX = df_comp[feats].head(200).fillna(df_comp[feats].mean())
+                    sample_shap = explainer(sampleX)
 
-                shapA, predA, baseA = compute_shap(rowA, feats)
-                shapB, predB, baseB = compute_shap(rowB, feats)
-
-                if shapA is not None:
-                    try:
-                        shapA = shapA.reindex(feats).fillna(0)
-                    except Exception:
-                        shapA = pd.Series(0, index=feats)
-                if shapB is not None:
-                    try:
-                        shapB = shapB.reindex(feats).fillna(0)
-                    except Exception:
-                        shapB = pd.Series(0, index=feats)
-
-                if model_loaded and explainer is not None and shapA is not None:
-                    try:
-                        sampleX = df_comp[feats].head(200).copy()
-                        sampleX = sampleX.fillna(sampleX.mean())
-                        try:
-                            samp_shap = explainer(sampleX)
-                            if hasattr(samp_shap, "values"):
-                                mean_abs_shap = np.mean(np.abs(samp_shap.values), axis=0)
-                                importance = pd.Series(mean_abs_shap, index=feats)
-                            else:
-                                importance = pd.Series(np.ones(len(feats)), index=feats)
-                        except Exception:
-                            importance = pd.Series(np.ones(len(feats)), index=feats)
-                    except Exception:
+                    if hasattr(sample_shap, "values"):
+                        mean_abs_shap = np.abs(sample_shap.values).mean(axis=0)
+                        importance = pd.Series(mean_abs_shap, index=feats)
+                    else:
                         importance = pd.Series(np.ones(len(feats)), index=feats)
-                else:
+
+                except Exception:
                     importance = pd.Series(np.ones(len(feats)), index=feats)
+            else:
+                importance = pd.Series(np.ones(len(feats)), index=feats)
 
-                st.markdown("### Quick Takeaways")
-                weighted_score = (1 - (z_diff / (z_diff.max() + 1e-9))).clip(0, 1) * importance
-                top_sim_idxs = weighted_score.sort_values(ascending=False).head(3).index.tolist()
-                top_diff_idxs = (z_diff * importance).sort_values(ascending=False).head(3).index.tolist()
-                bullets = []
-                if cosine_sim is not None:
-                    bullets.append(f"Overall mechanical similarity: {cosine_sim*100:.1f}%.")
-                for f in top_sim_idxs:
-                    bullets.append(f"Similarity driver: {FEATURE_LABELS.get(f,f)} — both players are close in normalized space.")
-                for f in top_diff_idxs:
-                    bullets.append(f"Difference driver: {FEATURE_LABELS.get(f,f)} — notable normalized difference; check distribution.")
-                for b in bullets:
-                    st.markdown(f"- {b}")
+            # ------------------------------
+            # Quick Takeaways (clean look)
+            # ------------------------------
+            st.markdown(
+                """
+                <h3 style="margin-top:22px;margin-bottom:8px;color:#0F1A34;font-weight:750;">
+                    Quick Takeaways
+                </h3>
+                """,
+                unsafe_allow_html=True
+            )
 
-                st.markdown("### Feature comparison")
-                table_df = pd.DataFrame({
-                    "Feature": [FEATURE_LABELS.get(f, f) for f in feats],
-                    "A (raw)": [f"{valsA[f]:.2f}" if pd.notna(valsA[f]) else "NaN" for f in feats],
-                    "B (raw)": [f"{valsB[f]:.2f}" if pd.notna(valsB[f]) else "NaN" for f in feats],
-                    "Raw diff": [f"{(valsA[f]-valsB[f]):.2f}" for f in feats],
-                    "Z diff": [f"{z_diff[f]:.2f}" for f in feats],
-                    "Pct A": [f"{pctA[f]:.0%}" for f in feats],
-                    "Pct B": [f"{pctB[f]:.0%}" for f in feats],
-                    "Importance": [f"{importance[f]:.3f}" for f in feats]
-                })
-                st.dataframe(table_df.style.format(precision=2), use_container_width=True, hide_index=True)
+            weighted_score = (1 - (z_diff / (z_diff.max() + 1e-9))).clip(0, 1) * importance
 
-                st.markdown("### Model contributions")
-                if shapA is None or shapB is None:
-                    st.info("Model SHAP not available for one or both players.")
-                else:
-                    order = importance.sort_values(ascending=False).index.tolist()
-                    labels = [FEATURE_LABELS.get(f, f) for f in order]
-                    shapA_ord = shapA.reindex(order).fillna(0)
-                    shapB_ord = shapB.reindex(order).fillna(0)
+            top_sim = weighted_score.sort_values(ascending=False).head(3).index.tolist()
+            top_diff = (z_diff * importance).sort_values(ascending=False).head(3).index.tolist()
 
-                    col_shap_a, col_shap_b = st.columns([1, 1])
-                    with col_shap_a:
-                        vals = shapA_ord.values.astype(float)
-                        colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]
-                        text_labels = [f"{v:.3f}" for v in vals]
-                        figA = go.Figure()
-                        figA.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textposition='inside'))
-                        figA.update_layout(margin=dict(l=160, r=24, t=28, b=60), xaxis_title="SHAP contribution to Swing+ (signed)", yaxis=dict(autorange="reversed"), height=420, showlegend=False)
-                        st.plotly_chart(figA, use_container_width=True, config={"displayModeBar": False})
+            if cosine_sim is not None:
+                st.markdown(f"- **Overall mechanical similarity:** {cosine_sim*100:.1f}%")
 
-                    with col_shap_b:
-                        vals = shapB_ord.values.astype(float)
-                        colors = ["#F59E0B" if v > 0 else "#60A5FA" for v in vals]
-                        text_labels = [f"{v:.3f}" for v in vals]
-                        figB = go.Figure()
-                        figB.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors, hoverinfo='text', hovertext=[f"Contribution: {v:.3f}" for v in vals], text=text_labels, textposition='inside'))
-                        figB.update_layout(margin=dict(l=160, r=24, t=28, b=60), xaxis_title="SHAP contribution to Swing+ (signed)", yaxis=dict(autorange="reversed"), height=420, showlegend=False)
-                        st.plotly_chart(figB, use_container_width=True, config={"displayModeBar": False})
+            for f in top_sim:
+                st.markdown(f"- **Similarity driver:** {FEATURE_LABELS.get(f,f)} — nearly identical normalized values")
+
+            for f in top_diff:
+                st.markdown(f"- **Difference driver:** {FEATURE_LABELS.get(f,f)} — largest standardized separation")
+
+            # ------------------------------
+            # Feature comparison table
+            # ------------------------------
+            st.markdown(
+                """
+                <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
+                    Feature Comparison
+                </h3>
+                """,
+                unsafe_allow_html=True
+            )
+
+            table_df = pd.DataFrame({
+                "Feature": [FEATURE_LABELS.get(f, f) for f in feats],
+                "A (raw)": [f"{valsA[f]:.2f}" if pd.notna(valsA[f]) else "NaN" for f in feats],
+                "B (raw)": [f"{valsB[f]:.2f}" if pd.notna(valsB[f]) else "NaN" for f in feats],
+                "Raw diff": [f"{(valsA[f]-valsB[f]):.2f}" for f in feats],
+                "Z diff": [f"{z_diff[f]:.2f}" for f in feats],
+                "Pct A": [f"{pctA[f]:.0%}" for f in feats],
+                "Pct B": [f"{pctB[f]:.0%}" for f in feats],
+                "Importance": [f"{importance[f]:.3f}" for f in feats]
+            })
+
+            st.dataframe(
+                table_df.style.format(precision=2),
+                use_container_width=True,
+                hide_index=True
+            )
+
+            # ------------------------------
+            # SHAP comparison
+            # ------------------------------
+            st.markdown(
+                """
+                <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
+                    Model Contributions (SHAP)
+                </h3>
+                """,
+                unsafe_allow_html=True
+            )
+
+            order = importance.sort_values(ascending=False).index.tolist()
+            labels = [FEATURE_LABELS.get(f, f) for f in order]
+
+            shapA_ord = shapA.reindex(order).fillna(0)
+            shapB_ord = shapB.reindex(order).fillna(0)
+
+            col_shap_a, col_shap_b = st.columns([1, 1])
+
+            with col_shap_a:
+                vals = shapA_ord.values.astype(float)
+                colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]
+                figA = go.Figure()
+                figA.add_trace(go.Bar(
+                    x=vals,
+                    y=labels,
+                    orientation='h',
+                    marker_color=colors,
+                    text=[f"{v:.3f}" for v in vals],
+                    textposition='inside'
+                ))
+                figA.update_layout(
+                    margin=dict(l=160, r=24, t=28, b=60),
+                    xaxis_title="SHAP contribution",
+                    yaxis=dict(autorange="reversed"),
+                    height=430,
+                    showlegend=False
+                )
+                st.plotly_chart(figA, use_container_width=True, config={"displayModeBar": False})
+
+            with col_shap_b:
+                vals = shapB_ord.values.astype(float)
+                colors = ["#F59E0B" if v > 0 else "#60A5FA" for v in vals]
+                figB = go.Figure()
+                figB.add_trace(go.Bar(
+                    x=vals,
+                    y=labels,
+                    orientation='h',
+                    marker_color=colors,
+                    text=[f"{v:.3f}" for v in vals],
+                    textposition='inside'
+                ))
+                figB.update_layout(
+                    margin=dict(l=160, r=24, t=28, b=60),
+                    xaxis_title="SHAP contribution",
+                    yaxis=dict(autorange="reversed"),
+                    height=430,
+                    showlegend=False
+                )
+                st.plotly_chart(figB, use_container_width=True, config={"displayModeBar": False})
+
 
 # Inject JS helper to ensure Compare links do same-tab navigation
 components.html(
