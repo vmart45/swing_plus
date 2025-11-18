@@ -1537,44 +1537,64 @@ elif page == "Compare":
         for f in top_diff:
             st.markdown(f"- **Difference driver:** {FEATURE_LABELS.get(f, f)} — largest standardized separation")
 
-        # ------------------------------
-        # Feature comparison table (HTML Custom)
-        # ------------------------------
+        # --------------------------
+        # Custom Feature Comparison Table (HTML)
+        # --------------------------
         st.markdown(
             """
-            <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
-                Feature Comparison
-            </h3>
+            <style>
+            .comp-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 16px;
+                font-size: 0.88em;
+                background: #FFFFFF;
+                border-radius: 10px;
+                overflow: hidden;
+            }
+            .comp-table th {
+                background: #F3F4F6;
+                color: #374151;
+                padding: 10px 6px;
+                font-weight: 700;
+                border-bottom: 1px solid #E5E7EB;
+            }
+            .comp-table td {
+                padding: 9px 6px;
+                text-align: center;
+                border-bottom: 1px solid #E5E7EB;
+                color: #111827;
+            }
+            .comp-table tr:last-child td {
+                border-bottom: none;
+            }
+            .comp-feature {
+                text-align: left;
+                font-weight: 600;
+                color: #1F2937;
+            }
+            </style>
             """,
             unsafe_allow_html=True
         )
-
-# Build HTML table manually
-        html = """
-        <style>
-        .custom-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-family: Inter, sans-serif;
-            font-size: 0.85em;
-        }
-        .custom-table th {
-            background-color:#F3F4F6;
-            padding:8px;
-            border-bottom:2px solid #D1D5DB;
-            text-align:left;
-            font-weight:700;
-            color:#111827;
-        }
-        .custom-table td {
-            padding:8px;
-            border-bottom:1px solid #E5E7EB;
-        }
-        .custom-table tr:hover td {
-            background:#F9FAFB;
-        }
-        </style>
-        <table class="custom-table">
+        
+        html_rows = ""
+        for f in feats:
+            html_rows += f"""
+                <tr>
+                    <td class="comp-feature">{FEATURE_LABELS.get(f, f)}</td>
+                    <td>{valsA[f]:.2f}</td>
+                    <td>{valsB[f]:.2f}</td>
+                    <td>{(valsA[f]-valsB[f]):.2f}</td>
+                    <td>{z_diff[f]:.2f}</td>
+                    <td>{pctA[f]:.0%}</td>
+                    <td>{pctB[f]:.0%}</td>
+                    <td>{importance[f]:.3f}</td>
+                </tr>
+            """
+        
+        html_table = f"""
+        <table class="comp-table">
             <tr>
                 <th>Feature</th>
                 <th>Player A</th>
@@ -1585,24 +1605,11 @@ elif page == "Compare":
                 <th>Pct B</th>
                 <th>Importance</th>
             </tr>
+            {html_rows}
+        </table>
         """
-
-        for f in feats:
-            html += f"""
-            <tr>
-                <td>{FEATURE_LABELS.get(f,f)}</td>
-                <td>{valsA[f]:.2f}</td>
-                <td>{valsB[f]:.2f}</td>
-                <td>{(valsA[f]-valsB[f]):.2f}</td>
-                <td>{z_diff[f]:.2f}</td>
-                <td>{pctA[f]:.0%}</td>
-                <td>{pctB[f]:.0%}</td>
-                <td>{importance[f]:.3f}</td>
-            </tr>
-            """
-
-        html += "</table>"
-        st.markdown(html, unsafe_allow_html=True)
+        
+        st.markdown(html_table, unsafe_allow_html=True)
 
 
         # ------------------------------
