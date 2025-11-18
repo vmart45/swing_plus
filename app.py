@@ -1593,13 +1593,25 @@ elif page == "Compare":
 
         st.markdown(html_table, unsafe_allow_html=True)
 
-        # Replace the SHAP Comparison block in the Compare tab with this snippet
+        # Title + subtitle (styled like Player tab) and SHAP plots for Compare tab
+        st.markdown(
+            f"""
+            <h3 style="text-align:center; margin-top:6px; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
+                Model Contributions (SHAP)
+            </h3>
+            <div style="text-align:center; color:#6b7280; margin-bottom:6px; font-size:0.95em;">
+                SHAP contributions for {playerA} ({seasonA}) and {playerB} ({seasonB})
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        
         order = importance.sort_values(ascending=False).index
         shapA_ord = shapA.reindex(order).fillna(0)
         shapB_ord = shapB.reindex(order).fillna(0)
         labels = [FEATURE_LABELS.get(f, f) for f in order]
         
-        # compute importance percentages for hover/text
+        # importance percentages for hover/text
         imp_pct = importance.reindex(order).fillna(0)
         if imp_pct.sum() == 0:
             imp_pct_vals = [0.0] * len(imp_pct)
@@ -1611,7 +1623,7 @@ elif page == "Compare":
         with colA_shap:
             fig = go.Figure()
             vals = shapA_ord.values.astype(float)
-            colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]
+            colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]  # Player A: red/blue
             text_labels = [f"{v:.3f}  ({p:.0%})" for v, p in zip(vals, imp_pct_vals)]
             hover_text = [f"Contribution: {v:.3f}<br>Importance: {p:.0%}" for v, p in zip(vals, imp_pct_vals)]
             fig.add_trace(go.Bar(
@@ -1626,7 +1638,7 @@ elif page == "Compare":
                 insidetextanchor='middle'
             ))
             fig.update_layout(
-                margin=dict(l=160, r=24, t=28, b=60),
+                margin=dict(l=160, r=24, t=12, b=60),
                 height=430,
                 showlegend=False,
                 xaxis_title="SHAP contribution",
@@ -1638,7 +1650,7 @@ elif page == "Compare":
         with colB_shap:
             fig = go.Figure()
             vals = shapB_ord.values.astype(float)
-            colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]  # same red/blue scheme as player tab
+            colors = ["#F59E0B" if v > 0 else "#60A5FA" for v in vals]  # Player B: amber/light-blue
             text_labels = [f"{v:.3f}  ({p:.0%})" for v, p in zip(vals, imp_pct_vals)]
             hover_text = [f"Contribution: {v:.3f}<br>Importance: {p:.0%}" for v, p in zip(vals, imp_pct_vals)]
             fig.add_trace(go.Bar(
@@ -1653,7 +1665,7 @@ elif page == "Compare":
                 insidetextanchor='middle'
             ))
             fig.update_layout(
-                margin=dict(l=160, r=24, t=28, b=60),
+                margin=dict(l=160, r=24, t=12, b=60),
                 height=430,
                 showlegend=False,
                 xaxis_title="SHAP contribution",
