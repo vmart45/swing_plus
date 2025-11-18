@@ -1019,7 +1019,7 @@ elif page == "Player":
             )
             st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
-         with col2:
+        with col2:
         
             st.markdown(
                 f"<div style='text-align:center;font-weight:700;color:#183153;'>Model baseline: {base_label}</div>",
