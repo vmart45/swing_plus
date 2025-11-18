@@ -205,10 +205,6 @@ for c in ["swings_competitive", "competitive_swings"]:
         comp_col = c
         break
 
-# Keep sidebar clean
-st.sidebar.header("Navigation")
-st.sidebar.info("Use the tabs above to navigate between Main, Player, and Compare views. Filters are available in the Main tab.")
-
 name_col = "Name"
 
 model = None
