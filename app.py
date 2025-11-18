@@ -1522,69 +1522,69 @@ elif page == "Compare":
             # ------------------------------
             # Z-scores & differences
             # ------------------------------
-            mean_series = df_comp[feats].mean()
-            std_series = df_comp[feats].std().replace(0, 1e-9)
+    mean_series = df_comp[feats].mean()
+    std_series = df_comp[feats].std().replace(0, 1e-9)
 
-            valsA = rowA[feats].astype(float)
-            valsB = rowB[feats].astype(float)
+    valsA = rowA[feats].astype(float)
+    valsB = rowB[feats].astype(float)
 
-            zA = (valsA - mean_series) / std_series
-            zB = (valsB - mean_series) / std_series
+     zA = (valsA - mean_series) / std_series
+    zB = (valsB - mean_series) / std_series
 
-            abs_diff = (valsA - valsB).abs()
-            z_diff = (zA - zB).abs()
+     abs_diff = (valsA - valsB).abs()
+     z_diff = (zA - zB).abs()
 
             # ------------------------------
             # Percentiles
             # ------------------------------
-            pctile = df_comp[feats].rank(pct=True)
+     pctile = df_comp[feats].rank(pct=True)
 
-            try:
-                pctA = pctile.loc[rowA.name]
-            except Exception:
-                idxA_p = df_comp[df_comp["Name"] == playerA].index
-                pctA = pctile.loc[idxA_p[0]] if len(idxA_p) else pd.Series(0, index=feats)
+     try:
+          pctA = pctile.loc[rowA.name]
+     except Exception:
+           idxA_p = df_comp[df_comp["Name"] == playerA].index
+          pctA = pctile.loc[idxA_p[0]] if len(idxA_p) else pd.Series(0, index=feats)
 
-            try:
-                pctB = pctile.loc[rowB.name]
-            except Exception:
-                idxB_p = df_comp[df_comp["Name"] == playerB].index
-                pctB = pctile.loc[idxB_p[0]] if len(idxB_p) else pd.Series(0, index=feats)
+    try:
+          pctB = pctile.loc[rowB.name]
+     except Exception:
+           idxB_p = df_comp[df_comp["Name"] == playerB].index
+         pctB = pctile.loc[idxB_p[0]] if len(idxB_p) else pd.Series(0, index=feats)
 
             # ------------------------------
             # SHAP
             # ------------------------------
-            shapA, predA, baseA = compute_shap(rowA, feats)
-            shapB, predB, baseB = compute_shap(rowB, feats)
+    shapA, predA, baseA = compute_shap(rowA, feats)
+    shapB, predB, baseB = compute_shap(rowB, feats)
 
-            if shapA is not None:
-                shapA = shapA.reindex(feats).fillna(0)
-            else:
-                shapA = pd.Series(0, index=feats)
+    if shapA is not None:
+        shapA = shapA.reindex(feats).fillna(0)
+    else:
+        shapA = pd.Series(0, index=feats)
 
-            if shapB is not None:
-                shapB = shapB.reindex(feats).fillna(0)
-            else:
-                shapB = pd.Series(0, index=feats)
+    if shapB is not None:
+        shapB = shapB.reindex(feats).fillna(0)
+     else:
+        shapB = pd.Series(0, index=feats)
 
             # ------------------------------
             # Feature importance
             # ------------------------------
-            if model_loaded and explainer is not None:
-                try:
-                    sampleX = df_comp[feats].head(200).fillna(df_comp[feats].mean())
-                    sample_shap = explainer(sampleX)
+    if model_loaded and explainer is not None:
+        try:
+            sampleX = df_comp[feats].head(200).fillna(df_comp[feats].mean())
+            sample_shap = explainer(sampleX)
 
-                    if hasattr(sample_shap, "values"):
-                        mean_abs_shap = np.abs(sample_shap.values).mean(axis=0)
-                        importance = pd.Series(mean_abs_shap, index=feats)
-                    else:
-                        importance = pd.Series(np.ones(len(feats)), index=feats)
-
-                except Exception:
-                    importance = pd.Series(np.ones(len(feats)), index=feats)
+            if hasattr(sample_shap, "values"):
+                mean_abs_shap = np.abs(sample_shap.values).mean(axis=0)
+                importance = pd.Series(mean_abs_shap, index=feats)
             else:
                 importance = pd.Series(np.ones(len(feats)), index=feats)
+
+        except Exception:
+            importance = pd.Series(np.ones(len(feats)), index=feats)
+    else:
+        importance = pd.Series(np.ones(len(feats)), index=feats)
 
             # ------------------------------
             # Quick Takeaways (clean look)
