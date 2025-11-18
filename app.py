@@ -1422,7 +1422,7 @@ elif page == "Compare":
     st.markdown("</div>", unsafe_allow_html=True)
     st.markdown("<hr style='margin-top:30px;margin-bottom:20px;'/>", unsafe_allow_html=True)
 
-        if len(mech_features_available) >= 2 and not df_comp.empty:
+    if len(mech_features_available) >= 2 and not df_comp.empty:
             feats = mech_features_available
 
             # ------------------------------
