@@ -1030,6 +1030,7 @@ elif page == "Player":
                 st.write("No SHAP data to show.")
         
             else:
+        
                 # ---------- Rebuild df locally ----------
                 display_df = shap_df.copy()
                 display_df["feature_label"] = display_df["feature"].map(lambda x: FEATURE_LABELS.get(x, x))
@@ -1045,81 +1046,75 @@ elif page == "Player":
                 display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
                 display_df = display_df.reset_index(drop=True)
         
-                # ---------- SAME EXACT CSS as compare table (with matching font-family) ----------
-# Replace the CSS + final render in the `with col2:` block with this snippet
-            st.markdown("""
-            <style>
-            .comp-table {
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 14px;
-                font-size: 0.88em;
-                background: #FFFFFF;
-                border: 2px solid #111827;
-                border-radius: 10px;
-                overflow: hidden;
-                font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            }
-            .comp-table th {
-                background: #F3F4F6;
-                color: #374151;
-                padding: 10px 6px;
-                font-weight: 700;
-                text-align: center;
-                border-bottom: 1px solid #D1D5DB;
-            }
-            .comp-table td {
-                padding: 9px 6px;
-                text-align: center;
-                border-bottom: 1px solid #E5E7EB;
-                color: #111827;
-            }
-            .comp-table tr:last-child td {
-                border-bottom: 1px solid #E5E7EB;
-            }
-            .comp-feature {
-                text-align: left;
-                font-weight: 600;
-                color: #1F2937;
-                padding-left: 8px;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-            
-            # build safe HTML rows and render with st.markdown (keeps app font consistent)
-            import html as _html
-            html_rows = ""
-            for _, r in display_df.iterrows():
-                feat = _html.escape(str(r["Feature"]))
-                val = _html.escape(str(r["Value"]))
-                contrib = _html.escape(str(r["Contribution"]))
-                pct = _html.escape(str(r["PctImportance"]))
-                html_rows += f"""
-                <tr>
-                    <td class='comp-feature'>{feat}</td>
-                    <td>{val}</td>
-                    <td>{contrib}</td>
-                    <td>{pct}</td>
-                </tr>
+                # ---------- CSS identical to Compare table (no font-family override) ----------
+                css = """
+                <style>
+                .comp-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 14px;
+                    font-size: 0.88em;
+                    background: #FFFFFF;
+                    border: 2px solid #111827;
+                    border-radius: 10px;
+                    overflow: hidden;
+                }
+                .comp-table th {
+                    background: #F3F4F6;
+                    color: #374151;
+                    padding: 10px 6px;
+                    font-weight: 700;
+                    text-align: center;
+                    border-bottom: 1px solid #D1D5DB;
+                }
+                .comp-table td {
+                    padding: 9px 6px;
+                    text-align: center;
+                    border-bottom: 1px solid #E5E7EB;
+                    color: #111827;
+                }
+                .comp-table tr:last-child td {
+                    border-bottom: 1px solid #E5E7EB;
+                }
+                .comp-feature {
+                    text-align: left;
+                    font-weight: 600;
+                    color: #1F2937;
+                    padding-left: 8px;
+                }
+                </style>
                 """
-            
-            html_table = f"""
-            <table class='comp-table'>
-                <thead>
-                    <tr>
-                        <th>Feature</th>
-                        <th>Value</th>
-                        <th>Contribution</th>
-                        <th>Importance</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {html_rows}
-                </tbody>
-            </table>
-            """
-            
-            st.markdown(html_table, unsafe_allow_html=True)
+        
+                # ---------- Build HTML rows safely ----------
+                import html as _html
+                rows = []
+                for rec in display_df.to_dict(orient="records"):
+                    feat = _html.escape(str(rec.get("Feature", "")))
+                    val = _html.escape(str(rec.get("Value", "")))
+                    contrib = _html.escape(str(rec.get("Contribution", "")))
+                    pct = _html.escape(str(rec.get("PctImportance", "")))
+                    rows.append(f"<tr><td class='comp-feature'>{feat}</td><td>{val}</td><td>{contrib}</td><td>{pct}</td></tr>")
+        
+                html_table = (
+                    "<table class='comp-table'>"
+                    "<thead>"
+                    "<tr>"
+                    "<th>Feature</th>"
+                    "<th>Value</th>"
+                    "<th>Contribution</th>"
+                    "<th>Importance</th>"
+                    "</tr>"
+                    "</thead>"
+                    "<tbody>"
+                    + "".join(rows) +
+                    "</tbody>"
+                    "</table>"
+                )
+        
+                full_html = css + html_table
+                rows_count = len(display_df)
+                iframe_height = min(700, 90 + max(1, rows_count) * 40)
+                components.html(full_html, height=iframe_height, scrolling=True)
    
     # Mechanical similarity cluster
     TOP_N = 10
