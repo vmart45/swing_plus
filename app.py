@@ -1020,25 +1020,170 @@ elif page == "Player":
             st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
     with col2:
-        st.markdown(f"<div style='text-align:center;font-weight:700;color:#183153;'>Model baseline: {base_label}</div>", unsafe_allow_html=True)
-        if shap_df is None or len(shap_df) == 0:
-            st.write("No SHAP data to show.")
+        feats = mech_features_available
+        
+        try:
+            season_ctx = player_season_selected if player_season_selected is not None else (season_selected_global if 'season_selected_global' in locals() else None)
+            if season_col and season_ctx is not None:
+                df_comp = df[df[season_col] == season_ctx].dropna(subset=feats + ["Name"]).copy()
+            else:
+                df_comp = df.dropna(subset=feats + ["Name"]).copy()
+        except Exception:
+            df_comp = df.dropna(subset=feats + ["Name"]).copy()
+        
+        if df_comp.empty or len(feats) == 0:
+            st.write("No SHAP/mechanical feature data to show.")
         else:
-            display_df = shap_df.copy()
-            display_df["feature_label"] = display_df["feature"].map(lambda x: FEATURE_LABELS.get(x, x))
-            display_df = display_df.sort_values("abs_shap", ascending=False).head(12)
-            display_df = display_df[["feature_label", "raw", "shap_value", "pct_of_abs"]].rename(columns={
-                "feature_label": "Feature",
-                "raw": "Value",
-                "shap_value": "Contribution",
-                "pct_of_abs": "PctImportance"
-            })
-            display_df["Value"] = display_df["Value"].apply(lambda v: f"{v:.2f}" if pd.notna(v) else "NaN")
-            display_df["Contribution"] = display_df["Contribution"].apply(lambda v: f"{v:.3f}")
-            display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
-            display_df = display_df.reset_index(drop=True)
-            st.dataframe(display_df, use_container_width=True, hide_index=True)
-
+            mean_series = df_comp[feats].mean()
+            std_series = df_comp[feats].std().replace(0, 1e-9)
+        
+            valsA = player_row[feats].astype(float).reindex(feats)
+            valsB = mean_series.reindex(feats)
+        
+            zA = (valsA - mean_series) / std_series
+            zB = (valsB - mean_series) / std_series
+            z_diff = abs(zA - zB)
+        
+            pct_rank = df_comp[feats].rank(pct=True)
+        
+            def get_pct_for_row(pct_df, row):
+                try:
+                    if row.name in pct_df.index:
+                        return pct_df.loc[row.name]
+                except Exception:
+                    pass
+                try:
+                    mask = (df_comp["Name"] == row["Name"])
+                    if season_col in df_comp.columns and season_col in row.index:
+                        mask = mask & (df_comp[season_col] == row.get(season_col, None))
+                    subset = pct_df[mask]
+                    if len(subset) > 0:
+                        return subset.iloc[0]
+                except Exception:
+                    pass
+                try:
+                    return pct_df.iloc[0]
+                except Exception:
+                    return pd.Series(0.5, index=pct_df.columns)
+        
+            pctA = get_pct_for_row(pct_rank, player_row)
+            pctB = pct_rank.mean()
+        
+            # importance: prefer per-player SHAP pct_of_abs, fallback to cohort SHAP mean, then uniform
+            importance = None
+            try:
+                if shap_df is not None and "pct_of_abs" in shap_df.columns:
+                    importance = shap_df.set_index("feature")["pct_of_abs"].reindex(feats).fillna(0)
+                    if importance.sum() <= 0:
+                        importance = pd.Series(1.0 / len(feats), index=feats)
+                    else:
+                        importance = importance / importance.sum()
+                else:
+                    raise Exception("no per-player pct_of_abs")
+            except Exception:
+                if model_loaded and explainer is not None:
+                    try:
+                        sampleX = df_comp[feats].head(200).fillna(df_comp[feats].mean())
+                        sample_shap = explainer(sampleX)
+                        if hasattr(sample_shap, "values"):
+                            mean_abs_shap = abs(sample_shap.values).mean(axis=0)
+                            importance = pd.Series(mean_abs_shap, index=feats)
+                            importance = importance / (importance.sum() if importance.sum() != 0 else 1.0)
+                        else:
+                            importance = pd.Series(1.0 / len(feats), index=feats)
+                    except Exception:
+                        importance = pd.Series(1.0 / len(feats), index=feats)
+                else:
+                    importance = pd.Series(1.0 / len(feats), index=feats)
+        
+            # Styled HTML table (same style as Compare tab)
+            st.markdown("""
+            <style>
+            .comp-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 18px;
+                font-size: 0.88em;
+                background: #FFFFFF;
+                border: 2px solid #111827;
+                border-radius: 10px;
+                overflow: hidden;
+            }
+            .comp-table th {
+                background: #F3F4F6;
+                color: #374151;
+                padding: 10px 6px;
+                font-weight: 700;
+                text-align: center;
+                border-bottom: 1px solid #D1D5DB;
+            }
+            .comp-table td {
+                padding: 9px 6px;
+                text-align: center;
+                border-bottom: 1px solid #E5E7EB;
+                color: #111827;
+            }
+            .comp-table tr:last-child td {
+                border-bottom: 1px solid #E5E7EB;
+            }
+            .comp-feature {
+                text-align: left;
+                font-weight: 600;
+                color: #1F2937;
+                padding-left: 10px;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+        
+            def fmt(x, prec=2):
+                try:
+                    return f"{float(x):.{prec}f}"
+                except Exception:
+                    return "NaN"
+        
+            html_rows = ""
+            for f in feats:
+                valA = valsA.get(f, np.nan)
+                valB = valsB.get(f, np.nan)
+                diff = valA - valB if pd.notna(valA) and pd.notna(valB) else np.nan
+                zdf = z_diff.get(f, np.nan)
+                pA = pctA.get(f, 0.0) if hasattr(pctA, "get") else pctA[f]
+                pB = pctB.get(f, 0.0) if hasattr(pctB, "get") else pctB[f]
+                imp = importance.get(f, 0.0)
+        
+                html_rows += (
+                    "<tr>"
+                    f"<td class='comp-feature'>{FEATURE_LABELS.get(f, f)}</td>"
+                    f"<td>{fmt(valA,2)}</td>"
+                    f"<td>{fmt(valB,2)}</td>"
+                    f"<td>{fmt(diff,2)}</td>"
+                    f"<td>{fmt(zdf,2)}</td>"
+                    f"<td>{pA:.0%}</td>"
+                    f"<td>{pB:.0%}</td>"
+                    f"<td>{imp:.3f}</td>"
+                    "</tr>"
+                )
+        
+            player_label = f"{player_select} ({player_season_selected})" if player_season_selected is not None else player_select
+            html_table = (
+                f"<table class='comp-table'>"
+                f"<thead>"
+                f"<tr>"
+                f"<th>Feature</th>"
+                f"<th>{player_label}</th>"
+                f"<th>Cohort Mean</th>"
+                f"<th>Diff</th>"
+                f"<th>Z-Diff</th>"
+                f"<th>Pct (Player)</th>"
+                f"<th>Pct (Cohort)</th>"
+                f"<th>Importance</th>"
+                f"</tr>"
+                f"</thead>"
+                f"<tbody>{html_rows}</tbody>"
+                f"</table>"
+            )
+        
+            st.markdown(html_table, unsafe_allow_html=True)
     # Mechanical similarity cluster
     TOP_N = 10
     mech_features_available = [f for f in mechanical_features if f in df.columns]
