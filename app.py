@@ -1047,7 +1047,7 @@ elif page == "Player":
                 display_df = display_df.reset_index(drop=True)
         
                 # ---------- SAME EXACT CSS as compare table ----------
-                st.markdown("""
+                css = """
                 <style>
                 .comp-table {
                     width: 100%;
@@ -1059,7 +1059,6 @@ elif page == "Player":
                     border-radius: 10px;
                     overflow: hidden;
                 }
-        
                 .comp-table th {
                     background: #F3F4F6;
                     color: #374151;
@@ -1068,25 +1067,23 @@ elif page == "Player":
                     text-align: center;
                     border-bottom: 1px solid #D1D5DB;
                 }
-        
                 .comp-table td {
                     padding: 9px 6px;
                     text-align: center;
                     border-bottom: 1px solid #E5E7EB;
                     color: #111827;
                 }
-        
                 .comp-table tr:last-child td {
                     border-bottom: 1px solid #E5E7EB;
                 }
-        
                 .comp-feature {
                     text-align: left;
                     font-weight: 600;
                     color: #1F2937;
+                    padding-left: 8px;
                 }
                 </style>
-                """, unsafe_allow_html=True)
+                """
         
                 # ---------- Build HTML rows ----------
                 html_rows = ""
