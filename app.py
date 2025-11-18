@@ -1249,31 +1249,61 @@ elif page == "Compare":
         </h2>
     """, unsafe_allow_html=True)
 
-    # -------------------------------------
-    # Player dropdowns
-    # -------------------------------------
+    # Replace the player dropdowns block in the Compare tab with this snippet.
     player_options = sorted(df["Name"].dropna().unique())
     if not player_options:
         st.warning("No players available.")
         st.stop()
-
+    
+    # determine sensible defaults (respect query params if present)
+    default_a = None
+    try:
+        if 'qp_player' in locals() and qp_player and qp_player in player_options:
+            default_a = qp_player
+        elif 'qp_player_b' in locals() and qp_player_b and qp_player_b in player_options:
+            # prefer explicit playerA param, otherwise leave for later
+            pass
+    except Exception:
+        pass
+    if default_a is None:
+        default_a = player_options[0]
+    idx_a = player_options.index(default_a)
+    
+    default_b = None
+    try:
+        if 'qp_player_b' in locals() and qp_player_b and qp_player_b in player_options:
+            default_b = qp_player_b
+    except Exception:
+        pass
+    if default_b is None:
+        # pick a different default for B when possible
+        if len(player_options) > 1:
+            default_b = player_options[1] if idx_a == 0 else player_options[0]
+        else:
+            default_b = player_options[0]
+    idx_b = player_options.index(default_b)
+    
+    # callback to ensure player B is never the same as player A after changes
+    def _ensure_player_b_not_a():
+        a = st.session_state.get("compare_player_a")
+        b = st.session_state.get("compare_player_b")
+        if a == b:
+            for opt in player_options:
+                if opt != a:
+                    st.session_state["compare_player_b"] = opt
+                    break
+    
     colA, colB = st.columns(2)
-
+    
     with colA:
-        st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-bottom:4px;'>Player A</div>", unsafe_allow_html=True)
-        playerA = st.selectbox("", player_options, key="compare_player_a")
-        seasonsA = sorted(df[df["Name"] == playerA][season_col].dropna().unique())
-        seasonA = st.selectbox("Season A", seasonsA, index=len(seasonsA)-1)
-
+        playerA = st.selectbox("", player_options, index=idx_a, key="compare_player_a", on_change=_ensure_player_b_not_a)
+        seasonsA = sorted(df[df["Name"] == playerA][season_col].dropna().unique()) if season_col else []
+        seasonA = st.selectbox("Season A", seasonsA, index=len(seasonsA)-1 if seasonsA else 0)
+    
     with colB:
-        st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-bottom:4px;'>Player B</div>", unsafe_allow_html=True)
-        playerB = st.selectbox("", player_options, key="compare_player_b")
-        seasonsB = sorted(df[df["Name"] == playerB][season_col].dropna().unique())
-        seasonB = st.selectbox("Season B", seasonsB, index=len(seasonsB)-1)
-
-    if playerA == playerB and seasonA == seasonB:
-        st.warning("Select two different players or seasons.")
-        st.stop()
+        playerB = st.selectbox("", player_options, index=idx_b, key="compare_player_b")
+        seasonsB = sorted(df[df["Name"] == playerB][season_col].dropna().unique()) if season_col else []
+        seasonB = st.selectbox("Season B", seasonsB, index=len(seasonsB)-1 if seasonsB else 0)
 
     # -------------------------------------
     # Row extractor
