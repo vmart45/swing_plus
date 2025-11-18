@@ -1239,6 +1239,7 @@ elif page == "Player":
 
 # ---------------- Compare tab ----------------
 elif page == "Compare":
+elif page == "Compare":
     st.markdown(
         """
         <h2 style="
@@ -1254,6 +1255,9 @@ elif page == "Compare":
         unsafe_allow_html=True
     )
 
+    # ------------------------------
+    # Player list
+    # ------------------------------
     player_options = sorted(df["Name"].dropna().unique())
     if not player_options:
         st.warning("No players available.")
@@ -1262,41 +1266,51 @@ elif page == "Compare":
     default_a_idx = 0
     default_b_idx = 1 if len(player_options) > 1 else 0
 
-
     st.markdown(
         """
-        <div style="
-            display:flex;
-            justify-content:center;
-            gap:60px;
-            margin-bottom:20px;">
+        <div style="display:flex;justify-content:center;gap:60px;margin-bottom:20px;">
         """,
         unsafe_allow_html=True
     )
 
     colA, colB = st.columns(2)
 
+    # ------------------------------
+    # Player A
+    # ------------------------------
     with colA:
-        st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-bottom:4px;'>Player A</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-bottom:4px;'>Player A</div>",
+            unsafe_allow_html=True
+        )
+
         playerA = st.selectbox("", player_options, index=default_a_idx, key="compare_player_a")
 
-        if season_col:
-            playerA = st.selectbox("Player A", player_options, index=default_a_idx, key="compare_player_a")
-            seasonsA = sorted(df[df["Name"] == playerA][season_col].dropna().unique())
-            defaultA = seasonsA[-1]
-            seasonA = st.selectbox("Season A", seasonsA, index=seasonsA.index(defaultA), key="season_a_select")
+        seasonsA = sorted(df[df["Name"] == playerA][season_col].dropna().unique())
+        defaultA = seasonsA[-1]
+        seasonA = st.selectbox("Season A", seasonsA, index=seasonsA.index(defaultA), key="season_a_select")
 
-            st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-top:10px;'>Season A</div>", unsafe_allow_html=True)
-            seasonA = st.selectbox("", seasonsA, index=idxA, key="season_a_select")
-
+    # ------------------------------
+    # Player B
+    # ------------------------------
     with colB:
-        playerB = st.selectbox("Player B", player_options, index=default_b_idx, key="compare_player_b")
+        st.markdown(
+            "<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-bottom:4px;'>Player B</div>",
+            unsafe_allow_html=True
+        )
+
+        playerB = st.selectbox("", player_options, index=default_b_idx, key="compare_player_b")
 
         seasonsB = sorted(df[df["Name"] == playerB][season_col].dropna().unique())
         defaultB = seasonsB[-1]
         seasonB = st.selectbox("Season B", seasonsB, index=seasonsB.index(defaultB), key="season_b_select")
 
-     def get_player_row_for_season(name, season):
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # ------------------------------
+    # Row fetcher
+    # ------------------------------
+    def get_player_row_for_season(name, season):
         rows = df[(df["Name"] == name) & (df[season_col] == season)]
         if len(rows):
             return rows.iloc[0]
@@ -1305,28 +1319,25 @@ elif page == "Compare":
     rowA = get_player_row_for_season(playerA, seasonA)
     rowB = get_player_row_for_season(playerB, seasonB)
 
-        if season_col:
-            seasonsB = sorted(df[df["Name"] == playerB][season_col].dropna().unique())
-            qpB = int(qp_season_b) if qp_season_b and int(qp_season_b) in seasonsB else None
-            defaultB = qpB if qpB is not None else seasonsB[-1]
-            idxB = seasonsB.index(defaultB) if defaultB in seasonsB else len(seasonsB) - 1
-
-            st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-top:10px;'>Season B</div>", unsafe_allow_html=True)
-            seasonB = st.selectbox("", seasonsB, index=idxB, key="season_b_select")
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    if playerA == playerB and (season_col is None or seasonA == seasonB):
+    # ------------------------------
+    # Prevent identical selections
+    # ------------------------------
+    if playerA == playerB and seasonA == seasonB:
         st.warning("Select two different players or seasons.")
         st.stop()
 
     st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
 
+    # ------------------------------
+    # Player Cards + Similarity
+    # ------------------------------
     col1, colSim, col2 = st.columns([1.5, 1, 1.5])
 
+    # --- Card A ---
     with col1:
         pidA = str(int(rowA["id"])) if "id" in rowA and pd.notnull(rowA["id"]) else "0"
         imgA = f"https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/{pidA}/headshot/silo/current.png"
+
         teamA = rowA["Team"] if "Team" in rowA and pd.notnull(rowA["Team"]) else ""
         logoA = image_dict.get(teamA, "")
 
@@ -1343,7 +1354,13 @@ elif page == "Compare":
             unsafe_allow_html=True
         )
 
+    # --- Similarity tile ---
     with colSim:
+        try:
+            sim_pct_display = sim_pct
+        except:
+            sim_pct_display = "N/A"
+
         st.markdown(
             f"""
             <div style="
@@ -1354,15 +1371,17 @@ elif page == "Compare":
                 border-radius:14px;
                 margin-top:26px;">
                 <div style="font-size:1.1em;font-weight:700;color:#0B5CFF;">Similarity</div>
-                <div style="font-size:1.9em;font-weight:800;color:#0B5CFF;">{sim_pct}</div>
+                <div style="font-size:1.9em;font-weight:800;color:#0B5CFF;">{sim_pct_display}</div>
             </div>
             """,
             unsafe_allow_html=True
         )
 
+    # --- Card B ---
     with col2:
         pidB = str(int(rowB["id"])) if "id" in rowB and pd.notnull(rowB["id"]) else "0"
         imgB = f"https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/{pidB}/headshot/silo/current.png"
+
         teamB = rowB["Team"] if "Team" in rowB and pd.notnull(rowB["Team"]) else ""
         logoB = image_dict.get(teamB, "")
 
@@ -1381,6 +1400,9 @@ elif page == "Compare":
 
     st.markdown("<div style='margin-top:22px;'></div>", unsafe_allow_html=True)
 
+    # ------------------------------
+    # Stat Tiles
+    # ------------------------------
     stats = ["Age", "Swing+", "HitSkillPlus", "ImpactPlus"]
     labels = {
         "Age": "Age",
@@ -1396,8 +1418,12 @@ elif page == "Compare":
 
     tileA, tileB = st.columns([1, 1])
 
+    # --- Left tile (A) ---
     with tileA:
-        st.markdown("<div style='font-size:1.05em;font-weight:700;text-align:center;color:#0F1A34;margin-bottom:4px;'>Player A</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div style='font-size:1.05em;font-weight:700;text-align:center;color:#0F1A34;margin-bottom:4px;'>Player A</div>",
+            unsafe_allow_html=True
+        )
         colsA = st.columns(len(stats))
         for i, stat in enumerate(stats):
             val = rowA.get(stat, "N/A")
@@ -1418,8 +1444,12 @@ elif page == "Compare":
                 unsafe_allow_html=True
             )
 
+    # --- Right tile (B) ---
     with tileB:
-        st.markdown("<div style='font-size:1.05em;font-weight:700;text-align:center;color:#0F1A34;margin-bottom:4px;'>Player B</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div style='font-size:1.05em;font-weight:700;text-align:center;color:#0F1A34;margin-bottom:4px;'>Player B</div>",
+            unsafe_allow_html=True
+        )
         colsB = st.columns(len(stats))
         for i, stat in enumerate(stats):
             val = rowB.get(stat, "N/A")
@@ -1442,7 +1472,7 @@ elif page == "Compare":
 
     st.markdown("</div>", unsafe_allow_html=True)
     st.markdown("<hr style='margin-top:30px;margin-bottom:20px;'/>", unsafe_allow_html=True)
-
+    
     if len(mech_features_available) >= 2 and not df_comp.empty:
             feats = mech_features_available
 
