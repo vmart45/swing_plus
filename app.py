@@ -1540,15 +1540,20 @@ elif page == "Compare":
 # --------------------------
 # Custom Feature Comparison Table (HTML)
 # --------------------------
+
+playerA_label = f"{playerA} ({seasonA})"
+playerB_label = f"{playerB} ({seasonB})"
+
 st.markdown(
     """
 <style>
 .comp-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 16px;
+    margin-top: 18px;
     font-size: 0.88em;
     background: #FFFFFF;
+    border: 1px solid #E5E7EB;      /* FULL BORDER */
     border-radius: 10px;
     overflow: hidden;
 }
@@ -1557,7 +1562,8 @@ st.markdown(
     color: #374151;
     padding: 10px 6px;
     font-weight: 700;
-    border-bottom: 1px solid #E5E7EB;
+    text-align: center;             /* CENTER HEADERS */
+    border-bottom: 1px solid #D1D5DB;
 }
 .comp-table td {
     padding: 9px 6px;
@@ -1566,7 +1572,7 @@ st.markdown(
     color: #111827;
 }
 .comp-table tr:last-child td {
-    border-bottom: none;
+    border-bottom: 1px solid #E5E7EB;   /* KEEP BOTTOM BORDER */
 }
 .comp-feature {
     text-align: left;
@@ -1597,8 +1603,8 @@ html_table = f"""
 <table class="comp-table">
 <tr>
     <th>Feature</th>
-    <th>Player A</th>
-    <th>Player B</th>
+    <th>{playerA_label}</th>
+    <th>{playerB_label}</th>
     <th>Diff</th>
     <th>Z-Diff</th>
     <th>Pct A</th>
