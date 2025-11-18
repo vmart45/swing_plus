@@ -1327,24 +1327,22 @@ elif page == "Compare":
 
     st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
 
-    # ------------------------------
-    # Player Cards + Similarity
-    # ------------------------------
     col1, colSim, col2 = st.columns([1.5, 1, 1.5])
 
     # --- Card A ---
     with col1:
+    with col1:
         pidA = str(int(rowA["id"])) if "id" in rowA and pd.notnull(rowA["id"]) else "0"
         imgA = f"https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/{pidA}/headshot/silo/current.png"
 
-        teamA = rowA["Team"] if "Team" in rowA and pd.notnull(rowA["Team"]) else ""
+        teamA = rowA.get("Team", "")
         logoA = image_dict.get(teamA, "")
 
         st.markdown(
             f"""
             <div style="text-align:center;">
-                <img src="{imgA}" style="height:110px;width:110px;border-radius:12px;border:1px solid #E1E7EF;">
-                <div style="font-size:1.05em;font-weight:800;color:#0F1A34;margin-top:6px;">
+                <img src="{imgA}" style="height:110px;width:110px;border-radius:12px;border:1px solid #D1D5DB;">
+                <div style="font-size:1.05em;font-weight:800;color:#1F2937;margin-top:6px;">
                     {playerA} ({seasonA})
                 </div>
                 {'<img src="'+ logoA +'" style="height:38px;margin-top:4px;">' if logoA else ''}
@@ -1353,24 +1351,21 @@ elif page == "Compare":
             unsafe_allow_html=True
         )
 
+
     # --- Similarity tile ---
     with colSim:
-        try:
-            sim_pct_display = sim_pct
-        except:
-            sim_pct_display = "N/A"
-
+    with colSim:
         st.markdown(
             f"""
             <div style="
                 text-align:center;
-                background:#F3F7FF;
-                border:1px solid #D8E3FF;
+                background:#F3F4F6;
+                border:1px solid #D1D5DB;
                 padding:16px;
-                border-radius:14px;
-                margin-top:26px;">
-                <div style="font-size:1.1em;font-weight:700;color:#0B5CFF;">Similarity</div>
-                <div style="font-size:1.9em;font-weight:800;color:#0B5CFF;">{sim_pct_display}</div>
+                border-radius:10px;
+                margin-top:28px;">
+                <div style="font-size:1.05em;font-weight:700;color:#374151;">Similarity</div>
+                <div style="font-size:1.85em;font-weight:800;color:#111827;">{sim_pct}</div>
             </div>
             """,
             unsafe_allow_html=True
@@ -1381,14 +1376,14 @@ elif page == "Compare":
         pidB = str(int(rowB["id"])) if "id" in rowB and pd.notnull(rowB["id"]) else "0"
         imgB = f"https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/{pidB}/headshot/silo/current.png"
 
-        teamB = rowB["Team"] if "Team" in rowB and pd.notnull(rowB["Team"]) else ""
+        teamB = rowB.get("Team", "")
         logoB = image_dict.get(teamB, "")
 
         st.markdown(
             f"""
             <div style="text-align:center;">
-                <img src="{imgB}" style="height:110px;width:110px;border-radius:12px;border:1px solid #E1E7EF;">
-                <div style="font-size:1.05em;font-weight:800;color:#0F1A34;margin-top:6px;">
+                <img src="{imgB}" style="height:110px;width:110px;border-radius:12px;border:1px solid #D1D5DB;">
+                <div style="font-size:1.05em;font-weight:800;color:#1F2937;margin-top:6px;">
                     {playerB} ({seasonB})
                 </div>
                 {'<img src="'+ logoB +'" style="height:38px;margin-top:4px;">' if logoB else ''}
@@ -1396,8 +1391,6 @@ elif page == "Compare":
             """,
             unsafe_allow_html=True
         )
-
-    st.markdown("<div style='margin-top:22px;'></div>", unsafe_allow_html=True)
 
     # ------------------------------
     # Stat Tiles
