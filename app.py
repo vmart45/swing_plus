@@ -1239,6 +1239,9 @@ elif page == "Player":
 
 # ---------------- Compare tab ----------------
 elif page == "Compare":
+
+    mech_features_available = [f for f in mechanical_features if f in df.columns]
+
     st.markdown(
         """
         <h2 style="
