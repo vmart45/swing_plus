@@ -1500,7 +1500,7 @@ elif page == "Compare":
             seasons_to_use.append(seasonB)
             
             if seasons_to_use:
-                df_comp = df[df[season_col].isin(seasons_to_use)].dropna( subset=mech_features_available + ["Name"] ).copy() else: df_comp = df.dropna(subset=mech_features_available + ["Name"]).copy()
+                df_comp = df[df[season_col].isin(seasons_to_use)].dropna( subset=mech_features_available + ["Name"] ).copy()
             else: df_comp = df.dropna(subset=mech_features_available + ["Name"]).copy()
 
     if len(mech_features_available) >= 2 and not df_comp.empty: feats = mech_features_available
