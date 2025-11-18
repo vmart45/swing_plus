@@ -1059,6 +1059,7 @@ elif page == "Player":
                     border-radius: 10px;
                     overflow: hidden;
                 }
+        
                 .comp-table th {
                     background: #F3F4F6;
                     color: #374151;
@@ -1067,15 +1068,18 @@ elif page == "Player":
                     text-align: center;
                     border-bottom: 1px solid #D1D5DB;
                 }
+        
                 .comp-table td {
                     padding: 9px 6px;
                     text-align: center;
                     border-bottom: 1px solid #E5E7EB;
                     color: #111827;
                 }
+        
                 .comp-table tr:last-child td {
                     border-bottom: 1px solid #E5E7EB;
                 }
+        
                 .comp-feature {
                     text-align: left;
                     font-weight: 600;
@@ -1085,15 +1089,20 @@ elif page == "Player":
                 </style>
                 """
         
-                # ---------- Build HTML rows ----------
+                # ---------- Build HTML rows safely ----------
+                import html as _html
                 html_rows = ""
                 for _, r in display_df.iterrows():
+                    feat = _html.escape(str(r["Feature"]))
+                    val = _html.escape(str(r["Value"]))
+                    contrib = _html.escape(str(r["Contribution"]))
+                    pct = _html.escape(str(r["PctImportance"]))
                     html_rows += f"""
                     <tr>
-                        <td class='comp-feature'>{r['Feature']}</td>
-                        <td>{r['Value']}</td>
-                        <td>{r['Contribution']}</td>
-                        <td>{r['PctImportance']}</td>
+                        <td class='comp-feature'>{feat}</td>
+                        <td>{val}</td>
+                        <td>{contrib}</td>
+                        <td>{pct}</td>
                     </tr>
                     """
         
@@ -1114,7 +1123,11 @@ elif page == "Player":
                 </table>
                 """
         
-                st.markdown(html_table, unsafe_allow_html=True)
+                # render via components.html so the table and CSS are applied reliably
+                full_html = css + html_table
+                rows_count = len(display_df)
+                iframe_height = min(700, 90 + max(1, rows_count) * 40)
+                components.html(full_html, height=iframe_height)
    
     # Mechanical similarity cluster
     TOP_N = 10
