@@ -1537,11 +1537,15 @@ elif page == "Compare":
         for f in top_diff:
             st.markdown(f"- **Difference driver:** {FEATURE_LABELS.get(f, f)} — largest standardized separation")
 
+# ================================
+# FEATURE COMPARISON TABLE (FIXED)
+# ================================
+
 playerA_label = f"{playerA} ({seasonA})"
 playerB_label = f"{playerB} ({seasonB})"
 
-st.markdown(
-    """
+# --- Inject CSS (must be separate for Streamlit to apply it) ---
+st.markdown("""
 <style>
 .comp-table {
     width: 100%;
@@ -1549,69 +1553,81 @@ st.markdown(
     margin-top: 18px;
     font-size: 0.88em;
     background: #FFFFFF;
-    border: 1px solid #E5E7EB;      /* FULL BORDER */
+    border: 1px solid #E5E7EB;
     border-radius: 10px;
     overflow: hidden;
 }
+
 .comp-table th {
     background: #F3F4F6;
     color: #374151;
     padding: 10px 6px;
     font-weight: 700;
-    text-align: center;             /* CENTER HEADERS */
+    text-align: center;
     border-bottom: 1px solid #D1D5DB;
 }
+
 .comp-table td {
     padding: 9px 6px;
     text-align: center;
     border-bottom: 1px solid #E5E7EB;
     color: #111827;
 }
+
 .comp-table tr:last-child td {
-    border-bottom: 1px solid #E5E7EB;   /* KEEP BOTTOM BORDER */
+    border-bottom: 1px solid #E5E7EB; /* keep full bottom border */
 }
+
 .comp-feature {
     text-align: left;
     font-weight: 600;
     color: #1F2937;
 }
 </style>
-    """,
-    unsafe_allow_html=True
-)
+""", unsafe_allow_html=True)
 
+
+# --- Build table rows ---
 html_rows = ""
 for f in feats:
     html_rows += f"""
-<tr>
-    <td class="comp-feature">{FEATURE_LABELS.get(f, f)}</td>
-    <td>{valsA[f]:.2f}</td>
-    <td>{valsB[f]:.2f}</td>
-    <td>{(valsA[f]-valsB[f]):.2f}</td>
-    <td>{z_diff[f]:.2f}</td>
-    <td>{pctA[f]:.0%}</td>
-    <td>{pctB[f]:.0%}</td>
-    <td>{importance[f]:.3f}</td>
-</tr>
-"""
+    <tr>
+        <td class="comp-feature">{FEATURE_LABELS.get(f, f)}</td>
+        <td>{valsA[f]:.2f}</td>
+        <td>{valsB[f]:.2f}</td>
+        <td>{(valsA[f] - valsB[f]):.2f}</td>
+        <td>{z_diff[f]:.2f}</td>
+        <td>{pctA[f]:.0%}</td>
+        <td>{pctB[f]:.0%}</td>
+        <td>{importance[f]:.3f}</td>
+    </tr>
+    """
 
+
+# --- Final table HTML ---
 html_table = f"""
 <table class="comp-table">
-<tr>
-    <th>Feature</th>
-    <th>{playerA_label}</th>
-    <th>{playerB_label}</th>
-    <th>Diff</th>
-    <th>Z-Diff</th>
-    <th>Pct A</th>
-    <th>Pct B</th>
-    <th>Importance</th>
-</tr>
-{html_rows}
+    <thead>
+        <tr>
+            <th>Feature</th>
+            <th>{playerA_label}</th>
+            <th>{playerB_label}</th>
+            <th>Diff</th>
+            <th>Z-Diff</th>
+            <th>Pct A</th>
+            <th>Pct B</th>
+            <th>Importance</th>
+        </tr>
+    </thead>
+    <tbody>
+        {html_rows}
+    </tbody>
 </table>
 """
 
+# --- Render table ---
 st.markdown(html_table, unsafe_allow_html=True)
+
 
 
 
