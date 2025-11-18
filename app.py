@@ -1426,65 +1426,70 @@ elif page == "Compare":
         for f in top_diff:
             st.markdown(f"- **Difference driver:** {FEATURE_LABELS.get(f,f)}")
 
-        # -------------------------------------------------
-        # CUSTOM HTML TABLE (NOW SAFE)
-        # -------------------------------------------------
+        # ===============================
+        # FEATURE COMPARISON (DATAFRAME)
+        # ===============================
+        
+        # Dynamic labels
         playerA_label = f"{playerA} ({seasonA})"
         playerB_label = f"{playerB} ({seasonB})"
-
-        st.markdown("""
-        <style>
-        .comp-table {
-            width:100%;border-collapse:collapse;margin-top:18px;
-            font-size:0.88em;background:#fff;border:1px solid #E5E7EB;
-            border-radius:10px;overflow:hidden;
-        }
-        .comp-table th {
-            background:#F3F4F6;color:#374151;text-align:center;
-            padding:10px 6px;font-weight:700;border-bottom:1px solid #D1D5DB;
-        }
-        .comp-table td {
-            padding:9px 6px;text-align:center;color:#111827;
-            border-bottom:1px solid #E5E7EB;
-        }
-        .comp-feature {text-align:left;font-weight:600;color:#1F2937;}
-        </style>
-        """, unsafe_allow_html=True)
-
-        html_rows = ""
-        for f in feats:
-            html_rows += f"""
-            <tr>
-                <td class="comp-feature">{FEATURE_LABELS.get(f,f)}</td>
-                <td>{valsA[f]:.2f}</td>
-                <td>{valsB[f]:.2f}</td>
-                <td>{(valsA[f]-valsB[f]):.2f}</td>
-                <td>{z_diff[f]:.2f}</td>
-                <td>{pctA[f]:.0%}</td>
-                <td>{pctB[f]:.0%}</td>
-                <td>{importance[f]:.3f}</td>
-            </tr>
-            """
-
-        st.markdown(f"""
-        <table class="comp-table">
-            <thead>
-                <tr>
-                    <th>Feature</th>
-                    <th>{playerA_label}</th>
-                    <th>{playerB_label}</th>
-                    <th>Diff</th>
-                    <th>Z-Diff</th>
-                    <th>Pct A</th>
-                    <th>Pct B</th>
-                    <th>Importance</th>
-                </tr>
-            </thead>
-            <tbody>
-                {html_rows}
-            </tbody>
-        </table>
-        """, unsafe_allow_html=True)
+        
+        st.markdown(
+            f"""
+            <h3 style="
+                margin-top:28px;
+                color:#0F1A34;
+                font-weight:750;
+                text-align:left;">
+                Feature Comparison
+            </h3>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        # --- Build DataFrame ---
+        table_df = pd.DataFrame({
+            "Feature": [FEATURE_LABELS.get(f, f) for f in feats],
+            playerA_label: [
+                f"{valsA[f]:.2f}" if pd.notna(valsA[f]) else "NaN" 
+                for f in feats
+            ],
+            playerB_label: [
+                f"{valsB[f]:.2f}" if pd.notna(valsB[f]) else "NaN" 
+                for f in feats
+            ],
+            "Diff": [
+                f"{(valsA[f] - valsB[f]):.2f}" 
+                for f in feats
+            ],
+            "Z-Diff": [
+                f"{z_diff[f]:.2f}" 
+                for f in feats
+            ],
+            "Pct A": [
+                f"{pctA[f]:.0%}" 
+                for f in feats
+            ],
+            "Pct B": [
+                f"{pctB[f]:.0%}" 
+                for f in feats
+            ],
+            "Importance": [
+                f"{importance[f]:.3f}" 
+                for f in feats
+            ]
+        })
+        
+        # --- Apply styling ---
+        styled = table_df.style.set_properties(**{
+            "text-align": "center"
+        }).set_table_styles([
+            dict(selector="th", props=[("text-align", "center")]),
+            dict(selector="td", props=[("text-align", "center")]),
+        ])
+        
+        # --- Render ---
+        st.dataframe(styled, use_container_width=True, hide_index=True)
 
         # -------------------------------------------------
         # SHAP Comparison
