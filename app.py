@@ -1263,18 +1263,13 @@ elif page == "Compare":
             if season_col:
                 seasonsA = sorted(df[df["Name"] == playerA][season_col].dropna().unique())
                 if seasonsA:
-                    defaultA = None
-                    if qp_season_a and qp_season_a in seasonsA:
-                        defaultA = int(qp_season_a)
-                    elif season_selected_global in seasonsA:
-                        defaultA = season_selected_global
-                    else:
-                        defaultA = seasonsA[-1]
-                    try:
-                        idxA = seasonsA.index(defaultA) if defaultA in seasonsA else len(seasonsA) - 1
-                    except Exception:
-                        idxA = len(seasonsA) - 1
-                    seasonA = st.selectbox("Season A", seasonsA, index=idxA, key="season_a_select")
+                  if qp_season_a and int(qp_season_a) in seasonsA:
+                    defaultA = int(qp_season_a)
+                 else:
+                    defaultA = seasonsA[-1]
+
+                idxA = seasonsA.index(defaultA)
+                seasonA = st.selectbox("Season A", seasonsA, index=idxA, key="season_a_select")
         with col_b:
             playerB = st.selectbox("Player B", player_options, index=default_b_idx, key="compare_player_b")
             seasonB = None
