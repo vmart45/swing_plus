@@ -1286,8 +1286,12 @@ elif page == "Compare":
                 else:
                     defaultB = seasonsB[-1]
 
+           try:
                 idxB = seasonsB.index(defaultB)
-                seasonB = st.selectbox("Season B", seasonsB, index=idxB, key="season_b_select")
+            except:
+                idxB = len(seasonsB) - 1
+
+            seasonB = st.selectbox("Season B", seasonsB, index=idxB, key="season_b_select")
 
         if playerA == playerB and (season_col is None or seasonA == seasonB):
             st.warning("Select two different players or two different player-season combinations to compare.")
