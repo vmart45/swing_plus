@@ -1361,7 +1361,7 @@ elif page == "Compare":
 
     st.markdown("<hr style='margin-top:32px;margin-bottom:22px;'/>", unsafe_allow_html=True)
 
-if len(mech_features_available) >= 2:
+    if len(mech_features_available) >= 2:
 
     feats = mech_features_available
 
