@@ -1537,10 +1537,6 @@ elif page == "Compare":
         for f in top_diff:
             st.markdown(f"- **Difference driver:** {FEATURE_LABELS.get(f, f)} — largest standardized separation")
 
-# --------------------------
-# Custom Feature Comparison Table (HTML)
-# --------------------------
-
 playerA_label = f"{playerA} ({seasonA})"
 playerB_label = f"{playerB} ({seasonB})"
 
@@ -1616,6 +1612,7 @@ html_table = f"""
 """
 
 st.markdown(html_table, unsafe_allow_html=True)
+
 
 
 # ------------------------------
