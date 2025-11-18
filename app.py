@@ -1019,7 +1019,7 @@ elif page == "Player":
             )
             st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
-        with col2:
+         with col2:
         
             st.markdown(
                 f"<div style='text-align:center;font-weight:700;color:#183153;'>Model baseline: {base_label}</div>",
@@ -1046,7 +1046,7 @@ elif page == "Player":
                 display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
                 display_df = display_df.reset_index(drop=True)
         
-                # ---------- SAME EXACT CSS as compare table ----------
+                # ---------- SAME EXACT CSS as compare table (no font-family override) ----------
                 st.markdown("""
                 <style>
                 .comp-table {
@@ -1084,38 +1084,42 @@ elif page == "Player":
                     text-align: left;
                     font-weight: 600;
                     color: #1F2937;
+                    padding-left: 8px;
                 }
                 </style>
                 """, unsafe_allow_html=True)
         
-                # ---------- Build HTML rows ----------
+                # ---------- Build HTML rows safely ----------
+                import html as _html
                 html_rows = ""
                 for _, r in display_df.iterrows():
-                    html_rows += f"""
-                    <tr>
-                        <td class='comp-feature'>{r['Feature']}</td>
-                        <td>{r['Value']}</td>
-                        <td>{r['Contribution']}</td>
-                        <td>{r['PctImportance']}</td>
-                    </tr>
-                    """
+                    feat = _html.escape(str(r["Feature"]))
+                    val = _html.escape(str(r["Value"]))
+                    contrib = _html.escape(str(r["Contribution"]))
+                    pct = _html.escape(str(r["PctImportance"]))
+                    html_rows += (
+                        "<tr>"
+                        f"<td class='comp-feature'>{feat}</td>"
+                        f"<td>{val}</td>"
+                        f"<td>{contrib}</td>"
+                        f"<td>{pct}</td>"
+                        "</tr>"
+                    )
         
                 # ---------- Final HTML ----------
-                html_table = f"""
-                <table class='comp-table'>
-                    <thead>
-                        <tr>
-                            <th>Feature</th>
-                            <th>Value</th>
-                            <th>Contribution</th>
-                            <th>Importance</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {html_rows}
-                    </tbody>
-                </table>
-                """
+                html_table = (
+                    "<table class='comp-table'>"
+                    "<thead>"
+                    "<tr>"
+                    "<th>Feature</th>"
+                    "<th>Value</th>"
+                    "<th>Contribution</th>"
+                    "<th>Importance</th>"
+                    "</tr>"
+                    "</thead>"
+                    f"<tbody>{html_rows}</tbody>"
+                    "</table>"
+                )
         
                 st.markdown(html_table, unsafe_allow_html=True)
    
