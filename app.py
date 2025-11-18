@@ -1551,10 +1551,10 @@ elif page == "Compare":
 
         table_df = pd.DataFrame({
             "Feature": [FEATURE_LABELS.get(f, f) for f in feats],
-            "A (raw)": [f"{valsA[f]:.2f}" if pd.notna(valsA[f]) else "NaN" for f in feats],
-            "B (raw)": [f"{valsB[f]:.22f}" if pd.notna(valsB[f]) else "NaN" for f in feats],
-            "Raw diff": [f"{(valsA[f]-valsB[f]):.2f}" for f in feats],
-            "Z diff": [f"{z_diff[f]:.2f}" for f in feats],
+            "Player A": [f"{valsA[f]:.2f}" if pd.notna(valsA[f]) else "NaN" for f in feats],
+            "Player B": [f"{valsB[f]:.2f}" if pd.notna(valsB[f]) else "NaN" for f in feats],
+            "Difference": [f"{(valsA[f]-valsB[f]):.2f}" for f in feats],
+            "Z-score Difference": [f"{z_diff[f]:.2f}" for f in feats],
             "Pct A": [f"{pctA[f]:.0%}" for f in feats],
             "Pct B": [f"{pctB[f]:.0%}" for f in feats],
             "Importance": [f"{importance[f]:.3f}" for f in feats]
