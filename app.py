@@ -1019,120 +1019,105 @@ elif page == "Player":
             )
             st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
-    with col2:
-    
-        st.markdown(
-            f"<div style='text-align:center;font-weight:700;color:#183153;'>Model baseline: {base_label}</div>",
-            unsafe_allow_html=True
-        )
-    
-        # --------------------------------------------------
-        # REBUILD display_df LOCALLY (prevents NameError)
-        # --------------------------------------------------
-        if shap_df is None or len(shap_df) == 0:
-            st.write("No SHAP data to show.")
-    
-        else:
-            display_df = shap_df.copy()
-            display_df["feature_label"] = display_df["feature"].map(lambda x: FEATURE_LABELS.get(x, x))
-            display_df = display_df.sort_values("abs_shap", ascending=False).head(12)
-            display_df = display_df[["feature_label", "raw", "shap_value", "pct_of_abs"]]
-            display_df = display_df.rename(columns={
-                "feature_label": "Feature",
-                "raw": "Value",
-                "shap_value": "Contribution",
-                "pct_of_abs": "PctImportance"
-            })
-    
-            # Formatting
-            display_df["Value"] = display_df["Value"].apply(lambda v: f"{v:.2f}" if pd.notna(v) else "NaN")
-            display_df["Contribution"] = display_df["Contribution"].apply(lambda v: f"{v:.3f}")
-            display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
-            display_df = display_df.reset_index(drop=True)
-    
-            # --------------------------------------------------
-            # CSS for Styled Table
-            # --------------------------------------------------
-            st.markdown("""
-            <style>
-            .shap-table-wrapper {
-                border: 2px solid #111827;
-                border-radius: 10px;
-                overflow: hidden;
-                margin-top: 14px;
-            }
-    
-            .shap-table {
-                width: 100%;
-                border-collapse: collapse;
-                background: #FFFFFF;
-                font-size: 0.88em;
-            }
-    
-            .shap-table th {
-                background: #F3F4F6;
-                color: #374151;
-                padding: 10px 6px;
-                font-weight: 700;
-                text-align: center;
-                border-bottom: 1px solid #D1D5DB;
-            }
-    
-            .shap-table td {
-                padding: 9px 6px;
-                text-align: center;
-                border-bottom: 1px solid #E5E7EB;
-                color: #111827;
-            }
-    
-            .shap-table tr:last-child td {
-                border-bottom: 1px solid #E5E7EB;
-            }
-    
-            .shap-feature {
-                text-align: left;
-                font-weight: 600;
-                color: #1F2937;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-    
-            # --------------------------------------------------
-            # BUILD HTML ROWS
-            # --------------------------------------------------
-            html_rows = ""
-            for _, r in display_df.iterrows():
-                html_rows += f"""
-                <tr>
-                    <td class="shap-feature">{r['Feature']}</td>
-                    <td>{r['Value']}</td>
-                    <td>{r['Contribution']}</td>
-                    <td>{r['PctImportance']}</td>
-                </tr>
-                """
-    
-            # --------------------------------------------------
-            # FINAL TABLE HTML (works in Streamlit)
-            # --------------------------------------------------
-            html_table = f"""
-            <div class="shap-table-wrapper">
-                <table class="shap-table">
+        with col2:
+        
+            st.markdown(
+                f"<div style='text-align:center;font-weight:700;color:#183153;'>Model baseline: {base_label}</div>",
+                unsafe_allow_html=True
+            )
+        
+            if shap_df is None or len(shap_df) == 0:
+                st.write("No SHAP data to show.")
+        
+            else:
+        
+                # ---------- Rebuild df locally ----------
+                display_df = shap_df.copy()
+                display_df["feature_label"] = display_df["feature"].map(lambda x: FEATURE_LABELS.get(x, x))
+                display_df = display_df.sort_values("abs_shap", ascending=False).head(12)
+                display_df = display_df[["feature_label", "raw", "shap_value", "pct_of_abs"]].rename(columns={
+                    "feature_label": "Feature",
+                    "raw": "Value",
+                    "shap_value": "Contribution",
+                    "pct_of_abs": "PctImportance"
+                })
+                display_df["Value"] = display_df["Value"].apply(lambda v: f"{v:.2f}" if pd.notna(v) else "NaN")
+                display_df["Contribution"] = display_df["Contribution"].apply(lambda v: f"{v:.3f}")
+                display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
+                display_df = display_df.reset_index(drop=True)
+        
+                # ---------- SAME EXACT CSS as compare table ----------
+                st.markdown("""
+                <style>
+                .comp-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 14px;
+                    font-size: 0.88em;
+                    background: #FFFFFF;
+                    border: 2px solid #111827;
+                    border-radius: 10px;
+                    overflow: hidden;
+                }
+        
+                .comp-table th {
+                    background: #F3F4F6;
+                    color: #374151;
+                    padding: 10px 6px;
+                    font-weight: 700;
+                    text-align: center;
+                    border-bottom: 1px solid #D1D5DB;
+                }
+        
+                .comp-table td {
+                    padding: 9px 6px;
+                    text-align: center;
+                    border-bottom: 1px solid #E5E7EB;
+                    color: #111827;
+                }
+        
+                .comp-table tr:last-child td {
+                    border-bottom: 1px solid #E5E7EB;
+                }
+        
+                .comp-feature {
+                    text-align: left;
+                    font-weight: 600;
+                    color: #1F2937;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+        
+                # ---------- Build HTML rows ----------
+                html_rows = ""
+                for _, r in display_df.iterrows():
+                    html_rows += f"""
+                    <tr>
+                        <td class='comp-feature'>{r['Feature']}</td>
+                        <td>{r['Value']}</td>
+                        <td>{r['Contribution']}</td>
+                        <td>{r['PctImportance']}</td>
+                    </tr>
+                    """
+        
+                # ---------- Final HTML ----------
+                html_table = f"""
+                <table class='comp-table'>
                     <thead>
                         <tr>
                             <th>Feature</th>
                             <th>Value</th>
                             <th>Contribution</th>
-                            <th>PctImportance</th>
+                            <th>Importance</th>
                         </tr>
                     </thead>
                     <tbody>
                         {html_rows}
                     </tbody>
                 </table>
-            </div>
-            """
-    
-            st.markdown(html_table, unsafe_allow_html=True)
+                """
+        
+                st.markdown(html_table, unsafe_allow_html=True)
    
     # Mechanical similarity cluster
     TOP_N = 10
