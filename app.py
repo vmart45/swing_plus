@@ -1426,127 +1426,123 @@ elif page == "Compare":
         for f in top_diff:
             st.markdown(f"- **Difference driver:** {FEATURE_LABELS.get(f,f)}")
 
-# ==========================================
-# FEATURE COMPARISON TABLE  (HTML)
-# ==========================================
+        # ==========================================
+        # FEATURE COMPARISON TABLE  (HTML)
+        # ==========================================
+        
+        playerA_label = f"{playerA} ({seasonA})"
+        playerB_label = f"{playerB} ({seasonB})"
+        
+        # ---- CSS ----
+        st.markdown("""
+        <style>
+        .comp-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 18px;
+            font-size: 0.88em;
+            background: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .comp-table th {
+            background: #F3F4F6;
+            color: #374151;
+            padding: 10px 6px;
+            font-weight: 700;
+            text-align: center;
+            border-bottom: 1px solid #D1D5DB;
+        }
+        .comp-table td {
+            padding: 9px 6px;
+            text-align: center;
+            border-bottom: 1px solid #E5E7EB;
+            color: #111827;
+        }
+        .comp-table tr:last-child td {
+            border-bottom: 1px solid #E5E7EB;
+        }
+        .comp-feature {
+            text-align: left;
+            font-weight: 600;
+            color: #1F2937;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # ---- Build rows ----
+        html_rows = ""
+        for f in feats:
+            html_rows += (
+                "<tr>"
+                f"<td class='comp-feature'>{FEATURE_LABELS.get(f, f)}</td>"
+                f"<td>{valsA[f]:.2f}</td>"
+                f"<td>{valsB[f]:.2f}</td>"
+                f"<td>{(valsA[f]-valsB[f]):.2f}</td>"
+                f"<td>{z_diff[f]:.2f}</td>"
+                f"<td>{pctA[f]:.0%}</td>"
+                f"<td>{pctB[f]:.0%}</td>"
+                f"<td>{importance[f]:.3f}</td>"
+                "</tr>"
+            )
+        
+        # ---- FINAL TABLE (NO INDENTATION!!!) ----
+        html_table = (
+        f"<table class='comp-table'>"
+        f"<thead>"
+        f"<tr>"
+        f"<th>Feature</th>"
+        f"<th>{playerA_label}</th>"
+        f"<th>{playerB_label}</th>"
+        f"<th>Diff</th>"
+        f"<th>Z-Diff</th>"
+        f"<th>Pct A</th>"
+        f"<th>Pct B</th>"
+        f"<th>Importance</th>"
+        f"</tr>"
+        f"</thead>"
+        f"<tbody>"
+        f"{html_rows}"
+        f"</tbody>"
+        f"</table>"
+        )
+        
+        st.markdown(html_table, unsafe_allow_html=True)
 
-playerA_label = f"{playerA} ({seasonA})"
-playerB_label = f"{playerB} ({seasonB})"
-
-# ---- CSS ----
-st.markdown("""
-<style>
-.comp-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 18px;
-    font-size: 0.88em;
-    background: #FFFFFF;
-    border: 1px solid #E5E7EB;
-    border-radius: 10px;
-    overflow: hidden;
-}
-
-.comp-table th {
-    background: #F3F4F6;
-    color: #374151;
-    padding: 10px 6px;
-    font-weight: 700;
-    text-align: center;
-    border-bottom: 1px solid #D1D5DB;
-}
-
-.comp-table td {
-    padding: 9px 6px;
-    text-align: center;
-    border-bottom: 1px solid #E5E7EB;
-    color: #111827;
-}
-
-.comp-table tr:last-child td {
-    border-bottom: 1px solid #E5E7EB; /* ensures visible bottom border */
-}
-
-.comp-feature {
-    text-align: left;
-    font-weight: 600;
-    color: #1F2937;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ---- Build table rows ----
-html_rows = ""
-for f in feats:
-    html_rows += f"""
-    <tr>
-        <td class="comp-feature">{FEATURE_LABELS.get(f, f)}</td>
-        <td>{valsA[f]:.2f}</td>
-        <td>{valsB[f]:.2f}</td>
-        <td>{(valsA[f] - valsB[f]):.2f}</td>
-        <td>{z_diff[f]:.2f}</td>
-        <td>{pctA[f]:.0%}</td>
-        <td>{pctB[f]:.0%}</td>
-        <td>{importance[f]:.3f}</td>
-    </tr>
-    """
-
-# ---- Final Table HTML ----
-html_table = f"""
-<table class="comp-table">
-    <thead>
-        <tr>
-            <th>Feature</th>
-            <th>{playerA_label}</th>
-            <th>{playerB_label}</th>
-            <th>Diff</th>
-            <th>Z-Diff</th>
-            <th>Pct A</th>
-            <th>Pct B</th>
-            <th>Importance</th>
-        </tr>
-    </thead>
-    <tbody>
-        {html_rows}
-    </tbody>
-</table>
-"""
-
-st.markdown(html_table, unsafe_allow_html=True)
-
-# -------------------------------------------------
-# SHAP Comparison
-# -------------------------------------------------
-st.markdown("""
-    <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
-        Model Contributions (SHAP)
-    </h3>
-""", unsafe_allow_html=True)
-
-order = importance.sort_values(ascending=False).index
-shapA_ord = shapA.reindex(order).fillna(0)
-shapB_ord = shapB.reindex(order).fillna(0)
-labels = [FEATURE_LABELS.get(f,f) for f in order]
-
-colA_shap, colB_shap = st.columns(2)
-
-with colA_shap:
-    fig = go.Figure()
-    vals = shapA_ord.values.astype(float)
-    colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]
-    fig.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors,
-                         text=[f"{v:.3f}" for v in vals], textposition='inside'))
-    fig.update_layout(margin=dict(l=160,r=24,t=28,b=60),height=430,showlegend=False,
-                      xaxis_title="SHAP contribution",yaxis=dict(autorange="reversed"))
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-
-with colB_shap:
-    fig = go.Figure()
-    vals = shapB_ord.values.astype(float)
-    colors = ["#F59E0B" if v > 0 else "#60A5FA" for v in vals]
-    fig.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors,
-                         text=[f"{v:.3f}" for v in vals], textposition='inside'))
-    fig.update_layout(margin=dict(l=160,r=24,t=28,b=60),height=430,showlegend=False,
-                      xaxis_title="SHAP contribution",yaxis=dict(autorange="reversed"))
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-
+        # -------------------------------------------------
+        # SHAP Comparison
+        # -------------------------------------------------
+        st.markdown("""
+            <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
+                Model Contributions (SHAP)
+            </h3>
+        """, unsafe_allow_html=True)
+        
+        order = importance.sort_values(ascending=False).index
+        shapA_ord = shapA.reindex(order).fillna(0)
+        shapB_ord = shapB.reindex(order).fillna(0)
+        labels = [FEATURE_LABELS.get(f,f) for f in order]
+        
+        colA_shap, colB_shap = st.columns(2)
+        
+        with colA_shap:
+            fig = go.Figure()
+            vals = shapA_ord.values.astype(float)
+            colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]
+            fig.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors,
+                                 text=[f"{v:.3f}" for v in vals], textposition='inside'))
+            fig.update_layout(margin=dict(l=160,r=24,t=28,b=60),height=430,showlegend=False,
+                              xaxis_title="SHAP contribution",yaxis=dict(autorange="reversed"))
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        
+        with colB_shap:
+            fig = go.Figure()
+            vals = shapB_ord.values.astype(float)
+            colors = ["#F59E0B" if v > 0 else "#60A5FA" for v in vals]
+            fig.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors,
+                                 text=[f"{v:.3f}" for v in vals], textposition='inside'))
+            fig.update_layout(margin=dict(l=160,r=24,t=28,b=60),height=430,showlegend=False,
+                              xaxis_title="SHAP contribution",yaxis=dict(autorange="reversed"))
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        
