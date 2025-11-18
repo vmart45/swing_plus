@@ -1612,60 +1612,60 @@ html_table = f"""
 st.markdown(html_table, unsafe_allow_html=True)
 
 
-        # ------------------------------
-        # SHAP comparison
-        # ------------------------------
-        st.markdown(
-            """
-            <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
-                Model Contributions (SHAP)
-            </h3>
-            """,
-            unsafe_allow_html=True
-        )
+# ------------------------------
+# SHAP comparison
+# ------------------------------
+st.markdown(
+    """
+    <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
+        Model Contributions (SHAP)
+    </h3>
+    """,
+    unsafe_allow_html=True
+)
 
-        order = importance.sort_values(ascending=False).index.tolist()
-        labels = [FEATURE_LABELS.get(f, f) for f in order]
+order = importance.sort_values(ascending=False).index.tolist()
+labels = [FEATURE_LABELS.get(f, f) for f in order]
 
-        shapA_ord = shapA.reindex(order).fillna(0)
-        shapB_ord = shapB.reindex(order).fillna(0)
+shapA_ord = shapA.reindex(order).fillna(0)
+shapB_ord = shapB.reindex(order).fillna(0)
 
-        col_shap_a, col_shap_b = st.columns([1, 1])
+col_shap_a, col_shap_b = st.columns([1, 1])
 
-        with col_shap_a:
-            vals = shapA_ord.values.astype(float)
-            colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]
-            figA = go.Figure()
-            figA.add_trace(go.Bar(
-                x=vals, y=labels, orientation='h',
-                marker_color=colors,
-                text=[f"{v:.3f}" for v in vals],
-                textposition='inside'
-            ))
-            figA.update_layout(
-                margin=dict(l=160, r=24, t=28, b=60),
-                xaxis_title="SHAP contribution",
-                yaxis=dict(autorange="reversed"),
-                height=430,
-                showlegend=False
-            )
-            st.plotly_chart(figA, use_container_width=True, config={"displayModeBar": False})
+with col_shap_a:
+    vals = shapA_ord.values.astype(float)
+    colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]
+    figA = go.Figure()
+    figA.add_trace(go.Bar(
+        x=vals, y=labels, orientation='h',
+        marker_color=colors,
+        text=[f"{v:.3f}" for v in vals],
+        textposition='inside'
+    ))
+    figA.update_layout(
+        margin=dict(l=160, r=24, t=28, b=60),
+        xaxis_title="SHAP contribution",
+        yaxis=dict(autorange="reversed"),
+        height=430,
+        showlegend=False
+    )
+    st.plotly_chart(figA, use_container_width=True, config={"displayModeBar": False})
 
-        with col_shap_b:
-            vals = shapB_ord.values.astype(float)
-            colors = ["#F59E0B" if v > 0 else "#60A5FA" for v in vals]
-            figB = go.Figure()
-            figB.add_trace(go.Bar(
-                x=vals, y=labels, orientation='h',
-                marker_color=colors,
-                text=[f"{v:.3f}" for v in vals],
-                textposition='inside'
-            ))
-            figB.update_layout(
-                margin=dict(l=160, r=24, t=28, b=60),
-                xaxis_title="SHAP contribution",
-                yaxis=dict(autorange="reversed"),
-                height=430,
-                showlegend=False
-            )
-            st.plotly_chart(figB, use_container_width=True, config={"displayModeBar": False})
+with col_shap_b:
+    vals = shapB_ord.values.astype(float)
+    colors = ["#F59E0B" if v > 0 else "#60A5FA" for v in vals]
+    figB = go.Figure()
+    figB.add_trace(go.Bar(
+        x=vals, y=labels, orientation='h',
+        marker_color=colors,
+        text=[f"{v:.3f}" for v in vals],
+        textposition='inside'
+    ))
+    figB.update_layout(
+        margin=dict(l=160, r=24, t=28, b=60),
+        xaxis_title="SHAP contribution",
+        yaxis=dict(autorange="reversed"),
+        height=430,
+        showlegend=False
+    )
+    st.plotly_chart(figB, use_container_width=True, config={"displayModeBar": False})
