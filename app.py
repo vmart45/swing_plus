@@ -1030,7 +1030,6 @@ elif page == "Player":
                 st.write("No SHAP data to show.")
         
             else:
-        
                 # ---------- Rebuild df locally ----------
                 display_df = shap_df.copy()
                 display_df["feature_label"] = display_df["feature"].map(lambda x: FEATURE_LABELS.get(x, x))
@@ -1046,8 +1045,8 @@ elif page == "Player":
                 display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
                 display_df = display_df.reset_index(drop=True)
         
-                # ---------- SAME EXACT CSS as compare table ----------
-                css = """
+                # ---------- SAME EXACT CSS as compare table (with matching font-family) ----------
+                st.markdown("""
                 <style>
                 .comp-table {
                     width: 100%;
@@ -1058,6 +1057,7 @@ elif page == "Player":
                     border: 2px solid #111827;
                     border-radius: 10px;
                     overflow: hidden;
+                    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
                 }
         
                 .comp-table th {
@@ -1087,9 +1087,9 @@ elif page == "Player":
                     padding-left: 8px;
                 }
                 </style>
-                """
+                """, unsafe_allow_html=True)
         
-                # ---------- Build HTML rows safely ----------
+                # ---------- Build HTML rows (escape values) ----------
                 import html as _html
                 html_rows = ""
                 for _, r in display_df.iterrows():
@@ -1106,7 +1106,7 @@ elif page == "Player":
                     </tr>
                     """
         
-                # ---------- Final HTML ----------
+                # ---------- Final HTML (render via st.markdown so it uses the same app font) ----------
                 html_table = f"""
                 <table class='comp-table'>
                     <thead>
@@ -1123,11 +1123,7 @@ elif page == "Player":
                 </table>
                 """
         
-                # render via components.html so the table and CSS are applied reliably
-                full_html = css + html_table
-                rows_count = len(display_df)
-                iframe_height = min(700, 90 + max(1, rows_count) * 40)
-                components.html(full_html, height=iframe_height)
+                st.markdown(html_table, unsafe_allow_html=True)
    
     # Mechanical similarity cluster
     TOP_N = 10
