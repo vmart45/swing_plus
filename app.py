@@ -1511,10 +1511,7 @@ elif page == "Compare":
         st.markdown(
             f"""
             <h3 style="text-align:center; margin-top:6px; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
-                Feature Contributions
-            </h3>
-            <div style="text-align:center; color:#6b7280; margin-bottom:6px; font-size:0.95em;">
-                SHAP contributions for {playerA} ({seasonA}) and {playerB} ({seasonB})
+                Swing+ Feature Contributions
             </div>
             """,
             unsafe_allow_html=True
