@@ -1249,9 +1249,9 @@ elif page == "Compare":
         </h2>
     """, unsafe_allow_html=True)
 
-    # -----------------------------------------------------
-    # Player Dropdowns
-    # -----------------------------------------------------
+    # -------------------------------------
+    # Player dropdowns
+    # -------------------------------------
     player_options = sorted(df["Name"].dropna().unique())
     if not player_options:
         st.warning("No players available.")
@@ -1261,13 +1261,13 @@ elif page == "Compare":
 
     with colA:
         st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-bottom:4px;'>Player A</div>", unsafe_allow_html=True)
-        playerA = st.selectbox("", player_options, index=0, key="compare_player_a")
+        playerA = st.selectbox("", player_options, key="compare_player_a")
         seasonsA = sorted(df[df["Name"] == playerA][season_col].dropna().unique())
         seasonA = st.selectbox("Season A", seasonsA, index=len(seasonsA)-1)
 
     with colB:
         st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-bottom:4px;'>Player B</div>", unsafe_allow_html=True)
-        playerB = st.selectbox("", player_options, index=1 if len(player_options)>1 else 0, key="compare_player_b")
+        playerB = st.selectbox("", player_options, key="compare_player_b")
         seasonsB = sorted(df[df["Name"] == playerB][season_col].dropna().unique())
         seasonB = st.selectbox("Season B", seasonsB, index=len(seasonsB)-1)
 
@@ -1275,19 +1275,19 @@ elif page == "Compare":
         st.warning("Select two different players or seasons.")
         st.stop()
 
-    # -----------------------------------------------------
-    # Fetch rows
-    # -----------------------------------------------------
-    def get_player_row_for_season(name, season):
-        rows = df[(df["Name"] == name) & (df[season_col] == season)]
-        return rows.iloc[0] if len(rows) else df[df["Name"] == name].iloc[0]
+    # -------------------------------------
+    # Row extractor
+    # -------------------------------------
+    def get_row(name, season):
+        subset = df[(df["Name"] == name) & (df[season_col] == season)]
+        return subset.iloc[0] if len(subset) else df[df["Name"] == name].iloc[0]
 
-    rowA = get_player_row_for_season(playerA, seasonA)
-    rowB = get_player_row_for_season(playerB, seasonB)
+    rowA = get_row(playerA, seasonA)
+    rowB = get_row(playerB, seasonB)
 
-    # -----------------------------------------------------
-    # Similarity (cosine)
-    # -----------------------------------------------------
+    # -------------------------------------
+    # Cosine similarity
+    # -------------------------------------
     try:
         feats_sim = mech_features_available
         df_sim = df.dropna(subset=feats_sim)
@@ -1298,45 +1298,44 @@ elif page == "Compare":
 
         cosine_sim = compute_cosine_similarity_between_rows(vecA, vecB)
         sim_pct = f"{cosine_sim*100:.1f}%"
-    except:
+    except Exception:
         cosine_sim = None
         sim_pct = "N/A"
 
-    # -----------------------------------------------------
-    # Player Cards
-    # -----------------------------------------------------
+    # -------------------------------------
+    # Player cards
+    # -------------------------------------
     col1, colSim, col2 = st.columns([1.5, 1, 1.5])
 
     def player_card(row, name, season):
         pid = str(int(row.get("id", 0))) if pd.notnull(row.get("id")) else "0"
         img = f"https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/{pid}/headshot/silo/current.png"
         logo = image_dict.get(row.get("Team", ""), "")
+
         st.markdown(f"""
             <div style="text-align:center;">
                 <img src="{img}" style="height:110px;width:110px;border-radius:12px;border:1px solid #D1D5DB;">
                 <div style="font-size:1.05em;font-weight:800;color:#1F2937;margin-top:6px;">{name} ({season})</div>
-                {'<img src="'+ logo +'" style="height:38px;margin-top:4px;">' if logo else ''}
+                {'<img src="'+logo+'" style="height:38px;margin-top:4px;">' if logo else ''}
             </div>
         """, unsafe_allow_html=True)
 
     with col1:
         player_card(rowA, playerA, seasonA)
-
     with colSim:
         st.markdown(f"""
             <div style="text-align:center;background:#F3F4F6;border:1px solid #D1D5DB;
-            padding:16px;border-radius:10px;margin-top:28px;">
+                        padding:16px;border-radius:10px;margin-top:28px;">
                 <div style="font-size:1.05em;font-weight:700;color:#374151;">Similarity</div>
                 <div style="font-size:1.85em;font-weight:800;color:#111827;">{sim_pct}</div>
             </div>
         """, unsafe_allow_html=True)
-
     with col2:
         player_card(rowB, playerB, seasonB)
 
-    # -----------------------------------------------------
+    # -------------------------------------
     # Stat tiles
-    # -----------------------------------------------------
+    # -------------------------------------
     stats = ["Age", "Swing+", "HitSkillPlus", "ImpactPlus"]
     colA_block, _, colB_block = st.columns([1, 0.06, 1])
 
@@ -1346,7 +1345,10 @@ elif page == "Compare":
             cols = st.columns(len(stats))
             for i, stat in enumerate(stats):
                 v = row.get(stat, "N/A")
-                disp = f"{int(v)}" if stat=="Age" else (f"{v:.2f}" if isinstance(v, (int,float)) else "N/A")
+                if stat == "Age":
+                    disp = f"{int(v)}" if pd.notnull(v) else "N/A"
+                else:
+                    disp = f"{v:.2f}" if isinstance(v, (int, float)) else "N/A"
                 cols[i].markdown(f"""
                     <div style="background:#FFF;border:1px solid #D1D5DB;border-radius:10px;padding:10px;text-align:center;">
                         <div style="font-weight:700;">{disp}</div>
@@ -1359,133 +1361,120 @@ elif page == "Compare":
 
     st.markdown("<hr style='margin-top:32px;margin-bottom:22px;'/>", unsafe_allow_html=True)
 
-    # -----------------------------------------------------
-    # Mechanical comparison (FULL BLOCK)
-    # -----------------------------------------------------
-    if len(mech_features_available) >= 2:
+    # -------------------------------------
+    # Mechanical comparison
+    # -------------------------------------
+    if len(mech_features_available) < 2:
+        st.warning("Not enough mechanical features for comparison.")
+        st.stop()
 
-        feats = mech_features_available
+    feats = mech_features_available
+    df_comp = df[df[season_col].isin([seasonA, seasonB])].dropna(subset=feats)
 
-        # build df_comp
-        df_comp = df[df[season_col].isin([seasonA, seasonB])].dropna(subset=feats + ["Name"])
+    if df_comp.empty:
+        st.warning("Not enough data for mechanical feature comparison.")
+        st.stop()
 
-        if df_comp.empty:
-            st.warning("Not enough data for mechanical comparison.")
-            st.stop()
+    # Stats
+    mean_series = df_comp[feats].mean()
+    std_series = df_comp[feats].std().replace(0, 1e-9)
 
-        mean_series = df_comp[feats].mean()
-        std_series = df_comp[feats].std().replace(0, 1e-9)
+    valsA = rowA[feats].astype(float)
+    valsB = rowB[feats].astype(float)
 
-        valsA = rowA[feats].astype(float)
-        valsB = rowB[feats].astype(float)
-        zA = (valsA - mean_series) / std_series
-        zB = (valsB - mean_series) / std_series
-        z_diff = abs(zA - zB)
+    zA = (valsA - mean_series) / std_series
+    zB = (valsB - mean_series) / std_series
+    z_diff = abs(zA - zB)
 
-        pct_rank = df_comp[feats].rank(pct=True)
-        pctA = pct_rank.loc[rowA.name] if rowA.name in pct_rank.index else pct_rank.iloc[0]
-        pctB = pct_rank.loc[rowB.name] if rowB.name in pct_rank.index else pct_rank.iloc[0]
+    pct_rank = df_comp[feats].rank(pct=True)
+    pctA = pct_rank.iloc[(df_comp.index == rowA.name).argmax()] if rowA.name in pct_rank.index else pct_rank.iloc[0]
+    pctB = pct_rank.iloc[(df_comp.index == rowB.name).argmax()] if rowB.name in pct_rank.index else pct_rank.iloc[0]
 
-        # SHAP
-        shapA, _, _ = compute_shap(rowA, feats)
-        shapB, _, _ = compute_shap(rowB, feats)
-        shapA = shapA.reindex(feats).fillna(0) if shapA is not None else pd.Series(0, index=feats)
-        shapB = shapB.reindex(feats).fillna(0) if shapB is not None else pd.Series(0, index=feats)
+    # SHAP
+    shapA, _, _ = compute_shap(rowA, feats)
+    shapB, _, _ = compute_shap(rowB, feats)
+    shapA = shapA.reindex(feats).fillna(0) if shapA is not None else pd.Series(0, index=feats)
+    shapB = shapB.reindex(feats).fillna(0) if shapB is not None else pd.Series(0, index=feats)
 
-        # Importance
-        if model_loaded and explainer is not None:
-            try:
-                sampleX = df_comp[feats].head(200).fillna(df_comp[feats].mean())
-                shap_vals = explainer(sampleX)
-                if hasattr(shap_vals, "values"):
-                    importance = pd.Series(abs(shap_vals.values).mean(axis=0), index=feats)
-                else:
-                    importance = pd.Series(1, index=feats)
-            except:
-                importance = pd.Series(1, index=feats)
-        else:
+    # Importance
+    if model_loaded and explainer is not None:
+        try:
+            sampleX = df_comp[feats].head(200).fillna(df_comp[feats].mean())
+            shap_vals = explainer(sampleX)
+            importance = pd.Series(abs(shap_vals.values).mean(axis=0), index=feats)
+        except Exception:
             importance = pd.Series(1, index=feats)
+    else:
+        importance = pd.Series(1, index=feats)
 
-        # -------------------------------------------------
-        # QUICK TAKEAWAYS
-        # -------------------------------------------------
-        st.markdown("""
-            <h3 style="margin-top:22px;margin-bottom:8px;color:#0F1A34;font-weight:750;">
-                Quick Takeaways
-            </h3>
-        """, unsafe_allow_html=True)
+    # -------------------------------------
+    # Quick takeaways
+    # -------------------------------------
+    st.markdown("""
+        <h3 style="margin-top:22px;margin-bottom:8px;color:#0F1A34;font-weight:750;">
+            Quick Takeaways
+        </h3>
+    """, unsafe_allow_html=True)
 
-        weighted = (1 - (z_diff / (z_diff.max() + 1e-9))).clip(0,1) * importance
-        top_sim = weighted.sort_values(ascending=False).head(3).index.tolist()
-        top_diff = (z_diff * importance).sort_values(ascending=False).head(3).index.tolist()
+    weighted = (1 - (z_diff / (z_diff.max() + 1e-9))).clip(0, 1) * importance
+    top_sim = weighted.sort_values(ascending=False).head(3).index.tolist()
+    top_diff = (z_diff * importance).sort_values(ascending=False).head(3).index.tolist()
 
-        if cosine_sim is not None:
-            st.markdown(f"- **Overall mechanical similarity:** {cosine_sim*100:.1f}%")
-        for f in top_sim:
-            st.markdown(f"- **Similarity driver:** {FEATURE_LABELS.get(f,f)}")
-        for f in top_diff:
-            st.markdown(f"- **Difference driver:** {FEATURE_LABELS.get(f,f)}")
+    if cosine_sim is not None:
+        st.markdown(f"- **Overall mechanical similarity:** {cosine_sim*100:.1f}%")
+    for f in top_sim:
+        st.markdown(f"- **Similarity driver:** {FEATURE_LABELS.get(f, f)}")
+    for f in top_diff:
+        st.markdown(f"- **Difference driver:** {FEATURE_LABELS.get(f, f)}")
 
-        # ============================
-        # FEATURE COMPARISON HEADER
-        # ============================
-        st.markdown(
-            """
-            <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
-                Feature Comparison
-            </h3>
-            """,
-            unsafe_allow_html=True
-        )
+    # -------------------------------------
+    # Feature Comparison (HTML Table)
+    # -------------------------------------
+    st.markdown("""
+        <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
+            Feature Comparison
+        </h3>
+    """, unsafe_allow_html=True)
 
-        # ============================
-        # TABLE CSS
-        # ============================
-        st.markdown("""
-        <style>
-        .comp-table-wrapper {
-            border: 2px solid #1F2937;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-top: 10px;
-        }
-        .comp-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.88em;
-            background: #FFF;
-        }
-        .comp-table th {
-            background: #F3F4F6;
-            color: #374151;
-            padding: 10px 6px;
-            font-weight: 700;
-            text-align: center;
-            border-bottom: 1px solid #D1D5DB;
-        }
-        .comp-table td {
-            padding: 9px 6px;
-            text-align: center;
-            border-bottom: 1px solid #E5E7EB;
-            color: #111827;
-        }
-        .comp-feature {
-            text-align: left;
-            font-weight: 600;
-            color: #1F2937;
-        }
-        .comp-table tr:last-child td {
-            border-bottom: 1px solid #E5E7EB;
-        }
-        </style>
-        """, unsafe_allow_html=True)
+    st.markdown("""
+    <style>
+    .comp-table-wrapper {
+        border: 2px solid #1F2937;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-top: 12px;
+    }
+    .comp-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #FFFFFF;
+        font-size: 0.88em;
+    }
+    .comp-table th {
+        background: #F3F4F6;
+        color: #374151;
+        padding: 10px 6px;
+        font-weight: 700;
+        text-align: center;
+        border-bottom: 1px solid #D1D5DB;
+    }
+    .comp-table td {
+        padding: 9px 6px;
+        text-align: center;
+        border-bottom: 1px solid #E5E7EB;
+        color: #111827;
+    }
+    .comp-feature {
+        font-weight: 600;
+        text-align: left !important;
+        color: #1F2937;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-        # ============================
-        # BUILD ROWS
-        # ============================
-        html_rows = ""
-        for f in feats:
-            html_rows += f"""
+    html_rows = ""
+    for f in feats:
+        html_rows += f"""
             <tr>
                 <td class="comp-feature">{FEATURE_LABELS.get(f, f)}</td>
                 <td>{valsA[f]:.2f}</td>
@@ -1496,68 +1485,66 @@ elif page == "Compare":
                 <td>{pctB[f]:.0%}</td>
                 <td>{importance[f]:.3f}</td>
             </tr>
-            """
-
-        # ============================
-        # FINAL TABLE RENDER
-        # ============================
-        html_table = f"""
-        <div class="comp-table-wrapper">
-        <table class="comp-table">
-            <thead>
-                <tr>
-                    <th>Feature</th>
-                    <th>{playerA} ({seasonA})</th>
-                    <th>{playerB} ({seasonB})</th>
-                    <th>Diff</th>
-                    <th>Z-Diff</th>
-                    <th>Pct A</th>
-                    <th>Pct B</th>
-                    <th>Importance</th>
-                </tr>
-            </thead>
-            <tbody>
-                {html_rows}
-            </tbody>
-        </table>
-        </div>
         """
 
-        st.markdown(html_table, unsafe_allow_html=True)
+    table_html = f"""
+    <div class="comp-table-wrapper">
+    <table class="comp-table">
+        <thead>
+            <tr>
+                <th>Feature</th>
+                <th>{playerA} ({seasonA})</th>
+                <th>{playerB} ({seasonB})</th>
+                <th>Diff</th>
+                <th>Z-Diff</th>
+                <th>Pct A</th>
+                <th>Pct B</th>
+                <th>Importance</th>
+            </tr>
+        </thead>
+        <tbody>
+            {html_rows}
+        </tbody>
+    </table>
+    </div>
+    """
 
-        # -------------------------------------------------
-        # SHAP Comparison
-        # -------------------------------------------------
-        st.markdown("""
-            <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
-                Model Contributions (SHAP)
-            </h3>
-        """, unsafe_allow_html=True)
-        
-        order = importance.sort_values(ascending=False).index
-        shapA_ord = shapA.reindex(order).fillna(0)
-        shapB_ord = shapB.reindex(order).fillna(0)
-        labels = [FEATURE_LABELS.get(f,f) for f in order]
-        
-        colA_shap, colB_shap = st.columns(2)
-        
-        with colA_shap:
-            fig = go.Figure()
-            vals = shapA_ord.values.astype(float)
-            colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]
-            fig.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors,
-                                 text=[f"{v:.3f}" for v in vals], textposition='inside'))
-            fig.update_layout(margin=dict(l=160,r=24,t=28,b=60),height=430,showlegend=False,
-                              xaxis_title="SHAP contribution",yaxis=dict(autorange="reversed"))
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-        
-        with colB_shap:
-            fig = go.Figure()
-            vals = shapB_ord.values.astype(float)
-            colors = ["#F59E0B" if v > 0 else "#60A5FA" for v in vals]
-            fig.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors,
-                                 text=[f"{v:.3f}" for v in vals], textposition='inside'))
-            fig.update_layout(margin=dict(l=160,r=24,t=28,b=60),height=430,showlegend=False,
-                              xaxis_title="SHAP contribution",yaxis=dict(autorange="reversed"))
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-        
+    st.markdown(table_html, unsafe_allow_html=True)
+
+    # -------------------------------------
+    # SHAP Comparison
+    # -------------------------------------
+    st.markdown("""
+        <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
+            Model Contributions (SHAP)
+        </h3>
+    """, unsafe_allow_html=True)
+
+    order = importance.sort_values(ascending=False).index
+    shapA_ord = shapA.reindex(order).fillna(0)
+    shapB_ord = shapB.reindex(order).fillna(0)
+    labels = [FEATURE_LABELS.get(f, f) for f in order]
+
+    colA_shap, colB_shap = st.columns(2)
+
+    with colA_shap:
+        fig = go.Figure()
+        vals = shapA_ord.values.astype(float)
+        colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]
+        fig.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors))
+        fig.update_layout(margin=dict(l=160, r=24, t=28, b=60),
+                          height=430, showlegend=False,
+                          xaxis_title="SHAP contribution",
+                          yaxis=dict(autorange="reversed"))
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+    with colB_shap:
+        fig = go.Figure()
+        vals = shapB_ord.values.astype(float)
+        colors = ["#F59E0B" if v > 0 else "#60A5FA" for v in vals]
+        fig.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors))
+        fig.update_layout(margin=dict(l=160, r=24, t=28, b=60),
+                          height=430, showlegend=False,
+                          xaxis_title="SHAP contribution",
+                          yaxis=dict(autorange="reversed"))
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
