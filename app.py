@@ -1318,6 +1318,23 @@ elif page == "Compare":
     rowA = get_player_row_for_season(playerA, seasonA)
     rowB = get_player_row_for_season(playerB, seasonB)
 
+    try:
+        feats = mech_features_available
+        df_comp2 = df.dropna(subset=feats)
+
+        scaler, df_scaled = get_scaler_and_scaled_df(feats, df_comp2)
+
+        vecA = scaler.transform(pd.DataFrame([rowA[feats].astype(float)]))[0]
+        vecB = scaler.transform(pd.DataFrame([rowB[feats].astype(float)]))[0]
+
+        cosine_sim = compute_cosine_similarity_between_rows(vecA, vecB)
+        sim_pct = f"{cosine_sim*100:.1f}%"
+    except Exception as e:
+        # print(e)  # (optional debug)
+        cosine_sim = None
+        sim_pct = "N/A"
+
+
     # ------------------------------
     # Prevent identical selections
     # ------------------------------
