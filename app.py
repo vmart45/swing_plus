@@ -1480,6 +1480,12 @@ if not use_shap:
     importance = (abs(zA) + abs(zB))
     importance = importance.replace(0, 1e-9)
     importance = importance / importance.sum()
+    
+st.markdown("""
+    <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
+        Feature Contributions
+    </h3>
+""", unsafe_allow_html=True)
 
 st.markdown("""
 <style>
