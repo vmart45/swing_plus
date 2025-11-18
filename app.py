@@ -1286,7 +1286,7 @@ elif page == "Compare":
                 else:
                     defaultB = seasonsB[-1]
 
-           try:
+            try:
                 idxB = seasonsB.index(defaultB)
             except:
                 idxB = len(seasonsB) - 1
