@@ -1364,31 +1364,32 @@ elif page == "Compare":
     # -------------------------------------
     # Mechanical comparison
     # -------------------------------------
-    if len(mech_features_available) < 2:
-        st.warning("Not enough mechanical features for comparison.")
-        st.stop()
+# -----------------------------------------------------
+# Mechanical comparison (FULL BLOCK)
+# -----------------------------------------------------
+if len(mech_features_available) >= 2:
 
     feats = mech_features_available
-    df_comp = df[df[season_col].isin([seasonA, seasonB])].dropna(subset=feats)
+
+    # build df_comp
+    df_comp = df[df[season_col].isin([seasonA, seasonB])].dropna(subset=feats + ["Name"])
 
     if df_comp.empty:
-        st.warning("Not enough data for mechanical feature comparison.")
+        st.warning("Not enough data for mechanical comparison.")
         st.stop()
 
-    # Stats
     mean_series = df_comp[feats].mean()
     std_series = df_comp[feats].std().replace(0, 1e-9)
 
     valsA = rowA[feats].astype(float)
     valsB = rowB[feats].astype(float)
-
     zA = (valsA - mean_series) / std_series
     zB = (valsB - mean_series) / std_series
     z_diff = abs(zA - zB)
 
     pct_rank = df_comp[feats].rank(pct=True)
-    pctA = pct_rank.iloc[(df_comp.index == rowA.name).argmax()] if rowA.name in pct_rank.index else pct_rank.iloc[0]
-    pctB = pct_rank.iloc[(df_comp.index == rowB.name).argmax()] if rowB.name in pct_rank.index else pct_rank.iloc[0]
+    pctA = pct_rank.loc[rowA.name] if rowA.name in pct_rank.index else pct_rank.iloc[0]
+    pctB = pct_rank.loc[rowB.name] if rowB.name in pct_rank.index else pct_rank.iloc[0]
 
     # SHAP
     shapA, _, _ = compute_shap(rowA, feats)
@@ -1402,40 +1403,43 @@ elif page == "Compare":
             sampleX = df_comp[feats].head(200).fillna(df_comp[feats].mean())
             shap_vals = explainer(sampleX)
             importance = pd.Series(abs(shap_vals.values).mean(axis=0), index=feats)
-        except Exception:
+        except:
             importance = pd.Series(1, index=feats)
     else:
         importance = pd.Series(1, index=feats)
 
-    # -------------------------------------
-    # Quick takeaways
-    # -------------------------------------
+    # -------------------------------------------------
+    # QUICK TAKEAWAYS
+    # -------------------------------------------------
     st.markdown("""
         <h3 style="margin-top:22px;margin-bottom:8px;color:#0F1A34;font-weight:750;">
             Quick Takeaways
         </h3>
     """, unsafe_allow_html=True)
 
-    weighted = (1 - (z_diff / (z_diff.max() + 1e-9))).clip(0, 1) * importance
+    weighted = (1 - (z_diff / (z_diff.max() + 1e-9))).clip(0,1) * importance
     top_sim = weighted.sort_values(ascending=False).head(3).index.tolist()
     top_diff = (z_diff * importance).sort_values(ascending=False).head(3).index.tolist()
 
     if cosine_sim is not None:
         st.markdown(f"- **Overall mechanical similarity:** {cosine_sim*100:.1f}%")
     for f in top_sim:
-        st.markdown(f"- **Similarity driver:** {FEATURE_LABELS.get(f, f)}")
+        st.markdown(f"- **Similarity driver:** {FEATURE_LABELS.get(f,f)}")
     for f in top_diff:
-        st.markdown(f"- **Difference driver:** {FEATURE_LABELS.get(f, f)}")
+        st.markdown(f"- **Difference driver:** {FEATURE_LABELS.get(f,f)}")
 
-    # -------------------------------------
-    # Feature Comparison (HTML Table)
-    # -------------------------------------
+    # ============================
+    # FEATURE COMPARISON HEADER
+    # ============================
     st.markdown("""
         <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
             Feature Comparison
         </h3>
     """, unsafe_allow_html=True)
 
+    # ============================
+    # TABLE CSS
+    # ============================
     st.markdown("""
     <style>
     .comp-table-wrapper {
@@ -1472,6 +1476,7 @@ elif page == "Compare":
     </style>
     """, unsafe_allow_html=True)
 
+    # Build rows
     html_rows = ""
     for f in feats:
         html_rows += f"""
@@ -1510,6 +1515,7 @@ elif page == "Compare":
     """
 
     st.markdown(table_html, unsafe_allow_html=True)
+
 
     # -------------------------------------
     # SHAP Comparison
