@@ -1508,11 +1508,17 @@ elif page == "Compare":
         for f in top_diff:
             st.markdown(f"- **Difference driver:** {FEATURE_LABELS.get(f,f)}")
 
-        st.markdown("""
-        <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
-            Feature Contributions
-        </h3>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            f"""
+            <h3 style="text-align:center; margin-top:6px; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
+                Feature Contributions
+            </h3>
+            <div style="text-align:center; color:#6b7280; margin-bottom:6px; font-size:0.95em;">
+                SHAP contributions for {playerA} ({seasonA}) and {playerB} ({seasonB})
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
         st.markdown("""
         <style>
@@ -1597,7 +1603,7 @@ elif page == "Compare":
         st.markdown(
             f"""
             <h3 style="text-align:center; margin-top:6px; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
-                Model Contributions (SHAP)
+                Model Contributions
             </h3>
             <div style="text-align:center; color:#6b7280; margin-bottom:6px; font-size:0.95em;">
                 SHAP contributions for {playerA} ({seasonA}) and {playerB} ({seasonB})
