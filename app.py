@@ -1396,12 +1396,31 @@ elif page == "Compare":
             st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
             stats = ["Age", "Swing+", "HitSkillPlus", "ImpactPlus"]
-            cols_stats = st.columns(len(stats)*2)
+            cols_stats = st.columns(len(stats) * 2)
             for i, stat in enumerate(stats):
                 valA = rowA.get(stat, "N/A")
-                valA_disp = f"{valA:.2f}" if isinstance(valA, (int, float, np.floating, np.integer)) and not pd.isna(valA) else valA
-                labelA = ("HitSkill+" if stat=="HitSkillPlus" else "Impact+" if stat=="ImpactPlus" else stat)
-                cols_stats[i].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valA_disp}</div><div style="color:#64748b;">{labelA} (A)</div></div>', unsafe_allow_html=True)
+                if stat == "Age" and isinstance(valA, (int, float, np.floating)):
+                    valA_disp = f"{int(round(valA))}"
+                elif isinstance(valA, (int, float, np.floating, np.integer)) and not pd.isna(valA):
+                    valA_disp = f"{valA:.2f}"
+                else:
+                    valA_disp = valA
+
+                labelA = (
+                    "HitSkill+" if stat == "HitSkillPlus" else
+                    "Impact+" if stat == "ImpactPlus" else
+                     stat
+                )
+
+                cols_stats[i].markdown(
+                    f"""
+                    <div style="text-align:center;">
+                        <div style="font-weight:700;color:#183153;">{valA_disp}</div>
+                        <div style="color:#64748b;">{labelA} (A)</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                 )
             for i, stat in enumerate(stats):
                 valB = rowB.get(stat, "N/A")
                 valB_disp = f"{valB:.2f}" if isinstance(valB, (int, float, np.floating, np.integer)) and not pd.isna(valB) else valB
