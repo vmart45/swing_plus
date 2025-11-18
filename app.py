@@ -1537,79 +1537,79 @@ elif page == "Compare":
         for f in top_diff:
             st.markdown(f"- **Difference driver:** {FEATURE_LABELS.get(f, f)} — largest standardized separation")
 
-        # --------------------------
-        # Custom Feature Comparison Table (HTML)
-        # --------------------------
-        st.markdown(
-            """
-            <style>
-            .comp-table {
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 16px;
-                font-size: 0.88em;
-                background: #FFFFFF;
-                border-radius: 10px;
-                overflow: hidden;
-            }
-            .comp-table th {
-                background: #F3F4F6;
-                color: #374151;
-                padding: 10px 6px;
-                font-weight: 700;
-                border-bottom: 1px solid #E5E7EB;
-            }
-            .comp-table td {
-                padding: 9px 6px;
-                text-align: center;
-                border-bottom: 1px solid #E5E7EB;
-                color: #111827;
-            }
-            .comp-table tr:last-child td {
-                border-bottom: none;
-            }
-            .comp-feature {
-                text-align: left;
-                font-weight: 600;
-                color: #1F2937;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
-        
-        html_rows = ""
-        for f in feats:
-            html_rows += f"""
-                <tr>
-                    <td class="comp-feature">{FEATURE_LABELS.get(f, f)}</td>
-                    <td>{valsA[f]:.2f}</td>
-                    <td>{valsB[f]:.2f}</td>
-                    <td>{(valsA[f]-valsB[f]):.2f}</td>
-                    <td>{z_diff[f]:.2f}</td>
-                    <td>{pctA[f]:.0%}</td>
-                    <td>{pctB[f]:.0%}</td>
-                    <td>{importance[f]:.3f}</td>
-                </tr>
-            """
-        
-        html_table = f"""
-        <table class="comp-table">
-            <tr>
-                <th>Feature</th>
-                <th>Player A</th>
-                <th>Player B</th>
-                <th>Diff</th>
-                <th>Z-Diff</th>
-                <th>Pct A</th>
-                <th>Pct B</th>
-                <th>Importance</th>
-            </tr>
-            {html_rows}
-        </table>
-        """
-        
-        st.markdown(html_table, unsafe_allow_html=True)
+# --------------------------
+# Custom Feature Comparison Table (HTML)
+# --------------------------
+st.markdown(
+    """
+<style>
+.comp-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+    font-size: 0.88em;
+    background: #FFFFFF;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.comp-table th {
+    background: #F3F4F6;
+    color: #374151;
+    padding: 10px 6px;
+    font-weight: 700;
+    border-bottom: 1px solid #E5E7EB;
+}
+.comp-table td {
+    padding: 9px 6px;
+    text-align: center;
+    border-bottom: 1px solid #E5E7EB;
+    color: #111827;
+}
+.comp-table tr:last-child td {
+    border-bottom: none;
+}
+.comp-feature {
+    text-align: left;
+    font-weight: 600;
+    color: #1F2937;
+}
+</style>
+    """,
+    unsafe_allow_html=True
+)
+
+html_rows = ""
+for f in feats:
+    html_rows += f"""
+<tr>
+    <td class="comp-feature">{FEATURE_LABELS.get(f, f)}</td>
+    <td>{valsA[f]:.2f}</td>
+    <td>{valsB[f]:.2f}</td>
+    <td>{(valsA[f]-valsB[f]):.2f}</td>
+    <td>{z_diff[f]:.2f}</td>
+    <td>{pctA[f]:.0%}</td>
+    <td>{pctB[f]:.0%}</td>
+    <td>{importance[f]:.3f}</td>
+</tr>
+"""
+
+html_table = f"""
+<table class="comp-table">
+<tr>
+    <th>Feature</th>
+    <th>Player A</th>
+    <th>Player B</th>
+    <th>Diff</th>
+    <th>Z-Diff</th>
+    <th>Pct A</th>
+    <th>Pct B</th>
+    <th>Importance</th>
+</tr>
+{html_rows}
+</table>
+"""
+
+st.markdown(html_table, unsafe_allow_html=True)
 
 
         # ------------------------------
