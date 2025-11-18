@@ -1026,24 +1026,47 @@ elif page == "Player":
             unsafe_allow_html=True
         )
     
+        # --------------------------------------------------
+        # REBUILD display_df LOCALLY (prevents NameError)
+        # --------------------------------------------------
         if shap_df is None or len(shap_df) == 0:
             st.write("No SHAP data to show.")
     
         else:
-            # ------------------------------
-            # CSS ONLY — NO DATA CHANGES
-            # ------------------------------
+            display_df = shap_df.copy()
+            display_df["feature_label"] = display_df["feature"].map(lambda x: FEATURE_LABELS.get(x, x))
+            display_df = display_df.sort_values("abs_shap", ascending=False).head(12)
+            display_df = display_df[["feature_label", "raw", "shap_value", "pct_of_abs"]]
+            display_df = display_df.rename(columns={
+                "feature_label": "Feature",
+                "raw": "Value",
+                "shap_value": "Contribution",
+                "pct_of_abs": "PctImportance"
+            })
+    
+            # Formatting
+            display_df["Value"] = display_df["Value"].apply(lambda v: f"{v:.2f}" if pd.notna(v) else "NaN")
+            display_df["Contribution"] = display_df["Contribution"].apply(lambda v: f"{v:.3f}")
+            display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
+            display_df = display_df.reset_index(drop=True)
+    
+            # --------------------------------------------------
+            # CSS for Styled Table
+            # --------------------------------------------------
             st.markdown("""
             <style>
-            .shap-table {
-                width: 100%;
-                border-collapse: collapse;
-                font-size: 0.88em;
-                background: #FFFFFF;
+            .shap-table-wrapper {
                 border: 2px solid #111827;
                 border-radius: 10px;
                 overflow: hidden;
-                margin-top: 12px;
+                margin-top: 14px;
+            }
+    
+            .shap-table {
+                width: 100%;
+                border-collapse: collapse;
+                background: #FFFFFF;
+                font-size: 0.88em;
             }
     
             .shap-table th {
@@ -1074,11 +1097,11 @@ elif page == "Player":
             </style>
             """, unsafe_allow_html=True)
     
-            # ------------------------------
-            # BUILD HTML FROM EXISTING DATAFRAME
-            # ------------------------------
+            # --------------------------------------------------
+            # BUILD HTML ROWS
+            # --------------------------------------------------
             html_rows = ""
-            for _, r in display_df.iterrows():   # <-- uses YOUR dataframe exactly as-is
+            for _, r in display_df.iterrows():
                 html_rows += f"""
                 <tr>
                     <td class="shap-feature">{r['Feature']}</td>
@@ -1088,22 +1111,29 @@ elif page == "Player":
                 </tr>
                 """
     
+            # --------------------------------------------------
+            # FINAL TABLE HTML (works in Streamlit)
+            # --------------------------------------------------
             html_table = f"""
-            <table class="shap-table">
-                <thead>
-                    <tr>
-                        {"".join([f"<th>{c}</th>" for c in display_df.columns])}
-                    </tr>
-                </thead>
-                <tbody>
-                    {html_rows}
-                </tbody>
-            </table>
+            <div class="shap-table-wrapper">
+                <table class="shap-table">
+                    <thead>
+                        <tr>
+                            <th>Feature</th>
+                            <th>Value</th>
+                            <th>Contribution</th>
+                            <th>PctImportance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {html_rows}
+                    </tbody>
+                </table>
+            </div>
             """
     
             st.markdown(html_table, unsafe_allow_html=True)
-
-            
+   
     # Mechanical similarity cluster
     TOP_N = 10
     mech_features_available = [f for f in mechanical_features if f in df.columns]
