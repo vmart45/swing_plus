@@ -1239,7 +1239,6 @@ elif page == "Player":
 
 # ---------------- Compare tab ----------------
 elif page == "Compare":
-elif page == "Compare":
     st.markdown(
         """
         <h2 style="
