@@ -1046,8 +1046,8 @@ elif page == "Player":
                 display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
                 display_df = display_df.reset_index(drop=True)
         
-                # ---------- CSS identical to Compare table (no font-family override) ----------
-                css = """
+                # ---------- SAME EXACT CSS as compare table ----------
+                st.markdown("""
                 <style>
                 .comp-table {
                     width: 100%;
@@ -1059,6 +1059,7 @@ elif page == "Player":
                     border-radius: 10px;
                     overflow: hidden;
                 }
+        
                 .comp-table th {
                     background: #F3F4F6;
                     color: #374151;
@@ -1067,54 +1068,56 @@ elif page == "Player":
                     text-align: center;
                     border-bottom: 1px solid #D1D5DB;
                 }
+        
                 .comp-table td {
                     padding: 9px 6px;
                     text-align: center;
                     border-bottom: 1px solid #E5E7EB;
                     color: #111827;
                 }
+        
                 .comp-table tr:last-child td {
                     border-bottom: 1px solid #E5E7EB;
                 }
+        
                 .comp-feature {
                     text-align: left;
                     font-weight: 600;
                     color: #1F2937;
-                    padding-left: 8px;
                 }
                 </style>
+                """, unsafe_allow_html=True)
+        
+                # ---------- Build HTML rows ----------
+                html_rows = ""
+                for _, r in display_df.iterrows():
+                    html_rows += f"""
+                    <tr>
+                        <td class='comp-feature'>{r['Feature']}</td>
+                        <td>{r['Value']}</td>
+                        <td>{r['Contribution']}</td>
+                        <td>{r['PctImportance']}</td>
+                    </tr>
+                    """
+        
+                # ---------- Final HTML ----------
+                html_table = f"""
+                <table class='comp-table'>
+                    <thead>
+                        <tr>
+                            <th>Feature</th>
+                            <th>Value</th>
+                            <th>Contribution</th>
+                            <th>Importance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {html_rows}
+                    </tbody>
+                </table>
                 """
         
-                # ---------- Build HTML rows safely ----------
-                import html as _html
-                rows = []
-                for rec in display_df.to_dict(orient="records"):
-                    feat = _html.escape(str(rec.get("Feature", "")))
-                    val = _html.escape(str(rec.get("Value", "")))
-                    contrib = _html.escape(str(rec.get("Contribution", "")))
-                    pct = _html.escape(str(rec.get("PctImportance", "")))
-                    rows.append(f"<tr><td class='comp-feature'>{feat}</td><td>{val}</td><td>{contrib}</td><td>{pct}</td></tr>")
-        
-                html_table = (
-                    "<table class='comp-table'>"
-                    "<thead>"
-                    "<tr>"
-                    "<th>Feature</th>"
-                    "<th>Value</th>"
-                    "<th>Contribution</th>"
-                    "<th>Importance</th>"
-                    "</tr>"
-                    "</thead>"
-                    "<tbody>"
-                    + "".join(rows) +
-                    "</tbody>"
-                    "</table>"
-                )
-        
-                full_html = css + html_table
-                rows_count = len(display_df)
-                iframe_height = min(700, 90 + max(1, rows_count) * 40)
-                components.html(full_html, height=iframe_height, scrolling=True)
+                st.markdown(html_table, unsafe_allow_html=True)
    
     # Mechanical similarity cluster
     TOP_N = 10
