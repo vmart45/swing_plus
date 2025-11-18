@@ -1423,9 +1423,28 @@ elif page == "Compare":
                  )
             for i, stat in enumerate(stats):
                 valB = rowB.get(stat, "N/A")
-                valB_disp = f"{valB:.2f}" if isinstance(valB, (int, float, np.floating, np.integer)) and not pd.isna(valB) else valB
-                labelB = ("HitSkill+" if stat=="HitSkillPlus" else "Impact+" if stat=="ImpactPlus" else stat)
-                cols_stats[i+len(stats)].markdown(f'<div style="text-align:center;"><div style="font-weight:700;color:#183153;">{valB_disp}</div><div style="color:#64748b;">{labelB} (B)</div></div>', unsafe_allow_html=True)
+                if stat == "Age" and isinstance(valB, (int, float, np.floating)):
+                    valB_disp = f"{int(round(valB))}"
+                elif isinstance(valB, (int, float, np.floating, np.integer)) and not pd.isna(valB):
+                    valB_disp = f"{valB:.2f}"
+                else:
+                    valB_disp = valB
+
+                labelB = (
+                    "HitSkill+" if stat == "HitSkillPlus" else
+                    "Impact+" if stat == "ImpactPlus" else
+                     stat
+                )
+
+                cols_stats[i + len(stats)].markdown(
+                    f"""
+                    <div style="text-align:center;">
+                        <div style="font-weight:700;color:#183153;">{valB_disp}</div>
+                        <div style="color:#64748b;">{labelB} (B)</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                 )
 
             st.markdown("<hr />", unsafe_allow_html=True)
 
