@@ -1290,8 +1290,20 @@ elif page == "Compare":
             seasonA = st.selectbox("", seasonsA, index=idxA, key="season_a_select")
 
     with colB:
-        st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-bottom:4px;'>Player B</div>", unsafe_allow_html=True)
-        playerB = st.selectbox("", player_options, index=default_b_idx, key="compare_player_b")
+        playerB = st.selectbox("Player B", player_options, index=default_b_idx, key="compare_player_b")
+
+        seasonsB = sorted(df[df["Name"] == playerB][season_col].dropna().unique())
+        defaultB = seasonsB[-1]
+        seasonB = st.selectbox("Season B", seasonsB, index=seasonsB.index(defaultB), key="season_b_select")
+
+     def get_player_row_for_season(name, season):
+        rows = df[(df["Name"] == name) & (df[season_col] == season)]
+        if len(rows):
+            return rows.iloc[0]
+        return df[df["Name"] == name].iloc[0]
+
+    rowA = get_player_row_for_season(playerA, seasonA)
+    rowB = get_player_row_for_season(playerB, seasonB)
 
         if season_col:
             seasonsB = sorted(df[df["Name"] == playerB][season_col].dropna().unique())
