@@ -178,68 +178,6 @@ FEATURE_LABELS = {
     "year": "Season"
 }
 
-st.sidebar.header("Filters")
-
-season_col = None
-for c in ["year", "Year", "season"]:
-    if c in df.columns:
-        season_col = c
-        break
-
-season_selected_global = None
-if season_col:
-    unique_years = sorted(df[season_col].dropna().unique())
-    default_season = 2025 if 2025 in unique_years else (unique_years[-1] if unique_years else None)
-    if unique_years:
-        default_index = unique_years.index(default_season) if default_season in unique_years else len(unique_years) - 1
-        season_selected_global = st.sidebar.selectbox("Season (global)", unique_years, index=default_index)
-else:
-    season_selected_global = None
-
-search_name = st.sidebar.text_input("Search Player by Name")
-
-min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
-age_range = st.sidebar.slider("Age Range", min_age, max_age, (min_age, max_age))
-
-comp_col = None
-for c in ["swings_competitive", "competitive_swings", "competitive_swings"]:
-    if c in df.columns:
-        comp_col = c
-        break
-
-if comp_col:
-    try:
-        swings_min = int(df[comp_col].min())
-        swings_max = int(df[comp_col].max())
-        default_low = 100 if swings_max >= 100 else swings_min
-        swings_range = st.sidebar.slider("Competitive Swings", swings_min, swings_max, (default_low, swings_max))
-    except Exception:
-        swings_range = None
-else:
-    swings_range = None
-
-# Build filtered df for MAIN tab only (sidebar filters applied to main)
-df_main_filtered = df.copy()
-if season_col and season_selected_global is not None:
-    try:
-        df_main_filtered = df_main_filtered[df_main_filtered[season_col] == season_selected_global]
-    except Exception:
-        pass
-
-if search_name:
-    df_main_filtered = df_main_filtered[df_main_filtered["Name"].str.contains(search_name, case=False, na=False)]
-
-df_main_filtered = df_main_filtered[(df_main_filtered["Age"] >= age_range[0]) & (df_main_filtered["Age"] <= age_range[1])]
-
-if comp_col and swings_range:
-    try:
-        df_main_filtered = df_main_filtered[
-            (df_main_filtered[comp_col] >= swings_range[0]) &
-            (df_main_filtered[comp_col] <= swings_range[1])
-        ]
-    except Exception:
-        pass
-
 main_cmap = "RdYlBu_r"
 elite_cmap = "Reds"
 
@@ -433,6 +371,79 @@ def open_compare_in_same_tab(playerA, playerB, seasonA=None, seasonB=None):
 # ---------------- Main tab ----------------
 if page == "Main":
     st.markdown("<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Player Metrics Table</h2>", unsafe_allow_html=True)
+
+    # Filters directly in Main tab
+    st.markdown("---")
+    
+    # Create columns for filters
+    filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
+    
+    with filter_col1:
+        # Season filter
+        season_col = None
+        for c in ["year", "Year", "season"]:
+            if c in df.columns:
+                season_col = c
+                break
+        
+        season_selected_global = None
+        if season_col:
+            unique_years = sorted(df[season_col].dropna().unique())
+            default_season = 2025 if 2025 in unique_years else (unique_years[-1] if unique_years else None)
+            if unique_years:
+                default_index = unique_years.index(default_season) if default_season in unique_years else len(unique_years) - 1
+                season_selected_global = st.selectbox("Season", unique_years, index=default_index, key="main_season")
+    
+    with filter_col2:
+        # Age slider
+        min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
+        age_range = st.slider("Age Range", min_age, max_age, (min_age, max_age), key="main_age")
+    
+    with filter_col3:
+        # Competitive swings filter
+        comp_col = None
+        for c in ["swings_competitive", "competitive_swings"]:
+            if c in df.columns:
+                comp_col = c
+                break
+        
+        swings_range = None
+        if comp_col:
+            try:
+                swings_min = int(df[comp_col].min())
+                swings_max = int(df[comp_col].max())
+                default_low = 100 if swings_max >= 100 else swings_min
+                swings_range = st.slider("Competitive Swings", swings_min, swings_max, (default_low, swings_max), key="main_swings")
+            except Exception:
+                swings_range = None
+    
+    with filter_col4:
+        # Player search
+        search_name = st.text_input("Search Player by Name", key="main_search")
+    
+    st.markdown("---")
+
+    # Apply filters to create df_main_filtered
+    df_main_filtered = df.copy()
+    if season_col and season_selected_global is not None:
+        try:
+            df_main_filtered = df_main_filtered[df_main_filtered[season_col] == season_selected_global]
+        except Exception:
+            pass
+
+    if search_name:
+        df_main_filtered = df_main_filtered[df_main_filtered["Name"].str.contains(search_name, case=False, na=False)]
+
+    df_main_filtered = df_main_filtered[(df_main_filtered["Age"] >= age_range[0]) & (df_main_filtered["Age"] <= age_range[1])]
+
+    if comp_col and swings_range:
+        try:
+            df_main_filtered = df_main_filtered[
+                (df_main_filtered[comp_col] >= swings_range[0]) &
+                (df_main_filtered[comp_col] <= swings_range[1])
+            ]
+        except Exception:
+            pass
 
     all_stats = []
     all_stats.extend(["Name", "Team"])
