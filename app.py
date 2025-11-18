@@ -1263,31 +1263,27 @@ elif page == "Compare":
             if season_col:
                 seasonsA = sorted(df[df["Name"] == playerA][season_col].dropna().unique())
                 if seasonsA:
-                  if qp_season_a and int(qp_season_a) in seasonsA:
-                    defaultA = int(qp_season_a)
-                 else:
+                    if qp_season_a and int(qp_season_a) in seasonsA:
+                        defaultA = int(qp_season_a)
+                else:
                     defaultA = seasonsA[-1]
 
                 idxA = seasonsA.index(defaultA)
                 seasonA = st.selectbox("Season A", seasonsA, index=idxA, key="season_a_select")
+
         with col_b:
             playerB = st.selectbox("Player B", player_options, index=default_b_idx, key="compare_player_b")
             seasonB = None
             if season_col:
                 seasonsB = sorted(df[df["Name"] == playerB][season_col].dropna().unique())
                 if seasonsB:
-                    defaultB = None
-                    if qp_season_b and qp_season_b in seasonsB:
+                    if qp_season_b and int(qp_season_b) in seasonsB:
                         defaultB = int(qp_season_b)
-                    elif season_selected_global in seasonsB:
-                        defaultB = season_selected_global
-                    else:
-                        defaultB = seasonsB[-1]
-                    try:
-                        idxB = seasonsB.index(defaultB) if defaultB in seasonsB else len(seasonsB) - 1
-                    except Exception:
-                        idxB = len(seasonsB) - 1
-                    seasonB = st.selectbox("Season B", seasonsB, index=idxB, key="season_b_select")
+                else:
+                    defaultB = seasonsB[-1]
+
+                idxB = seasonsB.index(defaultB)
+                seasonB = st.selectbox("Season B", seasonsB, index=idxB, key="season_b_select")
 
         if playerA == playerB and (season_col is None or seasonA == seasonB):
             st.warning("Select two different players or two different player-season combinations to compare.")
