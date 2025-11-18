@@ -1238,205 +1238,204 @@ elif page == "Player":
             st.info(f"Not enough mechanical data for this player/season to compute similarities: {str(e)}")
 
 # ---------------- Compare tab ----------------
-elif page == "Compare":
+        elif page == "Compare":
 
-    st.markdown(
-        """
-        <h2 style="
-            text-align:center;
-            margin-top:0.4em;
-            margin-bottom:1.0em;
-            font-size:1.9em;
-            font-weight:800;
-            color:#0F1A34;">
-            Compare Players
-        </h2>
-        """,
-        unsafe_allow_html=True
-    )
+            st.markdown(
+                """
+                <h2 style="
+                    text-align:center;
+                    margin-top:0.4em;
+                    margin-bottom:1.0em;
+                    font-size:1.9em;
+                    font-weight:800;
+                    color:#0F1A34;">
+                    Compare Players
+                </h2>
+                """,
+                unsafe_allow_html=True
+            )
 
     # --- PLAYER SELECTION BLOCK ---
-    st.markdown(
-        """
-        <div style="
-            display:flex;
-            justify-content:center;
-            gap:60px;
-            margin-bottom:20px;">
-        """,
-        unsafe_allow_html=True
-    )
+            st.markdown(
+                """
+                <div style="
+                    display:flex;
+                    justify-content:center;
+                    gap:60px;
+                    margin-bottom:20px;">
+                """,
+                unsafe_allow_html=True
+            )
 
-    colA, colB = st.columns(2)
+            colA, colB = st.columns(2)
 
     # Player A
-    with colA:
-        st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-bottom:4px;'>Player A</div>", unsafe_allow_html=True)
-        playerA = st.selectbox("", player_options, index=default_a_idx, key="compare_player_a")
-        if season_col:
-            seasonsA = sorted(df[df["Name"] == playerA][season_col].dropna().unique())
-            qpA = int(qp_season_a) if qp_season_a and int(qp_season_a) in seasonsA else None
-            defaultA = qpA if qpA is not None else seasonsA[-1]
-            idxA = seasonsA.index(defaultA) if defaultA in seasonsA else len(seasonsA)-1
+            with colA:
+                st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-bottom:4px;'>Player A</div>", unsafe_allow_html=True)
+                playerA = st.selectbox("", player_options, index=default_a_idx, key="compare_player_a")
+                if season_col:
+                    seasonsA = sorted(df[df["Name"] == playerA][season_col].dropna().unique())
+                    qpA = int(qp_season_a) if qp_season_a and int(qp_season_a) in seasonsA else None
+                    defaultA = qpA if qpA is not None else seasonsA[-1]
+                    idxA = seasonsA.index(defaultA) if defaultA in seasonsA else len(seasonsA)-1
 
-            st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-top:10px;'>Season A</div>", unsafe_allow_html=True)
-            seasonA = st.selectbox("", seasonsA, index=idxA, key="season_a_select")
+                    st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-top:10px;'>Season A</div>", unsafe_allow_html=True)
+                    seasonA = st.selectbox("", seasonsA, index=idxA, key="season_a_select")
 
     # Player B
-    with colB:
-        st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-bottom:4px;'>Player B</div>", unsafe_allow_html=True)
-        playerB = st.selectbox("", player_options, index=default_b_idx, key="compare_player_b")
-        if season_col:
-            seasonsB = sorted(df[df["Name"] == playerB][season_col].dropna().unique())
-            qpB = int(qp_season_b) if qp_season_b and int(qp_season_b) in seasonsB else None
-            defaultB = qpB if qpB is not None else seasonsB[-1]
-            idxB = seasonsB.index(defaultB) if defaultB in seasonsB else len(seasonsB)-1
+            with colB:
+                st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-bottom:4px;'>Player B</div>", unsafe_allow_html=True)
+                playerB = st.selectbox("", player_options, index=default_b_idx, key="compare_player_b")
+                if season_col:
+                    seasonsB = sorted(df[df["Name"] == playerB][season_col].dropna().unique())
+                    qpB = int(qp_season_b) if qp_season_b and int(qp_season_b) in seasonsB else None
+                    defaultB = qpB if qpB is not None else seasonsB[-1]
+                    idxB = seasonsB.index(defaultB) if defaultB in seasonsB else len(seasonsB)-1
 
-            st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-top:10px;'>Season B</div>", unsafe_allow_html=True)
-            seasonB = st.selectbox("", seasonsB, index=idxB, key="season_b_select")
+                    st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-top:10px;'>Season B</div>", unsafe_allow_html=True)
+                    seasonB = st.selectbox("", seasonsB, index=idxB, key="season_b_select")
 
-    st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
     # Exit if invalid combo
-    if playerA == playerB and (season_col is None or seasonA == seasonB):
-        st.warning("Select two different players or seasons.")
-        st.stop()
+            if playerA == playerB and (season_col is None or seasonA == seasonB):
+                st.warning("Select two different players or seasons.")
+                st.stop()
 
     # --- HEADSHOTS + SIMILARITY ROW ---
-    st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
 
-    col1, colSim, col2 = st.columns([1.5, 1, 1.5])
+            col1, colSim, col2 = st.columns([1.5, 1, 1.5])
 
     # Player A headshot
-    with col1:
-        pidA = str(int(rowA["id"])) if "id" in rowA and pd.notnull(rowA["id"]) else "0"
-        imgA = f"https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/{pidA}/headshot/silo/current.png"
-        teamA = rowA["Team"] if "Team" in rowA and pd.notnull(rowA["Team"]) else ""
-        logoA = image_dict.get(teamA, "")
+            with col1:
+                pidA = str(int(rowA["id"])) if "id" in rowA and pd.notnull(rowA["id"]) else "0"
+                imgA = f"https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/{pidA}/headshot/silo/current.png"
+                teamA = rowA["Team"] if "Team" in rowA and pd.notnull(rowA["Team"]) else ""
+                logoA = image_dict.get(teamA, "")
 
-        st.markdown(
-            f"""
-            <div style="text-align:center;">
-                <img src="{imgA}" style="height:110px;width:110px;border-radius:12px;border:1px solid #E1E7EF;">
-                <div style="font-size:1.05em;font-weight:800;color:#0F1A34;margin-top:6px;">
-                    {playerA} ({seasonA})
-                </div>
-                {'<img src="'+ logoA +'" style="height:38px;margin-top:4px;">' if logoA else ''}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+                st.markdown(
+                    f"""
+                    <div style="text-align:center;">
+                        <img src="{imgA}" style="height:110px;width:110px;border-radius:12px;border:1px solid #E1E7EF;">
+                        <div style="font-size:1.05em;font-weight:800;color:#0F1A34;margin-top:6px;">
+                            {playerA} ({seasonA})
+                        </div>
+                        {'<img src="'+ logoA +'" style="height:38px;margin-top:4px;">' if logoA else ''}
+                    </div>
+                            """,
+                    unsafe_allow_html=True
+                )
 
     # Similarity
-    with colSim:
-        st.markdown(
-            f"""
-            <div style="
-                text-align:center;
-                background:#F3F7FF;
-                border:1px solid #D8E3FF;
-                padding:16px;
-                border-radius:14px;
-                margin-top:26px;">
+            with colSim:
+                st.markdown(
+                    f"""
+                    <div style="
+                        text-align:center;
+                        background:#F3F7FF;
+                        border:1px solid #D8E3FF;
+                        padding:16px;
+                        border-radius:14px;
+                        margin-top:26px;">
                 
-                <div style="font-size:1.1em;font-weight:700;color:#0B5CFF;">
-                    Similarity
-                </div>
-                <div style="font-size:1.9em;font-weight:800;color:#0B5CFF;">
-                    {sim_pct}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+                        <div style="font-size:1.1em;font-weight:700;color:#0B5CFF;">
+                            Similarity
+                        </div>
+                        <div style="font-size:1.9em;font-weight:800;color:#0B5CFF;">
+                            {sim_pct}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
     # Player B headshot
-    with col2:
-        pidB = str(int(rowB["id"])) if "id" in rowB and pd.notnull(rowB["id"]) else "0"
-        imgB = f"https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/{pidB}/headshot/silo/current.png"
-        teamB = rowB["Team"] if "Team" in rowB and pd.notnull(rowB["Team"]) else ""
-        logoB = image_dict.get(teamB, "")
+            with col2:
+                pidB = str(int(rowB["id"])) if "id" in rowB and pd.notnull(rowB["id"]) else "0"
+                imgB = f"https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/{pidB}/headshot/silo/current.png"
+                teamB = rowB["Team"] if "Team" in rowB and pd.notnull(rowB["Team"]) else ""
+                logoB = image_dict.get(teamB, "")
 
-        st.markdown(
-            f"""
-            <div style="text-align:center;">
-                <img src="{imgB}" style="height:110px;width:110px;border-radius:12px;border:1px solid #E1E7EF;">
-                <div style="font-size:1.05em;font-weight:800;color:#0F1A34;margin-top:6px;">
-                    {playerB} ({seasonB})
-                </div>
-                {'<img src="'+ logoB +'" style="height:38px;margin-top:4px;">' if logoB else ''}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+                st.markdown(
+                    f"""
+                    <div style="text-align:center;">
+                        <img src="{imgB}" style="height:110px;width:110px;border-radius:12px;border:1px solid #E1E7EF;">
+                        <div style="font-size:1.05em;font-weight:800;color:#0F1A34;margin-top:6px;">
+                            {playerB} ({seasonB})
+                        </div>
+                        {'<img src="'+ logoB +'" style="height:38px;margin-top:4px;">' if logoB else ''}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
-    st.markdown("<div style='margin-top:22px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top:22px;'></div>", unsafe_allow_html=True)
 
     # --- STAT TILE ROW ---
-    stats = ["Age", "Swing+", "HitSkillPlus", "ImpactPlus"]
-    labels = {
-        "Age": "Age",
-        "Swing+": "Swing+",
-        "HitSkillPlus": "HitSkill+",
-        "ImpactPlus": "Impact+"
-    }
+            stats = ["Age", "Swing+", "HitSkillPlus", "ImpactPlus"]
+            labels = {
+                "Age": "Age",
+                "Swing+": "Swing+",
+                "HitSkillPlus": "HitSkill+",
+                "ImpactPlus": "Impact+"
+            }
 
-    st.markdown(
-        "<div style='display:flex;justify-content:center;gap:50px;margin-top:10px;'>",
-        unsafe_allow_html=True
-    )
+            st.markdown(
+                "<div style='display:flex;justify-content:center;gap:50px;margin-top:10px;'>",
+                unsafe_allow_html=True
+            )
 
-    tileA, tileB = st.columns([1, 1])
+            tileA, tileB = st.columns([1, 1])
 
     # PLAYER A TILES
-    with tileA:
-        st.markdown("<div style='font-size:1.05em;font-weight:700;text-align:center;color:#0F1A34;margin-bottom:4px;'>Player A</div>", unsafe_allow_html=True)
-        colsA = st.columns(len(stats))
-        for i, stat in enumerate(stats):
-            val = rowA.get(stat, "N/A")
-            val_disp = f"{int(val)}" if stat=="Age" else (f"{val:.2f}" if isinstance(val,(int,float,np.floating)) else val)
-            colsA[i].markdown(
-                f"""
-                <div style="
-                    background:#FFFFFF;
-                    border:1px solid #E4E8EE;
-                    border-radius:10px;
-                    padding:10px 6px;
-                    text-align:center;
-                    min-width:75px;">
-                    <div style="font-size:1.05em;font-weight:700;color:#0F1A34;">{val_disp}</div>
-                    <div style="font-size:0.75em;color:#708090;">{labels[stat]}</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+            with tileA:
+                st.markdown("<div style='font-size:1.05em;font-weight:700;text-align:center;color:#0F1A34;margin-bottom:4px;'>Player A</div>", unsafe_allow_html=True)
+                colsA = st.columns(len(stats))
+                for i, stat in enumerate(stats):
+                    val = rowA.get(stat, "N/A")
+                    val_disp = f"{int(val)}" if stat=="Age" else (f"{val:.2f}" if isinstance(val,(int,float,np.floating)) else val)
+                    colsA[i].markdown(
+                        f"""
+                        <div style="
+                            background:#FFFFFF;
+                            border:1px solid #E4E8EE;
+                            border-radius:10px;
+                            padding:10px 6px;
+                            text-align:center;
+                            min-width:75px;">
+                            <div style="font-size:1.05em;font-weight:700;color:#0F1A34;">{val_disp}</div>
+                            <div style="font-size:0.75em;color:#708090;">{labels[stat]}</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
 
     # PLAYER B TILES
-    with tileB:
-        st.markdown("<div style='font-size:1.05em;font-weight:700;text-align:center;color:#0F1A34;margin-bottom:4px;'>Player B</div>", unsafe_allow_html=True)
-        colsB = st.columns(len(stats))
-        for i, stat in enumerate(stats):
-            val = rowB.get(stat, "N/A")
-            val_disp = f"{int(val)}" if stat=="Age" else (f"{val:.2f}" if isinstance(val,(int,float,np.floating)) else val)
-            colsB[i].markdown(
-                f"""
-                <div style="
-                    background:#FFFFFF;
-                    border:1px solid #E4E8EE;
-                    border-radius:10px;
-                    padding:10px 6px;
-                    text-align:center;
-                    min-width:75px;">
-                    <div style="font-size:1.05em;font-weight:700;color:#0F1A34;">{val_disp}</div>
-                    <div style="font-size:0.75em;color:#708090;">{labels[stat]}</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+            with tileB:
+                st.markdown("<div style='font-size:1.05em;font-weight:700;text-align:center;color:#0F1A34;margin-bottom:4px;'>Player B</div>", unsafe_allow_html=True)
+                colsB = st.columns(len(stats))
+                for i, stat in enumerate(stats):
+                    val = rowB.get(stat, "N/A")
+                    val_disp = f"{int(val)}" if stat=="Age" else (f"{val:.2f}" if isinstance(val,(int,float,np.floating)) else val)
+                    colsB[i].markdown(
+                        f"""
+                        <div style="
+                            background:#FFFFFF;
+                            border:1px solid #E4E8EE;
+                            border-radius:10px;
+                            padding:10px 6px;
+                            text-align:center;
+                            min-width:75px;">
+                            <div style="font-size:1.05em;font-weight:700;color:#0F1A34;">{val_disp}</div>
+                            <div style="font-size:0.75em;color:#708090;">{labels[stat]}</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
 
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("<hr style='margin-top:30px;margin-bottom:20px;'/>", unsafe_allow_html=True)
-
+            st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin-top:30px;margin-bottom:20px;'/>", unsafe_allow_html=True)
 
             if len(mech_features_available) >= 2 and not df_comp.empty:
                 feats = mech_features_available
