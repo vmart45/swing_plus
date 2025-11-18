@@ -1238,135 +1238,129 @@ elif page == "Player":
             st.info(f"Not enough mechanical data for this player/season to compute similarities: {str(e)}")
 
 # ---------------- Compare tab ----------------
-elif page == "Compare":
-
-    mech_features_available = [f for f in mechanical_features if f in df.columns]
-
-    st.markdown("""
-        <h2 style="text-align:center;margin-top:0.4em;margin-bottom:1.0em;
-        font-size:1.9em;font-weight:800;color:#0F1A34;">
-            Compare Players
-        </h2>
-    """, unsafe_allow_html=True)
-
-    # -------------------------------------
-    # Player dropdowns
-    # -------------------------------------
-    player_options = sorted(df["Name"].dropna().unique())
-    if not player_options:
-        st.warning("No players available.")
-        st.stop()
-
-    colA, colB = st.columns(2)
-
-    with colA:
-        st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-bottom:4px;'>Player A</div>", unsafe_allow_html=True)
-        playerA = st.selectbox("", player_options, key="compare_player_a")
-        seasonsA = sorted(df[df["Name"] == playerA][season_col].dropna().unique())
-        seasonA = st.selectbox("Season A", seasonsA, index=len(seasonsA)-1)
-
-    with colB:
-        st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-bottom:4px;'>Player B</div>", unsafe_allow_html=True)
-        playerB = st.selectbox("", player_options, key="compare_player_b")
-        seasonsB = sorted(df[df["Name"] == playerB][season_col].dropna().unique())
-        seasonB = st.selectbox("Season B", seasonsB, index=len(seasonsB)-1)
-
-    if playerA == playerB and seasonA == seasonB:
-        st.warning("Select two different players or seasons.")
-        st.stop()
-
-    # -------------------------------------
-    # Row extractor
-    # -------------------------------------
-    def get_row(name, season):
-        subset = df[(df["Name"] == name) & (df[season_col] == season)]
-        return subset.iloc[0] if len(subset) else df[df["Name"] == name].iloc[0]
-
-    rowA = get_row(playerA, seasonA)
-    rowB = get_row(playerB, seasonB)
-
-    # -------------------------------------
-    # Cosine similarity
-    # -------------------------------------
-    try:
-        feats_sim = mech_features_available
-        df_sim = df.dropna(subset=feats_sim)
-
-        scaler, df_scaled = get_scaler_and_scaled_df(feats_sim, df_sim)
-        vecA = scaler.transform(pd.DataFrame([rowA[feats_sim].astype(float)]))[0]
-        vecB = scaler.transform(pd.DataFrame([rowB[feats_sim].astype(float)]))[0]
-
-        cosine_sim = compute_cosine_similarity_between_rows(vecA, vecB)
-        sim_pct = f"{cosine_sim*100:.1f}%"
-    except Exception:
-        cosine_sim = None
-        sim_pct = "N/A"
-
-    # -------------------------------------
-    # Player cards
-    # -------------------------------------
-    col1, colSim, col2 = st.columns([1.5, 1, 1.5])
-
-    def player_card(row, name, season):
-        pid = str(int(row.get("id", 0))) if pd.notnull(row.get("id")) else "0"
-        img = f"https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/{pid}/headshot/silo/current.png"
-        logo = image_dict.get(row.get("Team", ""), "")
-
-        st.markdown(f"""
-            <div style="text-align:center;">
-                <img src="{img}" style="height:110px;width:110px;border-radius:12px;border:1px solid #D1D5DB;">
-                <div style="font-size:1.05em;font-weight:800;color:#1F2937;margin-top:6px;">{name} ({season})</div>
-                {'<img src="'+logo+'" style="height:38px;margin-top:4px;">' if logo else ''}
-            </div>
-        """, unsafe_allow_html=True)
-
-    with col1:
-        player_card(rowA, playerA, seasonA)
-    with colSim:
-        st.markdown(f"""
-            <div style="text-align:center;background:#F3F4F6;border:1px solid #D1D5DB;
-                        padding:16px;border-radius:10px;margin-top:28px;">
-                <div style="font-size:1.05em;font-weight:700;color:#374151;">Similarity</div>
-                <div style="font-size:1.85em;font-weight:800;color:#111827;">{sim_pct}</div>
-            </div>
-        """, unsafe_allow_html=True)
-    with col2:
-        player_card(rowB, playerB, seasonB)
-
-    # -------------------------------------
-    # Stat tiles
-    # -------------------------------------
-    stats = ["Age", "Swing+", "HitSkillPlus", "ImpactPlus"]
-    colA_block, _, colB_block = st.columns([1, 0.06, 1])
-
-    def stat_tiles(col, row, label):
-        with col:
-            st.markdown(f"<div style='text-align:center;font-weight:700;margin-bottom:6px;'>{label}</div>", unsafe_allow_html=True)
-            cols = st.columns(len(stats))
-            for i, stat in enumerate(stats):
-                v = row.get(stat, "N/A")
-                if stat == "Age":
-                    disp = f"{int(v)}" if pd.notnull(v) else "N/A"
-                else:
-                    disp = f"{v:.2f}" if isinstance(v, (int, float)) else "N/A"
-                cols[i].markdown(f"""
-                    <div style="background:#FFF;border:1px solid #D1D5DB;border-radius:10px;padding:10px;text-align:center;">
-                        <div style="font-weight:700;">{disp}</div>
-                        <div style="font-size:0.75em;color:#6B7280;">{stat}</div>
+        elif page == "Compare":
+        
+            mech_features_available = [f for f in mechanical_features if f in df.columns]
+        
+            st.markdown("""
+                <h2 style="text-align:center;margin-top:0.4em;margin-bottom:1.0em;
+                font-size:1.9em;font-weight:800;color:#0F1A34;">
+                    Compare Players
+                </h2>
+            """, unsafe_allow_html=True)
+        
+            # -------------------------------------
+            # Player dropdowns
+            # -------------------------------------
+            player_options = sorted(df["Name"].dropna().unique())
+            if not player_options:
+                st.warning("No players available.")
+                st.stop()
+        
+            colA, colB = st.columns(2)
+        
+            with colA:
+                st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-bottom:4px;'>Player A</div>", unsafe_allow_html=True)
+                playerA = st.selectbox("", player_options, key="compare_player_a")
+                seasonsA = sorted(df[df["Name"] == playerA][season_col].dropna().unique())
+                seasonA = st.selectbox("Season A", seasonsA, index=len(seasonsA)-1)
+        
+            with colB:
+                st.markdown("<div style='font-size:0.9em;font-weight:600;color:#42526E;margin-bottom:4px;'>Player B</div>", unsafe_allow_html=True)
+                playerB = st.selectbox("", player_options, key="compare_player_b")
+                seasonsB = sorted(df[df["Name"] == playerB][season_col].dropna().unique())
+                seasonB = st.selectbox("Season B", seasonsB, index=len(seasonsB)-1)
+        
+            if playerA == playerB and seasonA == seasonB:
+                st.warning("Select two different players or seasons.")
+                st.stop()
+        
+            # -------------------------------------
+            # Row extractor
+            # -------------------------------------
+            def get_row(name, season):
+                subset = df[(df["Name"] == name) & (df[season_col] == season)]
+                return subset.iloc[0] if len(subset) else df[df["Name"] == name].iloc[0]
+        
+            rowA = get_row(playerA, seasonA)
+            rowB = get_row(playerB, seasonB)
+        
+            # -------------------------------------
+            # Cosine similarity
+            # -------------------------------------
+            try:
+                feats_sim = mech_features_available
+                df_sim = df.dropna(subset=feats_sim)
+        
+                scaler, df_scaled = get_scaler_and_scaled_df(feats_sim, df_sim)
+                vecA = scaler.transform(pd.DataFrame([rowA[feats_sim].astype(float)]))[0]
+                vecB = scaler.transform(pd.DataFrame([rowB[feats_sim].astype(float)]))[0]
+        
+                cosine_sim = compute_cosine_similarity_between_rows(vecA, vecB)
+                sim_pct = f"{cosine_sim*100:.1f}%"
+            except Exception:
+                cosine_sim = None
+                sim_pct = "N/A"
+        
+            # -------------------------------------
+            # Player cards
+            # -------------------------------------
+            col1, colSim, col2 = st.columns([1.5, 1, 1.5])
+        
+            def player_card(row, name, season):
+                pid = str(int(row.get("id", 0))) if pd.notnull(row.get("id")) else "0"
+                img = f"https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/{pid}/headshot/silo/current.png"
+                logo = image_dict.get(row.get("Team", ""), "")
+        
+                st.markdown(f"""
+                    <div style="text-align:center;">
+                        <img src="{img}" style="height:110px;width:110px;border-radius:12px;border:1px solid #D1D5DB;">
+                        <div style="font-size:1.05em;font-weight:800;color:#1F2937;margin-top:6px;">{name} ({season})</div>
+                        {'<img src="'+logo+'" style="height:38px;margin-top:4px;">' if logo else ''}
                     </div>
                 """, unsafe_allow_html=True)
-
-    stat_tiles(colA_block, rowA, "Player A")
-    stat_tiles(colB_block, rowB, "Player B")
-
-    st.markdown("<hr style='margin-top:32px;margin-bottom:22px;'/>", unsafe_allow_html=True)
-
-    # -------------------------------------
-    # Mechanical comparison
-    # -------------------------------------
-# -----------------------------------------------------
-# Mechanical comparison (FULL BLOCK)
-# -----------------------------------------------------
+        
+            with col1:
+                player_card(rowA, playerA, seasonA)
+            with colSim:
+                st.markdown(f"""
+                    <div style="text-align:center;background:#F3F4F6;border:1px solid #D1D5DB;
+                                padding:16px;border-radius:10px;margin-top:28px;">
+                        <div style="font-size:1.05em;font-weight:700;color:#374151;">Similarity</div>
+                        <div style="font-size:1.85em;font-weight:800;color:#111827;">{sim_pct}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            with col2:
+                player_card(rowB, playerB, seasonB)
+        
+            # -------------------------------------
+            # Stat tiles
+            # -------------------------------------
+            stats = ["Age", "Swing+", "HitSkillPlus", "ImpactPlus"]
+            colA_block, _, colB_block = st.columns([1, 0.06, 1])
+        
+            def stat_tiles(col, row, label):
+                with col:
+                    st.markdown(f"<div style='text-align:center;font-weight:700;margin-bottom:6px;'>{label}</div>", unsafe_allow_html=True)
+                    cols = st.columns(len(stats))
+                    for i, stat in enumerate(stats):
+                        v = row.get(stat, "N/A")
+                        if stat == "Age":
+                            disp = f"{int(v)}" if pd.notnull(v) else "N/A"
+                        else:
+                            disp = f"{v:.2f}" if isinstance(v, (int, float)) else "N/A"
+                        cols[i].markdown(f"""
+                            <div style="background:#FFF;border:1px solid #D1D5DB;border-radius:10px;padding:10px;text-align:center;">
+                                <div style="font-weight:700;">{disp}</div>
+                                <div style="font-size:0.75em;color:#6B7280;">{stat}</div>
+                            </div>
+                        """, unsafe_allow_html=True)
+        
+            stat_tiles(colA_block, rowA, "Player A")
+            stat_tiles(colB_block, rowB, "Player B")
+        
+            st.markdown("<hr style='margin-top:32px;margin-bottom:22px;'/>", unsafe_allow_html=True)
+        
         if len(mech_features_available) >= 2:
         
             feats = mech_features_available
