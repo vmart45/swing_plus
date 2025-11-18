@@ -1254,6 +1254,15 @@ elif page == "Compare":
         unsafe_allow_html=True
     )
 
+    player_options = sorted(df["Name"].dropna().unique())
+    if not player_options:
+        st.warning("No players available.")
+        st.stop()
+
+    default_a_idx = 0
+    default_b_idx = 1 if len(player_options) > 1 else 0
+
+
     st.markdown(
         """
         <div style="
