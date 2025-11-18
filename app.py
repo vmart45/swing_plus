@@ -1353,7 +1353,6 @@ elif page == "Compare":
 
     # --- Similarity tile ---
     with colSim:
-    with colSim:
         st.markdown(
             f"""
             <div style="
