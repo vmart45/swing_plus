@@ -1389,6 +1389,9 @@ elif page == "Compare":
             """,
             unsafe_allow_html=True
         )
+        
+    st.markdown("<div style='margin-top:24px;'></div>", unsafe_allow_html=True)
+
 
     # ------------------------------
     # Stat Tiles
@@ -1401,67 +1404,74 @@ elif page == "Compare":
         "ImpactPlus": "Impact+"
     }
 
-    st.markdown(
-        "<div style='display:flex;justify-content:center;gap:50px;margin-top:10px;'>",
-        unsafe_allow_html=True
-    )
-
-    tileA, tileB = st.columns([1, 1])
+    colA_block, col_divider, colB_block = st.columns([1, 0.06, 1])
 
     # --- Left tile (A) ---
-    with tileA:
+    with colA_block:
         st.markdown(
-            "<div style='font-size:1.05em;font-weight:700;text-align:center;color:#0F1A34;margin-bottom:4px;'>Player A</div>",
+            "<div style='font-size:1.05em;font-weight:700;color:#1F2937;text-align:center;margin-bottom:6px;'>Player A</div>",
             unsafe_allow_html=True
         )
-        colsA = st.columns(len(stats))
+        cols = st.columns(len(stats))
         for i, stat in enumerate(stats):
             val = rowA.get(stat, "N/A")
-            val_disp = f"{int(val)}" if stat == "Age" else (f"{val:.2f}" if isinstance(val, (int, float, np.floating)) else val)
-            colsA[i].markdown(
+            val_disp = f"{int(val)}" if stat == "Age" else (f"{val:.2f}" if isinstance(val, (int,float,np.floating)) else val)
+
+            cols[i].markdown(
                 f"""
                 <div style="
                     background:#FFFFFF;
-                    border:1px solid #E4E8EE;
+                    border:1px solid #D1D5DB;
                     border-radius:10px;
-                    padding:10px 6px;
-                    text-align:center;
-                    min-width:75px;">
-                    <div style="font-size:1.05em;font-weight:700;color:#0F1A34;">{val_disp}</div>
-                    <div style="font-size:0.75em;color:#708090;">{labels[stat]}</div>
+                    padding:10px 8px;
+                    text-align:center;">
+                    <div style="font-size:1.05em;font-weight:700;color:#111827;">{val_disp}</div>
+                    <div style="font-size:0.75em;color:#6B7280;">{labels[stat]}</div>
                 </div>
                 """,
                 unsafe_allow_html=True
             )
+
+            with col_divider:
+                st.markdown(
+                    """
+                    <div style="
+                        height:100%;
+                        border-left:1px solid #D1D5DB;
+                        margin:auto;">
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
 
     # --- Right tile (B) ---
-    with tileB:
+    with colB_block:
         st.markdown(
-            "<div style='font-size:1.05em;font-weight:700;text-align:center;color:#0F1A34;margin-bottom:4px;'>Player B</div>",
+            "<div style='font-size:1.05em;font-weight:700;color:#1F2937;text-align:center;margin-bottom:6px;'>Player B</div>",
             unsafe_allow_html=True
         )
-        colsB = st.columns(len(stats))
+        cols = st.columns(len(stats))
         for i, stat in enumerate(stats):
             val = rowB.get(stat, "N/A")
-            val_disp = f"{int(val)}" if stat == "Age" else (f"{val:.2f}" if isinstance(val, (int, float, np.floating)) else val)
-            colsB[i].markdown(
+            val_disp = f"{int(val)}" if stat == "Age" else (f"{val:.2f}" if isinstance(val, (int,float,np.floating)) else val)
+
+            cols[i].markdown(
                 f"""
                 <div style="
                     background:#FFFFFF;
-                    border:1px solid #E4E8EE;
+                    border:1px solid #D1D5DB;
                     border-radius:10px;
-                    padding:10px 6px;
-                    text-align:center;
-                    min-width:75px;">
-                    <div style="font-size:1.05em;font-weight:700;color:#0F1A34;">{val_disp}</div>
-                    <div style="font-size:0.75em;color:#708090;">{labels[stat]}</div>
+                    padding:10px 8px;
+                    text-align:center;">
+                    <div style="font-size:1.05em;font-weight:700;color:#111827;">{val_disp}</div>
+                    <div style="font-size:0.75em;color:#6B7280;">{labels[stat]}</div>
                 </div>
                 """,
                 unsafe_allow_html=True
             )
 
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("<hr style='margin-top:30px;margin-bottom:20px;'/>", unsafe_allow_html=True)
+    st.markdown("<hr style='margin-top:32px;margin-bottom:22px;'/>", unsafe_allow_html=True)
     
     if len(mech_features_available) >= 2 and not df_comp.empty:
             feats = mech_features_available
