@@ -1492,6 +1492,18 @@ elif page == "Compare":
             )
 
     st.markdown("<hr style='margin-top:32px;margin-bottom:22px;'/>", unsafe_allow_html=True)
+    if season_col:
+        seasons_to_use = []
+        if seasonA is not None:
+            seasons_to_use.append(seasonA)
+        if seasonB is not None and seasonB not in seasons_to_use:
+            seasons_to_use.append(seasonB)
+            
+            if seasons_to_use:
+                df_comp = df[df[season_col].isin(seasons_to_use)].dropna( subset=mech_features_available + ["Name"] ).copy() else: df_comp = df.dropna(subset=mech_features_available + ["Name"]).copy()
+            else: df_comp = df.dropna(subset=mech_features_available + ["Name"]).copy()
+
+    if len(mech_features_available) >= 2 and not df_comp.empty: feats = mech_features_available
     
     # ------------------------------
     # Z-scores & differences
