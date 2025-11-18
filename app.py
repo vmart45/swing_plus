@@ -1427,13 +1427,35 @@ elif page == "Compare":
             st.markdown(f"- **Difference driver:** {FEATURE_LABELS.get(f,f)}")
 
         # ==========================================
-        # FEATURE COMPARISON TABLE  (HTML)
+        # FIXED IMPORTANCE COMPUTATION
         # ==========================================
         
-        playerA_label = f"{playerA} ({seasonA})"
-        playerB_label = f"{playerB} ({seasonB})"
+        # If SHAP is available, use it. Otherwise compute data-based importance.
+        use_shap = False
         
-        # ---- CSS ----
+        if model_loaded and explainer is not None:
+            try:
+                sampleX = df_comp[feats].head(200).fillna(df_comp[feats].mean())
+                sample_shap = explainer(sampleX)
+        
+                if hasattr(sample_shap, "values"):
+                    mean_abs_shap = abs(sample_shap.values).mean(axis=0)
+                    importance = pd.Series(mean_abs_shap, index=feats)
+                    use_shap = True
+                else:
+                    raise Exception("No SHAP values")
+            except:
+                use_shap = False
+        
+        if not use_shap:
+            # fallback importance based on data variation (NOT all 1s)
+            importance = (abs(zA) + abs(zB))
+            importance = importance.replace(0, 1e-9)
+            importance = importance / importance.sum()
+        
+        # ==========================================
+        # TABLE CSS WITH OUTER BORDER
+        # ==========================================
         st.markdown("""
         <style>
         .comp-table {
@@ -1442,10 +1464,11 @@ elif page == "Compare":
             margin-top: 18px;
             font-size: 0.88em;
             background: #FFFFFF;
-            border: 1px solid #E5E7EB;
+            border: 2px solid #111827;   /* OUTER BORDER */
             border-radius: 10px;
             overflow: hidden;
         }
+        
         .comp-table th {
             background: #F3F4F6;
             color: #374151;
@@ -1454,15 +1477,18 @@ elif page == "Compare":
             text-align: center;
             border-bottom: 1px solid #D1D5DB;
         }
+        
         .comp-table td {
             padding: 9px 6px;
             text-align: center;
             border-bottom: 1px solid #E5E7EB;
             color: #111827;
         }
+        
         .comp-table tr:last-child td {
             border-bottom: 1px solid #E5E7EB;
         }
+        
         .comp-feature {
             text-align: left;
             font-weight: 600;
@@ -1471,7 +1497,9 @@ elif page == "Compare":
         </style>
         """, unsafe_allow_html=True)
         
-        # ---- Build rows ----
+        # ==========================================
+        # BUILD TABLE
+        # ==========================================
         html_rows = ""
         for f in feats:
             html_rows += (
@@ -1487,14 +1515,13 @@ elif page == "Compare":
                 "</tr>"
             )
         
-        # ---- FINAL TABLE (NO INDENTATION!!!) ----
         html_table = (
         f"<table class='comp-table'>"
         f"<thead>"
         f"<tr>"
         f"<th>Feature</th>"
-        f"<th>{playerA_label}</th>"
-        f"<th>{playerB_label}</th>"
+        f"<th>{playerA} ({seasonA})</th>"
+        f"<th>{playerB} ({seasonB})</th>"
         f"<th>Diff</th>"
         f"<th>Z-Diff</th>"
         f"<th>Pct A</th>"
@@ -1502,13 +1529,12 @@ elif page == "Compare":
         f"<th>Importance</th>"
         f"</tr>"
         f"</thead>"
-        f"<tbody>"
-        f"{html_rows}"
-        f"</tbody>"
+        f"<tbody>{html_rows}</tbody>"
         f"</table>"
         )
         
         st.markdown(html_table, unsafe_allow_html=True)
+
 
         # -------------------------------------------------
         # SHAP Comparison
