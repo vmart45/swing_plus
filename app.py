@@ -1268,8 +1268,12 @@ elif page == "Compare":
                 else:
                     defaultA = seasonsA[-1]
 
+            try:
                 idxA = seasonsA.index(defaultA)
-                seasonA = st.selectbox("Season A", seasonsA, index=idxA, key="season_a_select")
+            except:
+                idxA = len(seasonsA) - 1
+
+            seasonA = st.selectbox("Season A", seasonsA, index=idxA, key="season_a_select")
 
         with col_b:
             playerB = st.selectbox("Player B", player_options, index=default_b_idx, key="compare_player_b")
