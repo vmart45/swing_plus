@@ -1020,75 +1020,76 @@ elif page == "Player":
             st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
     with col2:
-        st.markdown("""
-        <style>
-        .comp-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 18px;
-            font-size: 0.88em;
-            background: #FFFFFF;
-            border: 2px solid #111827;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        .comp-table th {
-            background: #F3F4F6;
-            color: #374151;
-            padding: 10px 6px;
-            font-weight: 700;
-            text-align: center;
-            border-bottom: 1px solid #D1D5DB;
-        }
-        .comp-table td {
-            padding: 9px 6px;
-            text-align: center;
-            border-bottom: 1px solid #E5E7EB;
-            color: #111827;
-        }
-        .comp-table tr:last-child td {
-            border-bottom: 1px solid #E5E7EB;
-        }
-        .comp-feature {
-            text-align: left;
-            font-weight: 600;
-            color: #1F2937;
-            padding-left: 10px;
-        }
-        </style>
-        """, unsafe_allow_html=True)
+        if 'display_df' in locals() and isinstance(display_df, pd.DataFrame) and not display_df.empty:
+            st.markdown("""
+            <style>
+            .comp-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 18px;
+                font-size: 0.88em;
+                background: #FFFFFF;
+                border: 2px solid #111827;
+                border-radius: 10px;
+                overflow: hidden;
+            }
+            .comp-table th {
+                background: #F3F4F6;
+                color: #374151;
+                padding: 10px 6px;
+                font-weight: 700;
+                text-align: center;
+                border-bottom: 1px solid #D1D5DB;
+            }
+            .comp-table td {
+                padding: 9px 6px;
+                text-align: center;
+                border-bottom: 1px solid #E5E7EB;
+                color: #111827;
+            }
+            .comp-table tr:last-child td {
+                border-bottom: 1px solid #E5E7EB;
+            }
+            .comp-feature {
+                text-align: left;
+                font-weight: 600;
+                color: #1F2937;
+                padding-left: 10px;
+            }
+            </style>
+            """, unsafe_allow_html=True)
         
-        # build html rows from display_df (keeps the same columns: Feature, Value, Contribution, PctImportance)
-        html_rows = ""
-        for _, r in display_df.iterrows():
-            feat = r.get("Feature", "")
-            val = r.get("Value", "")
-            contrib = r.get("Contribution", "")
-            pct = r.get("PctImportance", "")
-            html_rows += (
+            html_rows = ""
+            for row in display_df.to_dict(orient="records"):
+                feat = row.get("Feature", "")
+                val = row.get("Value", "")
+                contrib = row.get("Contribution", "")
+                pct = row.get("PctImportance", "")
+                html_rows += (
+                    "<tr>"
+                    f"<td class='comp-feature'>{feat}</td>"
+                    f"<td>{val}</td>"
+                    f"<td>{contrib}</td>"
+                    f"<td>{pct}</td>"
+                    "</tr>"
+                )
+        
+            html_table = (
+                "<table class='comp-table'>"
+                "<thead>"
                 "<tr>"
-                f"<td class='comp-feature'>{feat}</td>"
-                f"<td>{val}</td>"
-                f"<td>{contrib}</td>"
-                f"<td>{pct}</td>"
+                "<th>Feature</th>"
+                "<th>Value</th>"
+                "<th>Contribution</th>"
+                "<th>Importance</th>"
                 "</tr>"
+                "</thead>"
+                f"<tbody>{html_rows}</tbody>"
+                "</table>"
             )
-        
-        html_table = (
-            "<table class='comp-table'>"
-            "<thead>"
-            "<tr>"
-            "<th>Feature</th>"
-            "<th>Value</th>"
-            "<th>Contribution</th>"
-            "<th>Importance</th>"
-            "</tr>"
-            "</thead>"
-            f"<tbody>{html_rows}</tbody>"
-            "</table>"
-        )
-        
-        st.markdown(html_table, unsafe_allow_html=True)
+            st.markdown(html_table, unsafe_allow_html=True)
+        else:
+            st.write("No SHAP data to show.")
             
     # Mechanical similarity cluster
     TOP_N = 10
