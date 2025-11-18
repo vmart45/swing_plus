@@ -1454,20 +1454,36 @@ if not use_shap:
     importance = importance.replace(0, 1e-9)
     importance = importance / importance.sum()
 
-# ==========================================
-# TABLE CSS WITH OUTER BORDER
-# ==========================================
+# ============================
+# FEATURE COMPARISON HEADER
+# ============================
+st.markdown(
+    """
+    <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
+        Feature Comparison
+    </h3>
+    """,
+    unsafe_allow_html=True
+)
+
+# ============================
+# TABLE CSS (FULL OUTER BORDER)
+# ============================
 st.markdown("""
 <style>
+
+.comp-table-wrapper {
+    border: 2px solid #1F2937;      /* FULL OUTER BORDER */
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 10px;
+}
+
 .comp-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 18px;
     font-size: 0.88em;
     background: #FFFFFF;
-    border: 2px solid #111827;   /* OUTER BORDER */
-    border-radius: 10px;
-    overflow: hidden;
 }
 
 .comp-table th {
@@ -1495,46 +1511,55 @@ st.markdown("""
     font-weight: 600;
     color: #1F2937;
 }
+
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# BUILD TABLE
-# ==========================================
+# ============================
+# BUILD HTML ROWS
+# ============================
 html_rows = ""
 for f in feats:
-    html_rows += (
-        "<tr>"
-        f"<td class='comp-feature'>{FEATURE_LABELS.get(f, f)}</td>"
-        f"<td>{valsA[f]:.2f}</td>"
-        f"<td>{valsB[f]:.2f}</td>"
-        f"<td>{(valsA[f]-valsB[f]):.2f}</td>"
-        f"<td>{z_diff[f]:.2f}</td>"
-        f"<td>{pctA[f]:.0%}</td>"
-        f"<td>{pctB[f]:.0%}</td>"
-        f"<td>{importance[f]:.3f}</td>"
-        "</tr>"
-    )
+    html_rows += f"""
+    <tr>
+        <td class="comp-feature">{FEATURE_LABELS.get(f, f)}</td>
+        <td>{valsA[f]:.2f}</td>
+        <td>{valsB[f]:.2f}</td>
+        <td>{(valsA[f] - valsB[f]):.2f}</td>
+        <td>{z_diff[f]:.2f}</td>
+        <td>{pctA[f]:.0%}</td>
+        <td>{pctB[f]:.0%}</td>
+        <td>{importance[f]:.3f}</td>
+    </tr>
+    """
 
-html_table = (
-f"<table class='comp-table'>"
-f"<thead>"
-f"<tr>"
-f"<th>Feature</th>"
-f"<th>{playerA} ({seasonA})</th>"
-f"<th>{playerB} ({seasonB})</th>"
-f"<th>Diff</th>"
-f"<th>Z-Diff</th>"
-f"<th>Pct A</th>"
-f"<th>Pct B</th>"
-f"<th>Importance</th>"
-f"</tr>"
-f"</thead>"
-f"<tbody>{html_rows}</tbody>"
-f"</table>"
-)
+# ============================
+# FINAL WRAPPED TABLE (border works)
+# ============================
+html_table = f"""
+<div class="comp-table-wrapper">
+<table class="comp-table">
+    <thead>
+        <tr>
+            <th>Feature</th>
+            <th>{playerA} ({seasonA})</th>
+            <th>{playerB} ({seasonB})</th>
+            <th>Diff</th>
+            <th>Z-Diff</th>
+            <th>Pct A</th>
+            <th>Pct B</th>
+            <th>Importance</th>
+        </tr>
+    </thead>
+    <tbody>
+        {html_rows}
+    </tbody>
+</table>
+</div>
+"""
 
 st.markdown(html_table, unsafe_allow_html=True)
+
 
 # -------------------------------------
 # SHAP Comparison
