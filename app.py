@@ -1020,76 +1020,24 @@ elif page == "Player":
             st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
     with col2:
-        if 'display_df' in locals() and isinstance(display_df, pd.DataFrame) and not display_df.empty:
-            st.markdown("""
-            <style>
-            .comp-table {
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 18px;
-                font-size: 0.88em;
-                background: #FFFFFF;
-                border: 2px solid #111827;
-                border-radius: 10px;
-                overflow: hidden;
-            }
-            .comp-table th {
-                background: #F3F4F6;
-                color: #374151;
-                padding: 10px 6px;
-                font-weight: 700;
-                text-align: center;
-                border-bottom: 1px solid #D1D5DB;
-            }
-            .comp-table td {
-                padding: 9px 6px;
-                text-align: center;
-                border-bottom: 1px solid #E5E7EB;
-                color: #111827;
-            }
-            .comp-table tr:last-child td {
-                border-bottom: 1px solid #E5E7EB;
-            }
-            .comp-feature {
-                text-align: left;
-                font-weight: 600;
-                color: #1F2937;
-                padding-left: 10px;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-        
-            html_rows = ""
-            for row in display_df.to_dict(orient="records"):
-                feat = row.get("Feature", "")
-                val = row.get("Value", "")
-                contrib = row.get("Contribution", "")
-                pct = row.get("PctImportance", "")
-                html_rows += (
-                    "<tr>"
-                    f"<td class='comp-feature'>{feat}</td>"
-                    f"<td>{val}</td>"
-                    f"<td>{contrib}</td>"
-                    f"<td>{pct}</td>"
-                    "</tr>"
-                )
-        
-            html_table = (
-                "<table class='comp-table'>"
-                "<thead>"
-                "<tr>"
-                "<th>Feature</th>"
-                "<th>Value</th>"
-                "<th>Contribution</th>"
-                "<th>Importance</th>"
-                "</tr>"
-                "</thead>"
-                f"<tbody>{html_rows}</tbody>"
-                "</table>"
-            )
-            st.markdown(html_table, unsafe_allow_html=True)
-        else:
+        st.markdown(f"<div style='text-align:center;font-weight:700;color:#183153;'>Model baseline: {base_label}</div>", unsafe_allow_html=True)
+        if shap_df is None or len(shap_df) == 0:
             st.write("No SHAP data to show.")
+        else:
+            display_df = shap_df.copy()
+            display_df["feature_label"] = display_df["feature"].map(lambda x: FEATURE_LABELS.get(x, x))
+            display_df = display_df.sort_values("abs_shap", ascending=False).head(12)
+            display_df = display_df[["feature_label", "raw", "shap_value", "pct_of_abs"]].rename(columns={
+                "feature_label": "Feature",
+                "raw": "Value",
+                "shap_value": "Contribution",
+                "pct_of_abs": "PctImportance"
+            })
+            display_df["Value"] = display_df["Value"].apply(lambda v: f"{v:.2f}" if pd.notna(v) else "NaN")
+            display_df["Contribution"] = display_df["Contribution"].apply(lambda v: f"{v:.3f}")
+            display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
+            display_df = display_df.reset_index(drop=True)
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
             
     # Mechanical similarity cluster
     TOP_N = 10
