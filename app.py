@@ -1367,239 +1367,239 @@ elif page == "Compare":
 # -----------------------------------------------------
 # Mechanical comparison (FULL BLOCK)
 # -----------------------------------------------------
-if len(mech_features_available) >= 2:
-
-    feats = mech_features_available
-
-    # build df_comp
-    df_comp = df[df[season_col].isin([seasonA, seasonB])].dropna(subset=feats + ["Name"])
-
-    if df_comp.empty:
-        st.warning("Not enough data for mechanical comparison.")
-        st.stop()
-
-    mean_series = df_comp[feats].mean()
-    std_series = df_comp[feats].std().replace(0, 1e-9)
-
-    valsA = rowA[feats].astype(float)
-    valsB = rowB[feats].astype(float)
-    zA = (valsA - mean_series) / std_series
-    zB = (valsB - mean_series) / std_series
-    z_diff = abs(zA - zB)
-
-    pct_rank = df_comp[feats].rank(pct=True)
-    pctA = pct_rank.loc[rowA.name] if rowA.name in pct_rank.index else pct_rank.iloc[0]
-    pctB = pct_rank.loc[rowB.name] if rowB.name in pct_rank.index else pct_rank.iloc[0]
-
-    # SHAP
-    shapA, _, _ = compute_shap(rowA, feats)
-    shapB, _, _ = compute_shap(rowB, feats)
-    shapA = shapA.reindex(feats).fillna(0) if shapA is not None else pd.Series(0, index=feats)
-    shapB = shapB.reindex(feats).fillna(0) if shapB is not None else pd.Series(0, index=feats)
-
-    # Importance
-    if model_loaded and explainer is not None:
-        try:
-            sampleX = df_comp[feats].head(200).fillna(df_comp[feats].mean())
-            shap_vals = explainer(sampleX)
-            importance = pd.Series(abs(shap_vals.values).mean(axis=0), index=feats)
-        except:
-            importance = pd.Series(1, index=feats)
-    else:
-        importance = pd.Series(1, index=feats)
-
-    # -------------------------------------------------
-    # QUICK TAKEAWAYS
-    # -------------------------------------------------
-    st.markdown("""
-        <h3 style="margin-top:22px;margin-bottom:8px;color:#0F1A34;font-weight:750;">
-            Quick Takeaways
-        </h3>
-    """, unsafe_allow_html=True)
-
-    weighted = (1 - (z_diff / (z_diff.max() + 1e-9))).clip(0,1) * importance
-    top_sim = weighted.sort_values(ascending=False).head(3).index.tolist()
-    top_diff = (z_diff * importance).sort_values(ascending=False).head(3).index.tolist()
-
-    if cosine_sim is not None:
-        st.markdown(f"- **Overall mechanical similarity:** {cosine_sim*100:.1f}%")
-    for f in top_sim:
-        st.markdown(f"- **Similarity driver:** {FEATURE_LABELS.get(f,f)}")
-    for f in top_diff:
-        st.markdown(f"- **Difference driver:** {FEATURE_LABELS.get(f,f)}")
-# ==========================================
-# FIXED IMPORTANCE COMPUTATION
-# ==========================================
-
-# If SHAP is available, use it. Otherwise compute data-based importance.
-use_shap = False
-
-if model_loaded and explainer is not None:
-    try:
-        sampleX = df_comp[feats].head(200).fillna(df_comp[feats].mean())
-        sample_shap = explainer(sampleX)
-
-        if hasattr(sample_shap, "values"):
-            mean_abs_shap = abs(sample_shap.values).mean(axis=0)
-            importance = pd.Series(mean_abs_shap, index=feats)
-            use_shap = True
-        else:
-            raise Exception("No SHAP values")
-    except:
+        if len(mech_features_available) >= 2:
+        
+            feats = mech_features_available
+        
+            # build df_comp
+            df_comp = df[df[season_col].isin([seasonA, seasonB])].dropna(subset=feats + ["Name"])
+        
+            if df_comp.empty:
+                st.warning("Not enough data for mechanical comparison.")
+                st.stop()
+        
+            mean_series = df_comp[feats].mean()
+            std_series = df_comp[feats].std().replace(0, 1e-9)
+        
+            valsA = rowA[feats].astype(float)
+            valsB = rowB[feats].astype(float)
+            zA = (valsA - mean_series) / std_series
+            zB = (valsB - mean_series) / std_series
+            z_diff = abs(zA - zB)
+        
+            pct_rank = df_comp[feats].rank(pct=True)
+            pctA = pct_rank.loc[rowA.name] if rowA.name in pct_rank.index else pct_rank.iloc[0]
+            pctB = pct_rank.loc[rowB.name] if rowB.name in pct_rank.index else pct_rank.iloc[0]
+        
+            # SHAP
+            shapA, _, _ = compute_shap(rowA, feats)
+            shapB, _, _ = compute_shap(rowB, feats)
+            shapA = shapA.reindex(feats).fillna(0) if shapA is not None else pd.Series(0, index=feats)
+            shapB = shapB.reindex(feats).fillna(0) if shapB is not None else pd.Series(0, index=feats)
+        
+            # Importance
+            if model_loaded and explainer is not None:
+                try:
+                    sampleX = df_comp[feats].head(200).fillna(df_comp[feats].mean())
+                    shap_vals = explainer(sampleX)
+                    importance = pd.Series(abs(shap_vals.values).mean(axis=0), index=feats)
+                except:
+                    importance = pd.Series(1, index=feats)
+            else:
+                importance = pd.Series(1, index=feats)
+        
+            # -------------------------------------------------
+            # QUICK TAKEAWAYS
+            # -------------------------------------------------
+            st.markdown("""
+                <h3 style="margin-top:22px;margin-bottom:8px;color:#0F1A34;font-weight:750;">
+                    Quick Takeaways
+                </h3>
+            """, unsafe_allow_html=True)
+        
+            weighted = (1 - (z_diff / (z_diff.max() + 1e-9))).clip(0,1) * importance
+            top_sim = weighted.sort_values(ascending=False).head(3).index.tolist()
+            top_diff = (z_diff * importance).sort_values(ascending=False).head(3).index.tolist()
+        
+            if cosine_sim is not None:
+                st.markdown(f"- **Overall mechanical similarity:** {cosine_sim*100:.1f}%")
+            for f in top_sim:
+                st.markdown(f"- **Similarity driver:** {FEATURE_LABELS.get(f,f)}")
+            for f in top_diff:
+                st.markdown(f"- **Difference driver:** {FEATURE_LABELS.get(f,f)}")
+        # ==========================================
+        # FIXED IMPORTANCE COMPUTATION
+        # ==========================================
+        
+        # If SHAP is available, use it. Otherwise compute data-based importance.
         use_shap = False
-
-if not use_shap:
-    # fallback importance based on data variation (NOT all 1s)
-    importance = (abs(zA) + abs(zB))
-    importance = importance.replace(0, 1e-9)
-    importance = importance / importance.sum()
-
-# ==========================================
-# FIXED IMPORTANCE COMPUTATION
-# ==========================================
-
-# If SHAP is available, use it. Otherwise compute data-based importance.
-use_shap = False
-
-if model_loaded and explainer is not None:
-    try:
-        sampleX = df_comp[feats].head(200).fillna(df_comp[feats].mean())
-        sample_shap = explainer(sampleX)
-
-        if hasattr(sample_shap, "values"):
-            mean_abs_shap = abs(sample_shap.values).mean(axis=0)
-            importance = pd.Series(mean_abs_shap, index=feats)
-            use_shap = True
-        else:
-            raise Exception("No SHAP values")
-    except:
+        
+        if model_loaded and explainer is not None:
+            try:
+                sampleX = df_comp[feats].head(200).fillna(df_comp[feats].mean())
+                sample_shap = explainer(sampleX)
+        
+                if hasattr(sample_shap, "values"):
+                    mean_abs_shap = abs(sample_shap.values).mean(axis=0)
+                    importance = pd.Series(mean_abs_shap, index=feats)
+                    use_shap = True
+                else:
+                    raise Exception("No SHAP values")
+            except:
+                use_shap = False
+        
+        if not use_shap:
+            # fallback importance based on data variation (NOT all 1s)
+            importance = (abs(zA) + abs(zB))
+            importance = importance.replace(0, 1e-9)
+            importance = importance / importance.sum()
+        
+        # ==========================================
+        # FIXED IMPORTANCE COMPUTATION
+        # ==========================================
+        
+        # If SHAP is available, use it. Otherwise compute data-based importance.
         use_shap = False
-
-if not use_shap:
-    # fallback importance based on data variation (NOT all 1s)
-    importance = (abs(zA) + abs(zB))
-    importance = importance.replace(0, 1e-9)
-    importance = importance / importance.sum()
-    
-st.markdown("""
-    <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
-        Feature Contributions
-    </h3>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<style>
-.comp-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 18px;
-    font-size: 0.88em;
-    background: #FFFFFF;
-    border: 2px solid #111827;   /* OUTER BORDER */
-    border-radius: 10px;
-    overflow: hidden;
-}
-
-.comp-table th {
-    background: #F3F4F6;
-    color: #374151;
-    padding: 10px 6px;
-    font-weight: 700;
-    text-align: center;
-    border-bottom: 1px solid #D1D5DB;
-}
-
-.comp-table td {
-    padding: 9px 6px;
-    text-align: center;
-    border-bottom: 1px solid #E5E7EB;
-    color: #111827;
-}
-
-.comp-table tr:last-child td {
-    border-bottom: 1px solid #E5E7EB;
-}
-
-.comp-feature {
-    text-align: left;
-    font-weight: 600;
-    color: #1F2937;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ==========================================
-# BUILD TABLE
-# ==========================================
-html_rows = ""
-for f in feats:
-    html_rows += (
-        "<tr>"
-        f"<td class='comp-feature'>{FEATURE_LABELS.get(f, f)}</td>"
-        f"<td>{valsA[f]:.2f}</td>"
-        f"<td>{valsB[f]:.2f}</td>"
-        f"<td>{(valsA[f]-valsB[f]):.2f}</td>"
-        f"<td>{z_diff[f]:.2f}</td>"
-        f"<td>{pctA[f]:.0%}</td>"
-        f"<td>{pctB[f]:.0%}</td>"
-        f"<td>{importance[f]:.3f}</td>"
-        "</tr>"
-    )
-
-html_table = (
-f"<table class='comp-table'>"
-f"<thead>"
-f"<tr>"
-f"<th>Feature</th>"
-f"<th>{playerA} ({seasonA})</th>"
-f"<th>{playerB} ({seasonB})</th>"
-f"<th>Diff</th>"
-f"<th>Z-Diff</th>"
-f"<th>Pct A</th>"
-f"<th>Pct B</th>"
-f"<th>Importance</th>"
-f"</tr>"
-f"</thead>"
-f"<tbody>{html_rows}</tbody>"
-f"</table>"
-)
-
-st.markdown(html_table, unsafe_allow_html=True)
-
-# -------------------------------------
-# SHAP Comparison
-# -------------------------------------
-st.markdown("""
-    <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
-        Model Contributions (SHAP)
-    </h3>
-""", unsafe_allow_html=True)
-
-order = importance.sort_values(ascending=False).index
-shapA_ord = shapA.reindex(order).fillna(0)
-shapB_ord = shapB.reindex(order).fillna(0)
-labels = [FEATURE_LABELS.get(f, f) for f in order]
-
-colA_shap, colB_shap = st.columns(2)
-
-with colA_shap:
-    fig = go.Figure()
-    vals = shapA_ord.values.astype(float)
-    colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]
-    fig.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors))
-    fig.update_layout(margin=dict(l=160, r=24, t=28, b=60),
-                      height=430, showlegend=False,
-                      xaxis_title="SHAP contribution",
-                      yaxis=dict(autorange="reversed"))
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-
-with colB_shap:
-    fig = go.Figure()
-    vals = shapB_ord.values.astype(float)
-    colors = ["#F59E0B" if v > 0 else "#60A5FA" for v in vals]
-    fig.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors))
-    fig.update_layout(margin=dict(l=160, r=24, t=28, b=60),
-                      height=430, showlegend=False,
-                      xaxis_title="SHAP contribution",
-                      yaxis=dict(autorange="reversed"))
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        
+        if model_loaded and explainer is not None:
+            try:
+                sampleX = df_comp[feats].head(200).fillna(df_comp[feats].mean())
+                sample_shap = explainer(sampleX)
+        
+                if hasattr(sample_shap, "values"):
+                    mean_abs_shap = abs(sample_shap.values).mean(axis=0)
+                    importance = pd.Series(mean_abs_shap, index=feats)
+                    use_shap = True
+                else:
+                    raise Exception("No SHAP values")
+            except:
+                use_shap = False
+        
+        if not use_shap:
+            # fallback importance based on data variation (NOT all 1s)
+            importance = (abs(zA) + abs(zB))
+            importance = importance.replace(0, 1e-9)
+            importance = importance / importance.sum()
+            
+        st.markdown("""
+            <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
+                Feature Contributions
+            </h3>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("""
+        <style>
+        .comp-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 18px;
+            font-size: 0.88em;
+            background: #FFFFFF;
+            border: 2px solid #111827;   /* OUTER BORDER */
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .comp-table th {
+            background: #F3F4F6;
+            color: #374151;
+            padding: 10px 6px;
+            font-weight: 700;
+            text-align: center;
+            border-bottom: 1px solid #D1D5DB;
+        }
+        
+        .comp-table td {
+            padding: 9px 6px;
+            text-align: center;
+            border-bottom: 1px solid #E5E7EB;
+            color: #111827;
+        }
+        
+        .comp-table tr:last-child td {
+            border-bottom: 1px solid #E5E7EB;
+        }
+        
+        .comp-feature {
+            text-align: left;
+            font-weight: 600;
+            color: #1F2937;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # ==========================================
+        # BUILD TABLE
+        # ==========================================
+        html_rows = ""
+        for f in feats:
+            html_rows += (
+                "<tr>"
+                f"<td class='comp-feature'>{FEATURE_LABELS.get(f, f)}</td>"
+                f"<td>{valsA[f]:.2f}</td>"
+                f"<td>{valsB[f]:.2f}</td>"
+                f"<td>{(valsA[f]-valsB[f]):.2f}</td>"
+                f"<td>{z_diff[f]:.2f}</td>"
+                f"<td>{pctA[f]:.0%}</td>"
+                f"<td>{pctB[f]:.0%}</td>"
+                f"<td>{importance[f]:.3f}</td>"
+                "</tr>"
+            )
+        
+        html_table = (
+        f"<table class='comp-table'>"
+        f"<thead>"
+        f"<tr>"
+        f"<th>Feature</th>"
+        f"<th>{playerA} ({seasonA})</th>"
+        f"<th>{playerB} ({seasonB})</th>"
+        f"<th>Diff</th>"
+        f"<th>Z-Diff</th>"
+        f"<th>Pct A</th>"
+        f"<th>Pct B</th>"
+        f"<th>Importance</th>"
+        f"</tr>"
+        f"</thead>"
+        f"<tbody>{html_rows}</tbody>"
+        f"</table>"
+        )
+        
+        st.markdown(html_table, unsafe_allow_html=True)
+        
+        # -------------------------------------
+        # SHAP Comparison
+        # -------------------------------------
+        st.markdown("""
+            <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
+                Model Contributions (SHAP)
+            </h3>
+        """, unsafe_allow_html=True)
+        
+        order = importance.sort_values(ascending=False).index
+        shapA_ord = shapA.reindex(order).fillna(0)
+        shapB_ord = shapB.reindex(order).fillna(0)
+        labels = [FEATURE_LABELS.get(f, f) for f in order]
+        
+        colA_shap, colB_shap = st.columns(2)
+        
+        with colA_shap:
+            fig = go.Figure()
+            vals = shapA_ord.values.astype(float)
+            colors = ["#D8573C" if v > 0 else "#3B82C4" for v in vals]
+            fig.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors))
+            fig.update_layout(margin=dict(l=160, r=24, t=28, b=60),
+                              height=430, showlegend=False,
+                              xaxis_title="SHAP contribution",
+                              yaxis=dict(autorange="reversed"))
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        
+        with colB_shap:
+            fig = go.Figure()
+            vals = shapB_ord.values.astype(float)
+            colors = ["#F59E0B" if v > 0 else "#60A5FA" for v in vals]
+            fig.add_trace(go.Bar(x=vals, y=labels, orientation='h', marker_color=colors))
+            fig.update_layout(margin=dict(l=160, r=24, t=28, b=60),
+                              height=430, showlegend=False,
+                              xaxis_title="SHAP contribution",
+                              yaxis=dict(autorange="reversed"))
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
