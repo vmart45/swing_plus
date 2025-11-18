@@ -1491,11 +1491,17 @@ elif page == "Compare":
         # -------------------------------------------------
         # QUICK TAKEAWAYS
         # -------------------------------------------------
-        st.markdown("""
-            <h3 style="margin-top:22px;margin-bottom:8px;color:#0F1A34;font-weight:750;">
+        st.markdown(
+            """
+            <h3 style="text-align:center; margin-top:6px; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
                 Quick Takeaways
             </h3>
-        """, unsafe_allow_html=True)
+            <div style="text-align:center; color:#6b7280; margin-bottom:6px; font-size:0.95em;">
+                Main features that make Player A & Player B similar and different
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
         weighted = (1 - (z_diff / (z_diff.max() + 1e-9))).clip(0,1) * importance
         top_sim = weighted.sort_values(ascending=False).head(3).index.tolist()
