@@ -1331,7 +1331,6 @@ elif page == "Compare":
 
     # --- Card A ---
     with col1:
-    with col1:
         pidA = str(int(rowA["id"])) if "id" in rowA and pd.notnull(rowA["id"]) else "0"
         imgA = f"https://img.mlbstatic.com/mlb-photos/image/upload/v1/people/{pidA}/headshot/silo/current.png"
 
