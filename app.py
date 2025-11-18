@@ -1426,107 +1426,104 @@ elif page == "Compare":
         for f in top_diff:
             st.markdown(f"- **Difference driver:** {FEATURE_LABELS.get(f,f)}")
 
-            # ============================
-            # FEATURE COMPARISON HEADER
-            # ============================
-            st.markdown(
-                """
-                <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
-                    Feature Comparison
-                </h3>
-                """,
-                unsafe_allow_html=True
-            )
-    
-            # ============================
-            # TABLE CSS
-            # ============================
-            st.markdown("""
-            <style>
-            .comp-table-wrapper {
-                border: 2px solid #1F2937;
-                border-radius: 10px;
-                overflow: hidden;
-                margin-top: 10px;
-            }
-            .comp-table {
-                width: 100%;
-                border-collapse: collapse;
-                font-size: 0.88em;
-                background: #FFF;
-            }
-            .comp-table th {
-                background: #F3F4F6;
-                color: #374151;
-                padding: 10px 6px;
-                font-weight: 700;
-                text-align: center;
-                border-bottom: 1px solid #D1D5DB;
-            }
-            .comp-table td {
-                padding: 9px 6px;
-                text-align: center;
-                border-bottom: 1px solid #E5E7EB;
-                color: #111827;
-            }
-            .comp-feature {
-                text-align: left;
-                font-weight: 600;
-                color: #1F2937;
-            }
-            .comp-table tr:last-child td {
-                border-bottom: 1px solid #E5E7EB;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-    
-            # ============================
-            # BUILD ROWS
-            # ============================
-            html_rows = ""
-            for f in feats:
-                html_rows += f"""
-                <tr>
-                    <td class="comp-feature">{FEATURE_LABELS.get(f, f)}</td>
-                    <td>{valsA[f]:.2f}</td>
-                    <td>{valsB[f]:.2f}</td>
-                    <td>{(valsA[f]-valsB[f]):.2f}</td>
-                    <td>{z_diff[f]:.2f}</td>
-                    <td>{pctA[f]:.0%}</td>
-                    <td>{pctB[f]:.0%}</td>
-                    <td>{importance[f]:.3f}</td>
-                </tr>
-                """
-    
-            # ============================
-            # FINAL TABLE RENDER
-            # ============================
-            html_table = f"""
-            <div class="comp-table-wrapper">
-            <table class="comp-table">
-                <thead>
-                    <tr>
-                        <th>Feature</th>
-                        <th>{playerA} ({seasonA})</th>
-                        <th>{playerB} ({seasonB})</th>
-                        <th>Diff</th>
-                        <th>Z-Diff</th>
-                        <th>Pct A</th>
-                        <th>Pct B</th>
-                        <th>Importance</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {html_rows}
-                </tbody>
-            </table>
-            </div>
+        # ============================
+        # FEATURE COMPARISON HEADER
+        # ============================
+        st.markdown(
             """
-    
-            st.markdown(html_table, unsafe_allow_html=True)
+            <h3 style="margin-top:28px;color:#0F1A34;font-weight:750;">
+                Feature Comparison
+            </h3>
+            """,
+            unsafe_allow_html=True
+        )
 
+        # ============================
+        # TABLE CSS
+        # ============================
+        st.markdown("""
+        <style>
+        .comp-table-wrapper {
+            border: 2px solid #1F2937;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .comp-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88em;
+            background: #FFF;
+        }
+        .comp-table th {
+            background: #F3F4F6;
+            color: #374151;
+            padding: 10px 6px;
+            font-weight: 700;
+            text-align: center;
+            border-bottom: 1px solid #D1D5DB;
+        }
+        .comp-table td {
+            padding: 9px 6px;
+            text-align: center;
+            border-bottom: 1px solid #E5E7EB;
+            color: #111827;
+        }
+        .comp-feature {
+            text-align: left;
+            font-weight: 600;
+            color: #1F2937;
+        }
+        .comp-table tr:last-child td {
+            border-bottom: 1px solid #E5E7EB;
+        }
+        </style>
+        """, unsafe_allow_html=True)
 
+        # ============================
+        # BUILD ROWS
+        # ============================
+        html_rows = ""
+        for f in feats:
+            html_rows += f"""
+            <tr>
+                <td class="comp-feature">{FEATURE_LABELS.get(f, f)}</td>
+                <td>{valsA[f]:.2f}</td>
+                <td>{valsB[f]:.2f}</td>
+                <td>{(valsA[f]-valsB[f]):.2f}</td>
+                <td>{z_diff[f]:.2f}</td>
+                <td>{pctA[f]:.0%}</td>
+                <td>{pctB[f]:.0%}</td>
+                <td>{importance[f]:.3f}</td>
+            </tr>
+            """
 
+        # ============================
+        # FINAL TABLE RENDER
+        # ============================
+        html_table = f"""
+        <div class="comp-table-wrapper">
+        <table class="comp-table">
+            <thead>
+                <tr>
+                    <th>Feature</th>
+                    <th>{playerA} ({seasonA})</th>
+                    <th>{playerB} ({seasonB})</th>
+                    <th>Diff</th>
+                    <th>Z-Diff</th>
+                    <th>Pct A</th>
+                    <th>Pct B</th>
+                    <th>Importance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {html_rows}
+            </tbody>
+        </table>
+        </div>
+        """
+
+        st.markdown(html_table, unsafe_allow_html=True)
 
         # -------------------------------------------------
         # SHAP Comparison
