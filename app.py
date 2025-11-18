@@ -1486,15 +1486,21 @@ if not use_shap:
 # ==========================================
 st.markdown("""
 <style>
+.comp-table-wrapper {
+    border: 2px solid #111827;
+    border-radius: 10px;
+    overflow: hidden;
+    display: block;
+    width: 100%;
+    margin-top: 18px;
+    background: #FFFFFF;
+}
+
 .comp-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 18px;
     font-size: 0.88em;
-    background: #FFFFFF;
-    border: 2px solid #111827;   /* OUTER BORDER */
-    border-radius: 10px;
-    overflow: hidden;
+    background: transparent;
 }
 
 .comp-table th {
@@ -1561,7 +1567,7 @@ f"<tbody>{html_rows}</tbody>"
 f"</table>"
 )
 
-st.markdown(html_table, unsafe_allow_html=True)
+st.markdown(f"<div class='comp-table-wrapper'>{html_table}</div>", unsafe_allow_html=True)
 
 # -------------------------------------
 # SHAP Comparison
