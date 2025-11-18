@@ -1361,12 +1361,25 @@ elif page == "Compare":
 
     st.markdown("<hr style='margin-top:32px;margin-bottom:22px;'/>", unsafe_allow_html=True)
 
-    if len(mech_features_available) >= 2:
-
+if page == "Compare" and len(mech_features_available) >= 2:
     feats = mech_features_available
 
-    # build df_comp
-    df_comp = df[df[season_col].isin([seasonA, seasonB])].dropna(subset=feats + ["Name"])
+    seasons = []
+    try:
+        if seasonA is not None:
+            seasons.append(seasonA)
+    except NameError:
+        pass
+    try:
+        if seasonB is not None:
+            seasons.append(seasonB)
+    except NameError:
+        pass
+
+    if season_col and seasons:
+        df_comp = df[df[season_col].isin(seasons)].dropna(subset=feats + ["Name"])
+    else:
+        df_comp = df.dropna(subset=feats + ["Name"])
 
     if df_comp.empty:
         st.warning("Not enough data for mechanical comparison.")
@@ -1385,13 +1398,11 @@ elif page == "Compare":
     pctA = pct_rank.loc[rowA.name] if rowA.name in pct_rank.index else pct_rank.iloc[0]
     pctB = pct_rank.loc[rowB.name] if rowB.name in pct_rank.index else pct_rank.iloc[0]
 
-    # SHAP
     shapA, _, _ = compute_shap(rowA, feats)
     shapB, _, _ = compute_shap(rowB, feats)
     shapA = shapA.reindex(feats).fillna(0) if shapA is not None else pd.Series(0, index=feats)
     shapB = shapB.reindex(feats).fillna(0) if shapB is not None else pd.Series(0, index=feats)
 
-    # Importance
     if model_loaded and explainer is not None:
         try:
             sampleX = df_comp[feats].head(200).fillna(df_comp[feats].mean())
@@ -1401,6 +1412,12 @@ elif page == "Compare":
             importance = pd.Series(1, index=feats)
     else:
         importance = pd.Series(1, index=feats)
+
+    st.markdown("""
+        <h3 style="margin-top:22px;margin-bottom:8px;color:#0F1A34;font-weight:750;">
+            Quick Takeaways
+        </h3>
+    """, unsafe_allow_html=True)
 
     # -------------------------------------------------
     # QUICK TAKEAWAYS
@@ -1425,7 +1442,6 @@ elif page == "Compare":
 # FIXED IMPORTANCE COMPUTATION
 # ==========================================
 
-# If SHAP is available, use it. Otherwise compute data-based importance.
 use_shap = False
 
 if model_loaded and explainer is not None:
@@ -1452,7 +1468,6 @@ if not use_shap:
 # FIXED IMPORTANCE COMPUTATION
 # ==========================================
 
-# If SHAP is available, use it. Otherwise compute data-based importance.
 use_shap = False
 
 if model_loaded and explainer is not None:
