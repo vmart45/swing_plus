@@ -1538,7 +1538,7 @@ elif page == "Compare":
             st.markdown(f"- **Difference driver:** {FEATURE_LABELS.get(f, f)} — largest standardized separation")
 
         # ------------------------------
-        # Feature comparison table
+        # Feature comparison table (HTML Custom)
         # ------------------------------
         st.markdown(
             """
@@ -1549,18 +1549,61 @@ elif page == "Compare":
             unsafe_allow_html=True
         )
 
-        table_df = pd.DataFrame({
-            "Feature": [FEATURE_LABELS.get(f, f) for f in feats],
-            "Player A": [f"{valsA[f]:.2f}" if pd.notna(valsA[f]) else "NaN" for f in feats],
-            "Player B": [f"{valsB[f]:.2f}" if pd.notna(valsB[f]) else "NaN" for f in feats],
-            "Difference": [f"{(valsA[f]-valsB[f]):.2f}" for f in feats],
-            "Z-score Difference": [f"{z_diff[f]:.2f}" for f in feats],
-            "Pct A": [f"{pctA[f]:.0%}" for f in feats],
-            "Pct B": [f"{pctB[f]:.0%}" for f in feats],
-            "Importance": [f"{importance[f]:.3f}" for f in feats]
-        })
+# Build HTML table manually
+        html = """
+        <style>
+        .custom-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: Inter, sans-serif;
+            font-size: 0.85em;
+        }
+        .custom-table th {
+            background-color:#F3F4F6;
+            padding:8px;
+            border-bottom:2px solid #D1D5DB;
+            text-align:left;
+            font-weight:700;
+            color:#111827;
+        }
+        .custom-table td {
+            padding:8px;
+            border-bottom:1px solid #E5E7EB;
+        }
+        .custom-table tr:hover td {
+            background:#F9FAFB;
+        }
+        </style>
+        <table class="custom-table">
+            <tr>
+                <th>Feature</th>
+                <th>Player A</th>
+                <th>Player B</th>
+                <th>Diff</th>
+                <th>Z-Diff</th>
+                <th>Pct A</th>
+                <th>Pct B</th>
+                <th>Importance</th>
+            </tr>
+        """
 
-        st.dataframe(table_df.style.format(precision=2), use_container_width=True, hide_index=True)
+        for f in feats:
+            html += f"""
+            <tr>
+                <td>{FEATURE_LABELS.get(f,f)}</td>
+                <td>{valsA[f]:.2f}</td>
+                <td>{valsB[f]:.2f}</td>
+                <td>{(valsA[f]-valsB[f]):.2f}</td>
+                <td>{z_diff[f]:.2f}</td>
+                <td>{pctA[f]:.0%}</td>
+                <td>{pctB[f]:.0%}</td>
+                <td>{importance[f]:.3f}</td>
+            </tr>
+            """
+
+        html += "</table>"
+        st.markdown(html, unsafe_allow_html=True)
+
 
         # ------------------------------
         # SHAP comparison
