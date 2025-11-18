@@ -193,6 +193,22 @@ mechanical_features = [
     "swing_length"
 ]
 
+season_col = None
+for c in ["year", "Year", "season"]:
+    if c in df.columns:
+        season_col = c
+        break
+
+comp_col = None
+for c in ["swings_competitive", "competitive_swings"]:
+    if c in df.columns:
+        comp_col = c
+        break
+
+# Keep sidebar clean
+st.sidebar.header("Navigation")
+st.sidebar.info("Use the tabs above to navigate between Main, Player, and Compare views. Filters are available in the Main tab.")
+
 name_col = "Name"
 
 model = None
