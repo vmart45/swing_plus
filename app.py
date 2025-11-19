@@ -587,7 +587,6 @@ if page == "Main":
         <style>
             .main-table-container {{
                 width: 100%;
-                max-width: 1200px;
                 margin: 0 auto;
                 background: #f8fafc;
                 border-radius: 14px;
