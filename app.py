@@ -575,15 +575,18 @@ if page == "Main":
         table_data = []
         
         for idx, r in enumerate(styled.itertuples(index=False), start=1):
+            r_dict = r._asdict()
             row_cells = [{"text": str(idx), "bg": ""}]
-            for c in styled.columns: 
-                try:
-                    val = getattr(r, c)
-                except AttributeError:
-                    val = r._asdict().get(c)
+            for c in styled.columns:
+                if c not in r_dict:
+                    print(f"[MISSING] Column '{c}' not in row dict")
+                    val = None
+                else:
+                    val = r_dict[c]
                 bg = value_to_color(val) if c in plus_labels else ""
                 row_cells.append({"text": format_cell(val), "bg": bg})
             table_data.append(row_cells)
+
 
         # ESCAPE HTML braces for f-string
         html_table = f"""
