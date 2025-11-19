@@ -570,59 +570,6 @@ if page == "Main":
             except Exception:
                 return str(val)
         
-        abbrev_map = {
-            "Competitive Swings": "CS",
-            "Batted Ball Events": "BBE",
-            "Swing Length": "SwL",
-            "Avg Bat Speed (mph)": "BatS",
-            "Swing Tilt (°)": "SwT",
-            "Attack Angle (°)": "AA",
-            "Attack Direction": "AD",
-            "Intercept Y vs Plate": "IvP",
-            "Intercept Y vs Batter": "IvB",
-            "Batter Y Pos": "BatterY",
-            "Batter X Pos": "BatterX",
-            "Avg Foot Sep": "FS",
-            "Avg Stance Angle": "StA"
-        }
-        
-        mlb_teams = [
-            {"team": "ARI", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/ari.png&h=500&w=500"},
-            {"team": "TOT", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/mlb.png&w=500&h=500"},
-            {"team": "ATH", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/oak.png&h=500&w=500"},
-            {"team": "ATL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/atl.png&h=500&w=500"},
-            {"team": "BAL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/bal.png&h=500&w=500"},
-            {"team": "BOS", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/bos.png&h=500&w=500"},
-            {"team": "CHC", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/chc.png&h=500&w=500"},
-            {"team": "CHW", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/chw.png&h=500&w=500"},
-            {"team": "CIN", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/cin.png&h=500&w=500"},
-            {"team": "CLE", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/cle.png&h=500&w=500"},
-            {"team": "COL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/col.png&h=500&w=500"},
-            {"team": "DET", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/det.png&h=500&w=500"},
-            {"team": "HOU", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/hou.png&h=500&w=500"},
-            {"team": "KCR", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/kc.png&h=500&w=500"},
-            {"team": "LAA", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/laa.png&h=500&w=500"},
-            {"team": "LAD", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/lad.png&h=500&w=500"},
-            {"team": "MIA", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/mia.png&h=500&w=500"},
-            {"team": "MIL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/mil.png&h=500&w=500"},
-            {"team": "MIN", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/min.png&h=500&w=500"},
-            {"team": "NYM", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/nym.png&h=500&w=500"},
-            {"team": "NYY", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/nyy.png&h=500&w=500"},
-            {"team": "OAK", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/oak.png&h=500&w=500"},
-            {"team": "PHI", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/phi.png&h=500&w=500"},
-            {"team": "PIT", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/pit.png&h=500&w=500"},
-            {"team": "SDP", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/sd.png&h=500&w=500"},
-            {"team": "SFG", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/sf.png&h=500&w=500"},
-            {"team": "SEA", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/sea.png&h=500&w=500"},
-            {"team": "STL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/stl.png&h=500&w=500"},
-            {"team": "TBR", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/tb.png&h=500&w=500"},
-            {"team": "TEX", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/tex.png&h=500&w=500"},
-            {"team": "TOR", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/tor.png&h=500&w=500"},
-            {"team": "WSN", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/wsh.png&h=500&w=500"}
-        ]
-        image_dict = {item["team"]: item["logo_url"] for item in mlb_teams}
-        
-         # Build table data
         columns_order = ["#"] + list(styled.columns)
         table_data = []
         
@@ -633,6 +580,7 @@ if page == "Main":
                 val = r_dict.get(c)
                 bg = value_to_color(val) if c in plus_labels else ""
         
+                # Handle team logo logic
                 if c == "Team" and val in image_dict:
                     logo_url = image_dict[val]
                     html_logo = f"<div style='text-align:center;'><img src='{logo_url}' alt='{val}' style='height: 22px;'></div>"
@@ -640,23 +588,6 @@ if page == "Main":
                 else:
                     row_cells.append({"text": format_cell(val), "bg": bg})
             table_data.append(row_cells)
-        
-        # Column abbreviations
-        abbrev_map = {
-            "Competitive Swings": "CS",
-            "Batted Ball Events": "BBE",
-            "Swing Length": "SwL",
-            "Avg Bat Speed (mph)": "BatS",
-            "Swing Tilt (°)": "SwT",
-            "Attack Angle (°)": "AA",
-            "Attack Direction": "AD",
-            "Intercept Y vs Plate": "IvP",
-            "Intercept Y vs Batter": "IvB",
-            "Batter Y Pos": "BatterY",
-            "Batter X Pos": "BatterX",
-            "Avg Foot Sep": "FS",
-            "Avg Stance Angle": "StA"
-        }
         
         html_table = f"""
         <style>
@@ -692,10 +623,10 @@ if page == "Main":
             table.custom-main-table {{
                 width: 100%;
                 border-collapse: collapse;
+                font-family: inherit;
                 font-size: 0.85rem;
                 color: #1e293b;
                 table-layout: auto;
-                font-family: inherit;
             }}
             table.custom-main-table thead th {{
                 background: #f9fafb;
@@ -704,20 +635,6 @@ if page == "Main":
                 padding: 8px 12px;
                 border-bottom: 1px solid #e2e8f0;
                 font-variant-numeric: tabular-nums;
-                cursor: pointer;
-                position: relative;
-            }}
-            table.custom-main-table thead th.sort-asc::after {{
-                content: "▲";
-                position: absolute;
-                right: 8px;
-                font-size: 0.7rem;
-            }}
-            table.custom-main-table thead th.sort-desc::after {{
-                content: "▼";
-                position: absolute;
-                right: 8px;
-                font-size: 0.7rem;
             }}
             table.custom-main-table tbody td {{
                 padding: 6px 12px;
@@ -734,25 +651,22 @@ if page == "Main":
                 margin-top: 12px;
                 flex-wrap: wrap;
             }}
-            .table-foot .group {{
-                display: flex;
-                align-items: center;
-                gap: 10px;
-            }}
             .table-foot button {{
                 border: 1px solid #cbd5e1;
                 background: #fff;
                 color: #1f2937;
-                padding: 6px 10px;
-                border-radius: 8px;
+                padding: 7px 12px;
+                border-radius: 10px;
                 cursor: pointer;
                 font-weight: 600;
                 transition: all 0.15s ease;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.04);
             }}
             .table-foot button.active {{
                 background: linear-gradient(120deg, #274073, #1d2f52);
                 color: #fff;
                 border-color: #1d2f52;
+                box-shadow: 0 6px 14px rgba(39, 64, 115, 0.2);
             }}
         </style>
         
@@ -766,7 +680,7 @@ if page == "Main":
                 <table class="custom-main-table">
                     <thead>
                         <tr>
-                            {''.join([f"<th title='{c}'>{abbrev_map.get(c, c)}</th>" for c in columns_order])}
+                            {''.join([f"<th title='{c}'>{c}</th>" for c in columns_order])}
                         </tr>
                     </thead>
                     <tbody id="main-table-body"></tbody>
@@ -785,8 +699,6 @@ if page == "Main":
             const pageSizeOptions = [30, 50, 100, 200];
             let pageSize = 30;
             let currentPage = 1;
-            let sortIndex = 0;
-            let sortAsc = true;
         
             const bodyEl = document.getElementById('main-table-body');
             const rowCountEl = document.getElementById('row-count');
@@ -794,31 +706,18 @@ if page == "Main":
             const pageButtonsGroup = document.getElementById('page-buttons');
         
             function renderTable() {{
-                let sortedData = [...data];
-                if (sortIndex > 0) {{
-                    sortedData.sort((a, b) => {{
-                        const valA = a[sortIndex].text;
-                        const valB = b[sortIndex].text;
-                        const numA = parseFloat(valA.replace(/[^0-9.-]+/g,""));
-                        const numB = parseFloat(valB.replace(/[^0-9.-]+/g,""));
-                        const aVal = isNaN(numA) ? valA : numA;
-                        const bVal = isNaN(numB) ? valB : numB;
-                        return (aVal > bVal ? 1 : -1) * (sortAsc ? 1 : -1);
-                    }});
-                }}
-        
-                const totalRows = sortedData.length;
+                const totalRows = data.length;
                 const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
                 if (currentPage > totalPages) currentPage = totalPages;
         
                 const start = (currentPage - 1) * pageSize;
                 const end = Math.min(start + pageSize, totalRows);
-                const rows = sortedData.slice(start, end);
+                const rows = data.slice(start, end);
         
                 bodyEl.innerHTML = rows.map(row => {{
                     const cells = row.map((cell, i) => {{
                         const isNum = !isNaN(cell.text) && cell.text !== "";
-                        const align = i === 0 ? 'text-align: center;' : isNum ? 'text-align: right;' : '';
+                        const align = isNum ? 'text-align: right;' : '';
                         const bg = cell.bg ? `background:${{cell.bg}};` : '';
                         const style = (bg || align) ? ` style="${{bg}}{{align}}"` : '';
                         return `<td${{style}}>${{cell.text}}</td>`;
@@ -848,6 +747,7 @@ if page == "Main":
                         ${{pageSizeOptions.map(size => `<option value="${{size}}" ${{size === pageSize ? 'selected' : ''}}>${{size}}</option>`).join('')}}
                     </select>
                 `;
+        
                 document.getElementById('page-size-select').addEventListener('change', (e) => {{
                     pageSize = parseInt(e.target.value, 10);
                     currentPage = 1;
@@ -855,25 +755,7 @@ if page == "Main":
                 }});
             }}
         
-            function addSorting() {{
-                const ths = document.querySelectorAll('.custom-main-table thead th');
-                ths.forEach((th, idx) => {{
-                    th.addEventListener('click', () => {{
-                        if (sortIndex === idx) {{
-                            sortAsc = !sortAsc;
-                        }} else {{
-                            sortIndex = idx;
-                            sortAsc = true;
-                        }}
-                        ths.forEach(t => t.classList.remove('sort-asc', 'sort-desc'));
-                        th.classList.add(sortAsc ? 'sort-asc' : 'sort-desc');
-                        renderTable();
-                    }});
-                }});
-            }}
-        
             buildPageSizes();
-            addSorting();
             renderTable();
         </script>
         """
