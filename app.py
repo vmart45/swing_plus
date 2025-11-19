@@ -534,6 +534,7 @@ if page == "Main":
     for p in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
         if p in display_df.columns:
             plus_labels.append(rename_map.get(p, p))
+            
         def value_to_color(val, center=100, vmin=70, vmax=130):
             try:
                 if pd.isna(val):
