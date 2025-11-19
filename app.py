@@ -608,7 +608,7 @@ if page == "Main":
                 box-shadow: 0 6px 18px rgba(42, 55, 87, 0.08);
                 padding: 18px 18px 12px;
                 box-sizing: border-box;
-                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             }}
             .main-table-header {{
                 display: flex;
@@ -626,6 +626,7 @@ if page == "Main":
                 border: 1px solid #e0e6ef;
                 background: #fff;
                 padding: 10px 6px;
+                max-height: 720px;  /* increased height so ~30 rows fit */
             }}
             table.custom-main-table {{
                 width: 100%;
@@ -645,6 +646,12 @@ if page == "Main":
                 white-space: nowrap;
                 cursor: pointer;
             }}
+            table.custom-main-table thead th.sorted-asc::after {{
+                content: " ▲";
+            }}
+            table.custom-main-table thead th.sorted-desc::after {{
+                content: " ▼";
+            }}
             table.custom-main-table tbody td {{
                 padding: 6px 12px;
                 border-bottom: 1px solid #f1f5f9;
@@ -653,30 +660,26 @@ if page == "Main":
             table.custom-main-table tbody tr:hover td {{
                 background: #f1f5f9;
             }}
-            .table-foot {{
+            .pagination-controls {{
                 display: flex;
-                justify-content: flex-end;
-                gap: 12px;
-                align-items: center;
+                justify-content: center;
+                gap: 8px;
                 margin-top: 12px;
-                flex-wrap: wrap;
             }}
-            .table-foot button {{
+            .pagination-controls button {{
                 border: 1px solid #cbd5e1;
                 background: #fff;
                 color: #1f2937;
-                padding: 7px 12px;
+                padding: 6px 10px;
                 border-radius: 10px;
                 cursor: pointer;
                 font-weight: 600;
                 transition: all 0.15s ease;
                 box-shadow: 0 1px 2px rgba(0,0,0,0.04);
             }}
-            .table-foot button.active {{
-                background: linear-gradient(120deg, #274073, #1d2f52);
-                color: #fff;
-                border-color: #1d2f52;
-                box-shadow: 0 6px 14px rgba(39, 64, 115, 0.2);
+            .pagination-controls button:disabled {{
+                opacity: 0.5;
+                cursor: default;
             }}
         </style>
         
@@ -691,7 +694,7 @@ if page == "Main":
                     <thead>
                         <tr>
                             {''.join([
-                                f"<th title='{c}' data-col='{i}'>" + f"{abbrev_map.get(c, c)}</th>"
+                                f"<th title='{c}' data-col='{i}'>{abbrev_map.get(c, c)}</th>"
                                 for i, c in enumerate(columns_order)
                             ])}
                         </tr>
@@ -700,9 +703,12 @@ if page == "Main":
                 </table>
             </div>
         
-            <div class="table-foot">
-                <div class="group" id="page-size-group"></div>
-                <div class="group" id="page-buttons"></div>
+            <div class="pagination-controls">
+                <button id="first-page">« First</button>
+                <button id="prev-page">‹ Prev</button>
+                <span id="page-info"></span>
+                <button id="next-page">Next ›</button>
+                <button id="last-page">Last »</button>
             </div>
         </div>
         
@@ -717,8 +723,11 @@ if page == "Main":
         
             const bodyEl = document.getElementById('main-table-body');
             const rowCountEl = document.getElementById('row-count');
-            const pageSizeGroup = document.getElementById('page-size-group');
-            const pageButtonsGroup = document.getElementById('page-buttons');
+            const pageInfoEl = document.getElementById('page-info');
+            const firstBtn = document.getElementById('first-page');
+            const prevBtn = document.getElementById('prev-page');
+            const nextBtn = document.getElementById('next-page');
+            const lastBtn = document.getElementById('last-page');
             const headers = document.querySelectorAll('th[data-col]');
         
             headers.forEach((th) => {{
@@ -730,8 +739,30 @@ if page == "Main":
                         sortColumn = colIndex;
                         sortDirection = 1;
                     }}
+                    headers.forEach(header => {{
+                        header.classList.remove('sorted-asc', 'sorted-desc');
+                    }});
+                    th.classList.add(sortDirection === 1 ? 'sorted-asc' : 'sorted-desc');
                     renderTable();
                 }});
+            }});
+        
+            firstBtn.addEventListener('click', () => {{
+                currentPage = 1;
+                renderTable();
+            }});
+            prevBtn.addEventListener('click', () => {{
+                if (currentPage > 1) currentPage--;
+                renderTable();
+            }});
+            nextBtn.addEventListener('click', () => {{
+                const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+                if (currentPage < totalPages) currentPage++;
+                renderTable();
+            }});
+            lastBtn.addEventListener('click', () => {{
+                currentPage = Math.max(1, Math.ceil(data.length / pageSize));
+                renderTable();
             }});
         
             function renderTable() {{
@@ -754,9 +785,9 @@ if page == "Main":
         
                 const start = (currentPage - 1) * pageSize;
                 const end = Math.min(start + pageSize, totalRows);
-                const rows = sortedData.slice(start, end);
+                const pageRows = sortedData.slice(start, end);
         
-                bodyEl.innerHTML = rows.map((row) => {{
+                bodyEl.innerHTML = pageRows.map(row => {{
                     const cells = row.map((cell, i) => {{
                         const isNum = !isNaN(cell.text) && cell.text !== "";
                         const align = isNum ? 'text-align: right;' : '';
@@ -768,40 +799,19 @@ if page == "Main":
                 }}).join('');
         
                 rowCountEl.textContent = "Showing " + (start + 1) + "–" + end + " of " + totalRows;
+                pageInfoEl.textContent = "Page " + currentPage + " / " + totalPages;
         
-                pageButtonsGroup.innerHTML = '';
-                for (let i = 1; i <= totalPages; i++) {{
-                    const btn = document.createElement('button');
-                    btn.textContent = i;
-                    if (i === currentPage) btn.classList.add('active');
-                    btn.addEventListener('click', () => {{
-                        currentPage = i;
-                        renderTable();
-                    }});
-                    pageButtonsGroup.appendChild(btn);
-                }}
+                prevBtn.disabled = (currentPage === 1);
+                firstBtn.disabled = (currentPage === 1);
+                nextBtn.disabled = (currentPage === totalPages);
+                lastBtn.disabled = (currentPage === totalPages);
             }}
         
-            function buildPageSizes() {{
-                pageSizeGroup.innerHTML = `
-                    <label for="page-size-select" style="margin-right: 6px;">Page Size:</label>
-                    <select id="page-size-select" style="padding: 6px 10px; border-radius: 8px; border: 1px solid #cbd5e1;">
-                        ${{pageSizeOptions.map(size => `<option value="${{size}}" ${{size === pageSize ? 'selected' : ''}}>${{size}}</option>`).join('')}}
-                    </select>
-                `;
-        
-                document.getElementById('page-size-select').addEventListener('change', (e) => {{
-                    pageSize = parseInt(e.target.value, 10);
-                    currentPage = 1;
-                    renderTable();
-                }});
-            }}
-        
-            buildPageSizes();
+            // initialize
             renderTable();
         </script>
         """
-    components.html(html_table, height=640, scrolling=True)
+    components.html(html_table, height=800, scrolling=True)
 
 
 
