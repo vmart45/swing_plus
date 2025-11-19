@@ -576,8 +576,11 @@ if page == "Main":
         
         for idx, r in enumerate(styled.itertuples(index=False), start=1):
             row_cells = [{"text": str(idx), "bg": ""}]
-            for c in styled.columns:  # ← don't use columns_order here
-                val = getattr(r, c)
+            for c in styled.columns: 
+                try
+                    val = getattr(r, c)
+                except
+                    val = r._asdict().get(c)
                 bg = value_to_color(val) if c in plus_labels else ""
                 row_cells.append({"text": format_cell(val), "bg": bg})
             table_data.append(row_cells)
