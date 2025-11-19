@@ -626,7 +626,7 @@ if page == "Main":
                 border: 1px solid #e0e6ef;
                 background: #fff;
                 padding: 10px 6px;
-                max-height: 720px;  /* increased height so ~30 rows fit */
+                max-height: 720px;
             }}
             table.custom-main-table {{
                 width: 100%;
@@ -665,6 +665,7 @@ if page == "Main":
                 justify-content: center;
                 gap: 8px;
                 margin-top: 12px;
+                flex-wrap: wrap;
             }}
             .pagination-controls button {{
                 border: 1px solid #cbd5e1;
@@ -680,6 +681,19 @@ if page == "Main":
             .pagination-controls button:disabled {{
                 opacity: 0.5;
                 cursor: default;
+            }}
+            .page-size-selector {{
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                margin-top: 12px;
+                gap: 10px;
+                font-size: 0.85rem;
+            }}
+            .page-size-selector select {{
+                padding: 6px 10px;
+                border-radius: 8px;
+                border: 1px solid #cbd5e1;
             }}
         </style>
         
@@ -703,6 +717,16 @@ if page == "Main":
                 </table>
             </div>
         
+            <div class="page-size-selector">
+                <label for="page-size-select">Rows per page:</label>
+                <select id="page-size-select">
+                    <option value="30" selected>30</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                </select>
+            </div>
+        
             <div class="pagination-controls">
                 <button id="first-page">« First</button>
                 <button id="prev-page">‹ Prev</button>
@@ -715,7 +739,6 @@ if page == "Main":
         <script>
             const data = {json.dumps(table_data)};
             const columns = {json.dumps(columns_order)};
-            const pageSizeOptions = [30, 50, 100, 200];
             let pageSize = 30;
             let currentPage = 1;
             let sortColumn = null;
@@ -729,6 +752,7 @@ if page == "Main":
             const nextBtn = document.getElementById('next-page');
             const lastBtn = document.getElementById('last-page');
             const headers = document.querySelectorAll('th[data-col]');
+            const pageSizeSelect = document.getElementById('page-size-select');
         
             headers.forEach((th) => {{
                 th.addEventListener('click', () => {{
@@ -747,26 +771,25 @@ if page == "Main":
                 }});
             }});
         
-            firstBtn.addEventListener('click', () => {{
+            [firstBtn, prevBtn, nextBtn, lastBtn].forEach((btn, idx) => {{
+                btn.addEventListener('click', () => {{
+                    const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+                    if (idx === 0) currentPage = 1;
+                    else if (idx === 1 && currentPage > 1) currentPage--;
+                    else if (idx === 2 && currentPage < totalPages) currentPage++;
+                    else if (idx === 3) currentPage = totalPages;
+                    renderTable();
+                }});
+            }});
+        
+            pageSizeSelect.addEventListener('change', () => {{
+                pageSize = parseInt(pageSizeSelect.value, 10);
                 currentPage = 1;
-                renderTable();
-            }});
-            prevBtn.addEventListener('click', () => {{
-                if (currentPage > 1) currentPage--;
-                renderTable();
-            }});
-            nextBtn.addEventListener('click', () => {{
-                const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
-                if (currentPage < totalPages) currentPage++;
-                renderTable();
-            }});
-            lastBtn.addEventListener('click', () => {{
-                currentPage = Math.max(1, Math.ceil(data.length / pageSize));
                 renderTable();
             }});
         
             function renderTable() {{
-                let sortedData = data.slice();
+                let sortedData = [...data];
                 if (sortColumn !== null) {{
                     sortedData.sort((a, b) => {{
                         const aText = a[sortColumn].text;
@@ -779,6 +802,7 @@ if page == "Main":
                         return sortDirection * aText.localeCompare(bText);
                     }});
                 }}
+        
                 const totalRows = sortedData.length;
                 const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
                 if (currentPage > totalPages) currentPage = totalPages;
@@ -798,16 +822,15 @@ if page == "Main":
                     return `<tr>${{cells}}</tr>`;
                 }}).join('');
         
-                rowCountEl.textContent = "Showing " + (start + 1) + "–" + end + " of " + totalRows;
-                pageInfoEl.textContent = "Page " + currentPage + " / " + totalPages;
+                rowCountEl.textContent = `Showing ${{start + 1}}–${{end}} of ${{totalRows}}`;
+                pageInfoEl.textContent = `Page ${{currentPage}} / ${{totalPages}}`;
         
-                prevBtn.disabled = (currentPage === 1);
-                firstBtn.disabled = (currentPage === 1);
-                nextBtn.disabled = (currentPage === totalPages);
-                lastBtn.disabled = (currentPage === totalPages);
+                prevBtn.disabled = currentPage === 1;
+                firstBtn.disabled = currentPage === 1;
+                nextBtn.disabled = currentPage === totalPages;
+                lastBtn.disabled = currentPage === totalPages;
             }}
         
-            // initialize
             renderTable();
         </script>
         """
