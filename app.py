@@ -581,12 +581,10 @@ if page == "Main":
             row_cells.append({"text": format_cell(cell_val), "bg": bg})
         table_data.append(row_cells)
     
-    
-    # ESCAPE HTML braces for f-string
         html_table = f"""
         <style>
         
-            /* GLOBAL FONT FIX */
+            /* GLOBAL FONT OVERRIDE */
             .main-table-container, 
             .main-table-container * {{
                 font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif !important;
@@ -610,7 +608,6 @@ if page == "Main":
                 color: #24324c;
                 font-weight: 600;
                 font-size: 0.95rem;
-                letter-spacing: 0.01em;
             }}
         
             .main-table-wrapper {{
@@ -633,6 +630,9 @@ if page == "Main":
                 text-align: left;
                 padding: 12px 14px;
                 border-bottom: 1px solid #e2e8f0;
+                position: sticky;
+                top: 0;
+                z-index: 2;
             }}
         
             table.custom-main-table tbody td {{
@@ -701,6 +701,7 @@ if page == "Main":
         </div>
         
         <script>
+        (() => {{
         
             const data = {json.dumps(table_data)};
             const columns = {json.dumps(columns_order)};
@@ -731,12 +732,15 @@ if page == "Main":
         
                 rowCountEl.textContent = "Showing " + (start + 1) + "–" + end + " of " + totalRows;
         
-                pageButtonsGroup.innerHTML = '';
+                pageButtonsGroup.innerHTML = ""; 
                 for (let i = 1; i <= totalPages; i++) {{
                     const btn = document.createElement('button');
                     btn.textContent = i;
                     if (i === currentPage) btn.classList.add('active');
-                    btn.addEventListener('click', () => {{ currentPage = i; renderTable(); }});
+                    btn.addEventListener('click', () => {{
+                        currentPage = i;
+                        renderTable();
+                    }});
                     pageButtonsGroup.appendChild(btn);
                 }}
             }}
@@ -760,11 +764,11 @@ if page == "Main":
             buildPageSizes();
             renderTable();
         
+        }})();
         </script>
         """
         
-        components.html(html_table, height=640, scrolling=True)
-
+        components.html(html_table, height=640, scrolling=True, key="main_table")
 
     st.markdown("<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Top 10 Leaderboards</h2>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
