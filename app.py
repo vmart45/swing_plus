@@ -593,6 +593,7 @@ if page == "Main":
                 box-shadow: 0 6px 18px rgba(42, 55, 87, 0.08);
                 padding: 18px 18px 12px;
                 box-sizing: border-box;
+                font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
             }}
             .main-table-header {{
                 display: flex;
