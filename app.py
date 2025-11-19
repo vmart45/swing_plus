@@ -717,7 +717,7 @@ if page == "Main":
                 return `<tr>${{cells}}</tr>`;
             }}).join('');
     
-            rowCountEl.textContent = `Showing ${start + 1}–${end} of ${totalRows}`;
+            rowCountEl.textContent = "Showing " + (start + 1) + "–" + end + " of " + totalRows;
     
             pageButtonsGroup.innerHTML = '';
             for (let i = 1; i <= totalPages; i++) {{
