@@ -723,7 +723,7 @@ if page == "Main":
             const headers = document.querySelectorAll('th[data-col]');
         
             headers.forEach(th => {
-                th.addEventListener('click', () => {
+                th.addEventListener('click', () => {{
                     const colIndex = parseInt(th.getAttribute('data-col'));
                     if (sortColumn === colIndex) {{
                         sortDirection = -sortDirection;
@@ -732,7 +732,7 @@ if page == "Main":
                         sortDirection = 1;
                     }}
                     renderTable();
-                });
+                }});
             });
         
             function renderTable() {{
