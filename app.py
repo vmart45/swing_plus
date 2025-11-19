@@ -567,20 +567,19 @@ if page == "Main":
             return str(val)
         except Exception:
             return str(val)
-    
-    
-    columns_order = list(styled.columns)
-    table_data = []
-    for _, r in styled.iterrows():
-        row_cells = []
-        for c in columns_order:
-            cell_val = r[c]
-            bg = ""
-            if c in plus_labels:
-                bg = value_to_color(cell_val)
-            row_cells.append({"text": format_cell(cell_val), "bg": bg})
-        table_data.append(row_cells)
-    
+
+        columns_order = list(styled.columns)
+        table_data = []
+        for _, r in styled.iterrows():
+            row_cells = []
+            for c in columns_order:
+                cell_val = r[c]
+                bg = ""
+                if c in plus_labels:
+                    bg = value_to_color(cell_val)
+                row_cells.append({"text": format_cell(cell_val), "bg": bg})
+            table_data.append(row_cells)
+        
         header_html = ''.join([f"<th>{str(c)}</th>" for c in columns_order])
         
         html_table = f"""
@@ -686,9 +685,7 @@ if page == "Main":
             <div class="main-table-wrapper">
                 <table class="custom-main-table">
                     <thead>
-                        <tr>
-                            {''.join([f"<th>{c}</th>" for c in columns_order])}
-                        </tr>
+                        <tr>{header_html}</tr>
                     </thead>
                     <tbody id="main-table-body"></tbody>
                 </table>
@@ -721,13 +718,15 @@ if page == "Main":
                 const end = Math.min(start + pageSize, totalRows);
                 const rows = data.slice(start, end);
         
-                bodyEl.innerHTML = rows.map(row => {{
+                const rowsHtml = rows.map(row => {{
                     const cells = row.map(cell => {{
                         const bg = cell.bg ? ` style="background:${{cell.bg}}"` : '';
                         return `<td${{bg}}>${{cell.text}}</td>`;
                     }}).join('');
                     return `<tr>${{cells}}</tr>`;
                 }}).join('');
+                
+                bodyEl.innerHTML = rowsHtml;
         
                 rowCountEl.textContent = "Showing " + (start + 1) + "–" + end + " of " + totalRows;
         
