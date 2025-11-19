@@ -593,8 +593,16 @@ if page == "Main":
             row_cells = [{"text": str(idx), "bg": ""}]
             for c in styled.columns:
                 val = row[c]
+                if c == "Team":
+                    logo_url = image_dict.get(val, None)
+                    if logo_url:
+                        cell_text = f"<img src='{logo_url}' alt='{val}' style='height:20px; width:20px; object-fit:contain; vertical-align:middle;'>"
+                    else:
+                        cell_text = format_cell(val)
+                else:
+                    cell_text = format_cell(val)
                 bg = value_to_color(val) if c in plus_labels else ""
-                row_cells.append({"text": format_cell(val), "bg": bg})
+                row_cells.append({"text": cell_text, "bg": bg})
             table_data.append(row_cells)
         
         html_table = f"""
@@ -626,6 +634,7 @@ if page == "Main":
                 border: 1px solid #e0e6ef;
                 background: #fff;
                 padding: 10px 6px;
+                /* removed max-height so all 30 rows show without vertical scroll inside wrapper */
             }}
             table.custom-main-table {{
                 width: 100%;
@@ -651,7 +660,7 @@ if page == "Main":
             table.custom-main-table thead th.sorted-desc::after {{
                 content: " ▼";
             }}
-            table.custom-main-table tbody td {{
+            table.custom-main‑table tbody td {{
                 padding: 6px 12px;
                 border-bottom: 1px solid #f1f5f9;
                 font-variant-numeric: tabular-nums;
@@ -793,7 +802,7 @@ if page == "Main":
             }});
         
             pageSizeSelect.addEventListener('change', (e) => {{
-                pageSize = parseInt(e.target.value, 10);
+                pageSize = parseInt(pageSizeSelect.value, 10);
                 currentPage = 1;
                 renderTable();
             }});
