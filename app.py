@@ -588,18 +588,19 @@ if page == "Main":
             table_data.append(row_cells)
 
 
-        # ESCAPE HTML braces for f-string
         html_table = f"""
         <style>
             .main-table-container {{
                 width: 100%;
+                max-width: 1200px;
+                margin: 0 auto;
                 background: #f8fafc;
                 border-radius: 14px;
                 border: 1px solid #e3e8f0;
                 box-shadow: 0 6px 18px rgba(42, 55, 87, 0.08);
                 padding: 18px 18px 12px;
                 box-sizing: border-box;
-                font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             }}
             .main-table-header {{
                 display: flex;
@@ -616,32 +617,28 @@ if page == "Main":
                 border-radius: 10px;
                 border: 1px solid #e0e6ef;
                 background: #fff;
+                padding: 10px 6px;
             }}
             table.custom-main-table {{
                 width: 100%;
                 border-collapse: collapse;
-                font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-                color: #1f2d3d;
-                font-size: 0.95rem;
+                font-family: inherit;
+                font-size: 0.85rem;
+                color: #1e293b;
+                table-layout: auto;
             }}
             table.custom-main-table thead th {{
-                background: linear-gradient(90deg, #f1f4f9 0%, #edf2f7 100%);
-                color: #1f2937;
-                font-weight: 700;
+                background: #f9fafb;
+                font-weight: 600;
                 text-align: left;
-                padding: 12px 14px;
+                padding: 8px 12px;
                 border-bottom: 1px solid #e2e8f0;
-                position: sticky;
-                top: 0;
-                z-index: 2;
+                font-variant-numeric: tabular-nums;
             }}
             table.custom-main-table tbody td {{
-                padding: 11px 14px;
-                border-bottom: 1px solid #eef2f6;
-                vertical-align: middle;
-            }}
-            table.custom-main-table tbody tr:nth-child(even) td {{
-                background: #fafbff;
+                padding: 6px 12px;
+                border-bottom: 1px solid #f1f5f9;
+                font-variant-numeric: tabular-nums;
             }}
             table.custom-main-table tbody tr:hover td {{
                 background: #f1f5f9;
@@ -718,9 +715,12 @@ if page == "Main":
                 const rows = data.slice(start, end);
         
                 bodyEl.innerHTML = rows.map(row => {{
-                    const cells = row.map(cell => {{
-                        const bg = cell.bg ? ` style="background:${{cell.bg}}"` : '';
-                        return `<td${{bg}}>${{cell.text}}</td>`;
+                    const cells = row.map((cell, i) => {{
+                        const isNum = !isNaN(cell.text) && cell.text !== "";
+                        const align = isNum ? 'text-align: right;' : '';
+                        const bg = cell.bg ? `background:${{cell.bg}};` : '';
+                        const style = (bg || align) ? ` style="${{bg}}{{align}}"` : '';
+                        return `<td${{style}}>${{cell.text}}</td>`;
                     }}).join('');
                     return `<tr>${{cells}}</tr>`;
                 }}).join('');
@@ -742,7 +742,7 @@ if page == "Main":
         
             function buildPageSizes() {{
                 pageSizeGroup.innerHTML = `
-                    <label for="page-size-select" style="margin-right: 6px;">Rows per page:</label>
+                    <label for="page-size-select" style="margin-right: 6px;">Page Size:</label>
                     <select id="page-size-select" style="padding: 6px 10px; border-radius: 8px; border: 1px solid #cbd5e1;">
                         ${{pageSizeOptions.map(size => `<option value="${{size}}" ${{size === pageSize ? 'selected' : ''}}>${{size}}</option>`).join('')}}
                     </select>
@@ -759,6 +759,7 @@ if page == "Main":
             renderTable();
         </script>
         """
+
         
     components.html(html_table, height=640, scrolling=True)
 
