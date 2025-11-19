@@ -608,7 +608,7 @@ if page == "Main":
                 box-shadow: 0 6px 18px rgba(42, 55, 87, 0.08);
                 padding: 18px 18px 12px;
                 box-sizing: border-box;
-                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             }}
             .main-table-header {{
                 display: flex;
@@ -643,6 +643,7 @@ if page == "Main":
                 border-bottom: 1px solid #e2e8f0;
                 font-variant-numeric: tabular-nums;
                 white-space: nowrap;
+                cursor: pointer;
             }}
             table.custom-main-table tbody td {{
                 padding: 6px 12px;
@@ -690,7 +691,9 @@ if page == "Main":
                     <thead>
                         <tr>
                             {''.join([
-                                f"<th title='{c}'>{abbrev_map.get(c, c)}</th>" for c in columns_order
+                                f"<th title='{c}' data-col='{i}'>" +
+                                f"{abbrev_map.get(c, c)}</th>"
+                                for i, c in enumerate(columns_order)
                             ])}
                         </tr>
                     </thead>
@@ -710,20 +713,49 @@ if page == "Main":
             const pageSizeOptions = [30, 50, 100, 200];
             let pageSize = 30;
             let currentPage = 1;
+            let sortColumn = null;
+            let sortDirection = 1;
         
             const bodyEl = document.getElementById('main-table-body');
             const rowCountEl = document.getElementById('row-count');
             const pageSizeGroup = document.getElementById('page-size-group');
             const pageButtonsGroup = document.getElementById('page-buttons');
+            const headers = document.querySelectorAll('th[data-col]');
+        
+            headers.forEach(th => {
+                th.addEventListener('click', () => {
+                    const colIndex = parseInt(th.getAttribute('data-col'));
+                    if (sortColumn === colIndex) {{
+                        sortDirection = -sortDirection;
+                    }} else {{
+                        sortColumn = colIndex;
+                        sortDirection = 1;
+                    }}
+                    renderTable();
+                });
+            });
         
             function renderTable() {{
-                const totalRows = data.length;
+                let sortedData = data.slice();
+                if (sortColumn !== null) {{
+                    sortedData.sort((a, b) => {{
+                        const aText = a[sortColumn].text;
+                        const bText = b[sortColumn].text;
+                        const aVal = parseFloat(aText);
+                        const bVal = parseFloat(bText);
+                        if (!isNaN(aVal) && !isNaN(bVal)) {{
+                            return sortDirection * (aVal - bVal);
+                        }}
+                        return sortDirection * aText.localeCompare(bText);
+                    }});
+                }}
+                const totalRows = sortedData.length;
                 const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
                 if (currentPage > totalPages) currentPage = totalPages;
         
                 const start = (currentPage - 1) * pageSize;
                 const end = Math.min(start + pageSize, totalRows);
-                const rows = data.slice(start, end);
+                const rows = sortedData.slice(start, end);
         
                 bodyEl.innerHTML = rows.map(row => {{
                     const cells = row.map((cell, i) => {{
