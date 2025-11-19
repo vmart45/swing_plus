@@ -705,7 +705,9 @@ if page == "Main":
             function renderTable() {{
                 const totalRows = data.length;
                 const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+        
                 if (currentPage > totalPages) currentPage = totalPages;
+        
                 const start = (currentPage - 1) * pageSize;
                 const end = Math.min(start + pageSize, totalRows);
                 const rows = data.slice(start, end);
@@ -725,32 +727,36 @@ if page == "Main":
                     const btn = document.createElement('button');
                     btn.textContent = i;
                     if (i === currentPage) btn.classList.add('active');
-                    btn.addEventListener('click', () => {{ currentPage = i; renderTable(); }});
+                    btn.addEventListener('click', () => {{
+                        currentPage = i;
+                        renderTable();
+                    }});
                     pageButtonsGroup.appendChild(btn);
                 }}
             }}
         
-                function buildPageSizes() {
-                    pageSizeGroup.innerHTML = `
-                        <label for="page-size-select" style="margin-right: 6px;">Rows per page:</label>
-                        <select id="page-size-select" style="padding: 6px 10px; border-radius: 8px; border: 1px solid #cbd5e1;">
-                            ${pageSizeOptions.map(size => `<option value="${size}" ${size === pageSize ? 'selected' : ''}>${size}</option>`).join('')}
-                        </select>
-                    `;
-                
-                    document.getElementById('page-size-select').addEventListener('change', (e) => {
-                        pageSize = parseInt(e.target.value, 10);
-                        currentPage = 1;
-                        renderTable();
-                    });
-                }
-
+            function buildPageSizes() {{
+                pageSizeGroup.innerHTML = `
+                    <label for="page-size-select" style="margin-right: 6px;">Rows per page:</label>
+                    <select id="page-size-select" style="padding: 6px 10px; border-radius: 8px; border: 1px solid #cbd5e1;">
+                        ${{pageSizeOptions.map(size => `<option value="${{size}}" ${{size === pageSize ? 'selected' : ''}}>${{size}}</option>`).join('')}}
+                    </select>
+                `;
+        
+                document.getElementById('page-size-select').addEventListener('change', (e) => {{
+                    pageSize = parseInt(e.target.value, 10);
+                    currentPage = 1;
+                    renderTable();
+                }});
+            }}
+        
             buildPageSizes();
             renderTable();
         </script>
         """
         
         components.html(html_table, height=640, scrolling=True)
+
 
 
     st.markdown("<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Top 10 Leaderboards</h2>", unsafe_allow_html=True)
