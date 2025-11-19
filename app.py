@@ -570,6 +570,22 @@ if page == "Main":
             except Exception:
                 return str(val)
         
+        abbrev_map = {
+            "Competitive Swings": "CS",
+            "Batted Ball Events": "BBE",
+            "Swing Length": "SwL",
+            "Bat speed": "BatS",
+            "Swing Tilt": "SwT",
+            "Attack Angle": "AA",
+            "Attack Direction": "AD",
+            "Intercept Y vs. Plate": "IvP",
+            "Intercept Y vs Batter": "IvB",
+            "Batter Y Pos": "BatterY",
+            "Batter X Pos": "BatterX",
+            "Foot Seperation": "FS",
+            "Stance Angle": "StA"
+        }
+        
         columns_order = ["#"] + list(styled.columns)
         table_data = []
         
@@ -580,9 +596,7 @@ if page == "Main":
                 bg = value_to_color(val) if c in plus_labels else ""
                 row_cells.append({"text": format_cell(val), "bg": bg})
             table_data.append(row_cells)
-
-
-
+        
         html_table = f"""
         <style>
             .main-table-container {{
@@ -628,6 +642,7 @@ if page == "Main":
                 padding: 8px 12px;
                 border-bottom: 1px solid #e2e8f0;
                 font-variant-numeric: tabular-nums;
+                white-space: nowrap;
             }}
             table.custom-main-table tbody td {{
                 padding: 6px 12px;
@@ -674,7 +689,9 @@ if page == "Main":
                 <table class="custom-main-table">
                     <thead>
                         <tr>
-                            {''.join([f"<th>{c}</th>" for c in columns_order])}
+                            {''.join([
+                                f"<th title='{c}'>{abbrev_map.get(c, c)}</th>" for c in columns_order
+                            ])}
                         </tr>
                     </thead>
                     <tbody id="main-table-body"></tbody>
@@ -753,8 +770,6 @@ if page == "Main":
             renderTable();
         </script>
         """
-
-        
     components.html(html_table, height=640, scrolling=True)
 
 
