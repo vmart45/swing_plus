@@ -705,7 +705,6 @@ if page == "Main":
             function renderTable() {{
                 const totalRows = data.length;
                 const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
-        
                 if (currentPage > totalPages) currentPage = totalPages;
         
                 const start = (currentPage - 1) * pageSize;
@@ -755,7 +754,6 @@ if page == "Main":
         </script>
         """
         
-        print("Rendering table HTML")  
         components.html(html_table, height=640, scrolling=True)
 
 
