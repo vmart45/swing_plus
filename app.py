@@ -1052,7 +1052,7 @@ elif page == "Player":
                 .comp-table {
                     width: 100%;
                     border-collapse: collapse;
-                    margin-top: 6px;
+                    margin-top: 1px;
                     font-size: 0.88em;
                     background: #FFFFFF;
                     border: 2px solid #111827;
