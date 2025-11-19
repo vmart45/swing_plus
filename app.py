@@ -582,7 +582,6 @@ if page == "Main":
         
         header_html = ''.join([f"<th>{str(c)}</th>" for c in columns_order])
         
-        # Use triple braces for JavaScript template literals to escape them from Python f-string
         html_table = f"""
         <style>
         
@@ -686,7 +685,9 @@ if page == "Main":
             <div class="main-table-wrapper">
                 <table class="custom-main-table">
                     <thead>
-                        <tr>{header_html}</tr>
+                        <tr>
+                            {''.join([f"<th>{c}</th>" for c in columns_order])}
+                        </tr>
                     </thead>
                     <tbody id="main-table-body"></tbody>
                 </table>
@@ -719,15 +720,13 @@ if page == "Main":
                 const end = Math.min(start + pageSize, totalRows);
                 const rows = data.slice(start, end);
         
-                const rowsHtml = rows.map(function(row) {{
-                    const cells = row.map(function(cell) {{
-                        const bg = cell.bg ? ' style="background:' + cell.bg + '"' : '';
-                        return '<td' + bg + '>' + cell.text + '</td>';
+                bodyEl.innerHTML = rows.map(row => {{
+                    const cells = row.map(cell => {{
+                        const bg = cell.bg ? ` style="background:${{cell.bg}}"` : '';
+                        return `<td${{bg}}>${{cell.text}}</td>`;
                     }}).join('');
-                    return '<tr>' + cells + '</tr>';
+                    return `<tr>${{cells}}</tr>`;
                 }}).join('');
-                
-                bodyEl.innerHTML = rowsHtml;
         
                 rowCountEl.textContent = "Showing " + (start + 1) + "–" + end + " of " + totalRows;
         
@@ -736,18 +735,18 @@ if page == "Main":
                     const btn = document.createElement('button');
                     btn.textContent = i;
                     if (i === currentPage) btn.classList.add('active');
-                    btn.addEventListener('click', function() {{ currentPage = i; renderTable(); }});
+                    btn.addEventListener('click', () => {{ currentPage = i; renderTable(); }});
                     pageButtonsGroup.appendChild(btn);
                 }}
             }}
         
             function buildPageSizes() {{
                 pageSizeGroup.innerHTML = '<span class="label">Rows per page</span>';
-                pageSizeOptions.forEach(function(size) {{
+                pageSizeOptions.forEach(size => {{
                     const btn = document.createElement('button');
                     btn.textContent = size;
                     if (size === pageSize) btn.classList.add('active');
-                    btn.addEventListener('click', function() {{
+                    btn.addEventListener('click', () => {{
                         pageSize = size;
                         currentPage = 1;
                         buildPageSizes();
@@ -764,6 +763,7 @@ if page == "Main":
         """
         
         components.html(html_table, height=640, scrolling=True)
+
 
     st.markdown("<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Top 10 Leaderboards</h2>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
