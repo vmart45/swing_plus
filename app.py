@@ -581,6 +581,8 @@ if page == "Main":
             row_cells.append({"text": format_cell(cell_val), "bg": bg})
         table_data.append(row_cells)
     
+        header_html = ''.join([f"<th>{str(c)}</th>" for c in columns_order])
+        
         html_table = f"""
         <style>
         
@@ -598,23 +600,6 @@ if page == "Main":
                 box-shadow: 0 6px 18px rgba(42, 55, 87, 0.08);
                 padding: 18px 18px 12px;
                 box-sizing: border-box;
-            }}
-        
-            .main-table-header {{
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 12px;
-                color: #24324c;
-                font-weight: 600;
-                font-size: 0.95rem;
-            }}
-        
-            .main-table-wrapper {{
-                overflow-x: auto;
-                border-radius: 10px;
-                border: 1px solid #e0e6ef;
-                background: #fff;
             }}
         
             table.custom-main-table {{
@@ -640,41 +625,6 @@ if page == "Main":
                 border-bottom: 1px solid #eef2f6;
             }}
         
-            table.custom-main-table tbody tr:nth-child(even) td {{
-                background: #fafbff;
-            }}
-        
-            table.custom-main-table tbody tr:hover td {{
-                background: #f1f5f9;
-            }}
-        
-            .table-foot {{
-                display: flex;
-                justify-content: flex-end;
-                gap: 12px;
-                align-items: center;
-                margin-top: 12px;
-                flex-wrap: wrap;
-            }}
-        
-            .table-foot button {{
-                border: 1px solid #cbd5e1;
-                background: #fff;
-                color: #1f2937;
-                padding: 7px 12px;
-                border-radius: 10px;
-                cursor: pointer;
-                font-weight: 600;
-                box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-            }}
-        
-            .table-foot button.active {{
-                background: linear-gradient(120deg, #274073, #1d2f52);
-                color: #fff;
-                border-color: #1d2f52;
-                box-shadow: 0 6px 14px rgba(39, 64, 115, 0.2);
-            }}
-        
         </style>
         
         <div class="main-table-container">
@@ -687,7 +637,7 @@ if page == "Main":
                 <table class="custom-main-table">
                     <thead>
                         <tr>
-                            {''.join([f"<th>{c}</th>" for c in columns_order])}
+                            {header_html}
                         </tr>
                     </thead>
                     <tbody id="main-table-body"></tbody>
@@ -705,7 +655,6 @@ if page == "Main":
         
             const data = {json.dumps(table_data)};
             const columns = {json.dumps(columns_order)};
-            const pageSizeOptions = [30, 50, 100, 200];
             let pageSize = 30;
             let currentPage = 1;
         
@@ -720,9 +669,8 @@ if page == "Main":
                 if (currentPage > totalPages) currentPage = totalPages;
                 const start = (currentPage - 1) * pageSize;
                 const end = Math.min(start + pageSize, totalRows);
-                const rows = data.slice(start, end);
         
-                bodyEl.innerHTML = rows.map(row => {{
+                bodyEl.innerHTML = data.slice(start, end).map(row => {{
                     const cells = row.map(cell => {{
                         const bg = cell.bg ? ` style="background:${{cell.bg}}"` : '';
                         return `<td${{bg}}>${{cell.text}}</td>`;
@@ -732,7 +680,7 @@ if page == "Main":
         
                 rowCountEl.textContent = "Showing " + (start + 1) + "–" + end + " of " + totalRows;
         
-                pageButtonsGroup.innerHTML = ""; 
+                pageButtonsGroup.innerHTML = "";
                 for (let i = 1; i <= totalPages; i++) {{
                     const btn = document.createElement('button');
                     btn.textContent = i;
@@ -747,7 +695,7 @@ if page == "Main":
         
             function buildPageSizes() {{
                 pageSizeGroup.innerHTML = '<span class="label">Rows per page</span>';
-                pageSizeOptions.forEach(size => {{
+                [30, 50, 100, 200].forEach(size => {{
                     const btn = document.createElement('button');
                     btn.textContent = size;
                     if (size === pageSize) btn.classList.add('active');
