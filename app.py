@@ -530,11 +530,12 @@ if page == "Main":
         .reset_index(drop=True)
     )
 
-    plus_labels = []
-    for p in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
-        if p in display_df.columns:
-            plus_labels.append(rename_map.get(p, p))
-            
+        plus_labels = []
+        for p in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
+            if p in display_df.columns:
+                plus_labels.append(rename_map.get(p, p))
+        
+        # Value coloring function
         def value_to_color(val, center=100, vmin=70, vmax=130):
             try:
                 if pd.isna(val):
@@ -556,7 +557,7 @@ if page == "Main":
             except Exception:
                 return "#ffffff"
         
-        
+        # Cell formatting
         def format_cell(val):
             if pd.isna(val):
                 return ""
@@ -569,16 +570,14 @@ if page == "Main":
             except Exception:
                 return str(val)
         
-        
+        # Build table data
         columns_order = list(styled.columns)
         table_data = []
         for _, r in styled.iterrows():
             row_cells = []
             for c in columns_order:
                 cell_val = r[c]
-                bg = ""
-                if c in plus_labels:
-                    bg = value_to_color(cell_val)
+                bg = value_to_color(cell_val) if c in plus_labels else ""
                 row_cells.append({"text": format_cell(cell_val), "bg": bg})
             table_data.append(row_cells)
         
