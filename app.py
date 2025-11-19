@@ -754,7 +754,7 @@ if page == "Main":
         </script>
         """
         
-        components.html(html_table, height=640, scrolling=True)
+    components.html(html_table, height=640, scrolling=True)
 
 
 
