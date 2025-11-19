@@ -1022,7 +1022,7 @@ elif page == "Player":
         with col2:
         
             st.markdown(
-                f"<div style='text-align:center;font-weight:700;color:#183153; margin-bottom:6px;'>Model baseline: {base_label}</div>",
+                f"<div style='text-align:center;font-weight:700;color:#183153; margin-bottom:1px;'>Model baseline: {base_label}</div>",
                 unsafe_allow_html=True
             )
         
