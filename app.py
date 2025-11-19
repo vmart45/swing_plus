@@ -579,7 +579,7 @@ if page == "Main":
             row_cells.append({"text": format_cell(cell_val), "bg": bg})
         table_data.append(row_cells)
 
-    html_table = f"""
+    html_table = """
     <style>
         .main-table-container {{
             width: 100%;
