@@ -586,6 +586,42 @@ if page == "Main":
             "Avg Stance Angle": "StA"
         }
         
+        mlb_teams = [
+            {"team": "ARI", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/ari.png&h=500&w=500"},
+            {"team": "TOT", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/mlb.png&w=500&h=500"},
+            {"team": "ATH", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/oak.png&h=500&w=500"},
+            {"team": "ATL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/atl.png&h=500&w=500"},
+            {"team": "BAL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/bal.png&h=500&w=500"},
+            {"team": "BOS", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/bos.png&h=500&w=500"},
+            {"team": "CHC", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/chc.png&h=500&w=500"},
+            {"team": "CHW", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/chw.png&h=500&w=500"},
+            {"team": "CIN", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/cin.png&h=500&w=500"},
+            {"team": "CLE", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/cle.png&h=500&w=500"},
+            {"team": "COL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/col.png&h=500&w=500"},
+            {"team": "DET", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/det.png&h=500&w=500"},
+            {"team": "HOU", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/hou.png&h=500&w=500"},
+            {"team": "KCR", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/kc.png&h=500&w=500"},
+            {"team": "LAA", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/laa.png&h=500&w=500"},
+            {"team": "LAD", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/lad.png&h=500&w=500"},
+            {"team": "MIA", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/mia.png&h=500&w=500"},
+            {"team": "MIL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/mil.png&h=500&w=500"},
+            {"team": "MIN", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/min.png&h=500&w=500"},
+            {"team": "NYM", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/nym.png&h=500&w=500"},
+            {"team": "NYY", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/nyy.png&h=500&w=500"},
+            {"team": "OAK", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/oak.png&h=500&w=500"},
+            {"team": "PHI", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/phi.png&h=500&w=500"},
+            {"team": "PIT", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/pit.png&h=500&w=500"},
+            {"team": "SDP", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/sd.png&h=500&w=500"},
+            {"team": "SFG", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/sf.png&h=500&w=500"},
+            {"team": "SEA", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/sea.png&h=500&w=500"},
+            {"team": "STL", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/stl.png&h=500&w=500"},
+            {"team": "TBR", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/tb.png&h=500&w=500"},
+            {"team": "TEX", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/tex.png&h=500&w=500"},
+            {"team": "TOR", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/tor.png&h=500&w=500"},
+            {"team": "WSN", "logo_url": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/wsh.png&h=500&w=500"}
+        ]
+        image_dict = {item["team"]: item["logo_url"] for item in mlb_teams}
+        
         columns_order = ["#"] + list(styled.columns)
         table_data = []
         
@@ -593,16 +629,13 @@ if page == "Main":
             row_cells = [{"text": str(idx), "bg": ""}]
             for c in styled.columns:
                 val = row[c]
-                if c == "Team":
-                    logo_url = image_dict.get(val, None)
-                    if logo_url:
-                        cell_text = f"<img src='{logo_url}' alt='{val}' style='height:20px; width:20px; object-fit:contain; vertical-align:middle;'>"
-                    else:
-                        cell_text = format_cell(val)
-                else:
-                    cell_text = format_cell(val)
                 bg = value_to_color(val) if c in plus_labels else ""
-                row_cells.append({"text": cell_text, "bg": bg})
+                if c == "Team" and val in image_dict:
+                    logo_url = image_dict[val]
+                    cell_html = f"<img src='{logo_url}' alt='{val}' style='height:20px; width:20px; object-fit:contain; vertical-align:middle;'>"
+                    row_cells.append({"text": cell_html, "bg": ""})
+                else:
+                    row_cells.append({"text": format_cell(val), "bg": bg})
             table_data.append(row_cells)
         
         html_table = f"""
@@ -615,95 +648,95 @@ if page == "Main":
                 border: 1px solid #e3e8f0;
                 box-shadow: 0 6px 18px rgba(42, 55, 87, 0.08);
                 padding: 18px 18px 12px;
-                box-sizing: border-box;
-                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                box-sizing: border‑box;
+                font‑family: system‑ui, ‑apple‑system, BlinkMacSystemFont, ‘Segoe UI’, Roboto, sans‑serif;
             }}
             .main-table-header {{
                 display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 12px;
+                justify‑content: space‑between;
+                align‑items: center;
+                margin‑bottom: 12px;
                 color: #24324c;
-                font-weight: 600;
-                font-size: 0.95rem;
-                letter-spacing: 0.01em;
+                font‑weight: 600;
+                font‑size: 0.95rem;
+                letter‑spacing: 0.01em;
             }}
-            .main-table-wrapper {{
-                overflow-x: auto;
-                border-radius: 10px;
+            .main‑table‑wrapper {{
+                overflow‑x: auto;
+                border‑radius: 10px;
                 border: 1px solid #e0e6ef;
                 background: #fff;
                 padding: 10px 6px;
-                /* removed max-height so all 30 rows show without vertical scroll inside wrapper */
+                /* removed max‑height so full rows display */
             }}
-            table.custom-main-table {{
+            table.custom‑main‑table {{
                 width: 100%;
-                border-collapse: collapse;
-                font-family: inherit;
-                font-size: 0.85rem;
+                border‑collapse: collapse;
+                font‑family: inherit;
+                font‑size: 0.85rem;
                 color: #1e293b;
-                table-layout: auto;
+                table‑layout: auto;
             }}
-            table.custom-main-table thead th {{
+            table.custom‑main‑table thead th {{
                 background: #f9fafb;
-                font-weight: 600;
-                text-align: left;
+                font‑weight: 600;
+                text‑align: left;
                 padding: 8px 12px;
-                border-bottom: 1px solid #e2e8f0;
-                font-variant-numeric: tabular-nums;
-                white-space: nowrap;
+                border‑bottom: 1px solid #e2e8f0;
+                font‑variant‑numeric: tabular‑nums;
+                white‑space: nowrap;
                 cursor: pointer;
             }}
-            table.custom-main-table thead th.sorted-asc::after {{
-                content: " ▲";
+            table.custom‑main‑table thead th.sorted‑asc::after {{
+                content: “ ▲”;
             }}
-            table.custom-main-table thead th.sorted-desc::after {{
-                content: " ▼";
+            table.custom‑main‑table thead th.sorted‑desc::after {{
+                content: “ ▼”;
             }}
-            table.custom-main‑table tbody td {{
+            table.custom‑main‑table tbody td {{
                 padding: 6px 12px;
-                border-bottom: 1px solid #f1f5f9;
-                font-variant-numeric: tabular-nums;
+                border‑bottom: 1px solid #f1f5f9;
+                font‑variant‑numeric: tabular‑nums;
             }}
-            table.custom-main-table tbody tr:hover td {{
+            table.custom‑main‑table tbody tr:hover td {{
                 background: #f1f5f9;
             }}
-            .table-foot {{
+            .table‑foot {{
                 display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-top: 12px;
-                flex-wrap: wrap;
+                justify‑content: space‑between;
+                align‑items: center;
+                margin‑top: 12px;
+                flex‑wrap: wrap;
                 gap: 12px;
             }}
-            .pagination-controls {{
+            .pagination‑controls {{
                 display: flex;
                 gap: 8px;
             }}
-            .pagination-controls button {{
+            .pagination‑controls button {{
                 border: 1px solid #cbd5e1;
                 background: #fff;
                 color: #1f2937;
                 padding: 6px 10px;
-                border-radius: 10px;
+                border‑radius: 10px;
                 cursor: pointer;
-                font-weight: 600;
+                font‑weight: 600;
                 transition: all 0.15s ease;
-                box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+                box‑shadow: 0 1px 2px rgba(0,0,0,0.04);
             }}
-            .pagination-controls button:disabled {{
+            .pagination‑controls button:disabled {{
                 opacity: 0.5;
                 cursor: default;
             }}
-            .page-size-selector {{
+            .page‑size‑selector {{
                 display: flex;
-                align-items: center;
+                align‑items: center;
                 gap: 6px;
-                font-size: 0.85rem;
+                font‑size: 0.85rem;
             }}
-            .page-size-selector select {{
+            .page‑size‑selector select {{
                 padding: 6px 10px;
-                border-radius: 8px;
+                border‑radius: 8px;
                 border: 1px solid #cbd5e1;
             }}
         </style>
@@ -711,39 +744,39 @@ if page == "Main":
         <div class="main-table-container">
             <div class="main-table-header">
                 <span>Player Metrics (sorted by {sort_col})</span>
-                <span id="row-count"></span>
+                <span id="row‑count"></span>
             </div>
         
-            <div class="main-table-wrapper">
-                <table class="custom-main-table">
+            <div class="main‑table‑wrapper">
+                <table class="custom‑main‑table">
                     <thead>
                         <tr>
                             {''.join([
-                                f"<th title='{c}' data-col='{i}'>{abbrev_map.get(c, c)}</th>"
+                                f"<th title='{c}' data‑col='{i}'>{abbrev_map.get(c, c)}</th>"
                                 for i, c in enumerate(columns_order)
                             ])}
                         </tr>
                     </thead>
-                    <tbody id="main-table-body"></tbody>
+                    <tbody id="main‑table‑body"></tbody>
                 </table>
             </div>
         
-            <div class="table-foot">
-                <div class="page-size-selector">
-                    <label for="page-size-select">Rows per page:</label>
-                    <select id="page-size-select">
+            <div class="table‑foot">
+                <div class="page‑size‑selector">
+                    <label for="page‑size‑select">Rows per page:</label>
+                    <select id="page‑size‑select">
                         <option value="30" selected>30</option>
                         <option value="50">50</option>
                         <option value="100">100</option>
                         <option value="200">200</option>
                     </select>
                 </div>
-                <div class="pagination-controls">
-                    <button id="first-page">« First</button>
-                    <button id="prev-page">‹ Prev</button>
-                    <span id="page-info"></span>
-                    <button id="next-page">Next ›</button>
-                    <button id="last-page">Last »</button>
+                <div class="pagination‑controls">
+                    <button id="first‑page">« First</button>
+                    <button id="prev‑page">‹ Prev</button>
+                    <span id="page‑info"></span>
+                    <button id="next‑page">Next ›</button>
+                    <button id="last‑page">Last »</button>
                 </div>
             </div>
         </div>
@@ -756,19 +789,19 @@ if page == "Main":
             let sortColumn = null;
             let sortDirection = 1;
         
-            const bodyEl = document.getElementById('main-table-body');
-            const rowCountEl = document.getElementById('row-count');
-            const pageInfoEl = document.getElementById('page-info');
-            const firstBtn = document.getElementById('first-page');
-            const prevBtn = document.getElementById('prev-page');
-            const nextBtn = document.getElementById('next-page');
-            const lastBtn = document.getElementById('last-page');
-            const headers = document.querySelectorAll('th[data-col]');
-            const pageSizeSelect = document.getElementById('page-size-select');
+            const bodyEl = document.getElementById('main‑table‑body');
+            const rowCountEl = document.getElementById('row‑count');
+            const pageInfoEl = document.getElementById('page‑info');
+            const firstBtn = document.getElementById('first‑page');
+            const prevBtn = document.getElementById('prev‑page');
+            const nextBtn = document.getElementById('next‑page');
+            const lastBtn = document.getElementById('last‑page');
+            const headers = document.querySelectorAll('th[data‑col]');
+            const pageSizeSelect = document.getElementById('page‑size‑select');
         
             headers.forEach((th) => {{
                 th.addEventListener('click', () => {{
-                    const colIndex = parseInt(th.getAttribute('data-col'));
+                    const colIndex = parseInt(th.getAttribute('data‑col'));
                     if (sortColumn === colIndex) {{
                         sortDirection = -sortDirection;
                     }} else {{
@@ -776,9 +809,9 @@ if page == "Main":
                         sortDirection = 1;
                     }}
                     headers.forEach(header => {{
-                        header.classList.remove('sorted-asc', 'sorted-desc');
+                        header.classList.remove('sorted‑asc', 'sorted‑desc');
                     }});
-                    th.classList.add(sortDirection === 1 ? 'sorted-asc' : 'sorted-desc');
+                    th.classList.add(sortDirection === 1 ? 'sorted‑asc' : 'sorted‑desc');
                     renderTable();
                 }});
             }});
@@ -833,7 +866,7 @@ if page == "Main":
                 bodyEl.innerHTML = pageRows.map(row => {{
                     const cells = row.map((cell, i) => {{
                         const isNum = !isNaN(cell.text) && cell.text !== "";
-                        const align = isNum ? 'text-align: right;' : '';
+                        const align = isNum ? 'text‑align: right;' : '';
                         const bg = cell.bg ? `background:${{cell.bg}};` : '';
                         const style = (bg || align) ? ` style="${{bg}}{{align}}"` : '';
                         return `<td${{style}}>${{cell.text}}</td>`;
