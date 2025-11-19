@@ -660,12 +660,17 @@ if page == "Main":
             table.custom-main-table tbody tr:hover td {{
                 background: #f1f5f9;
             }}
-            .pagination-controls {{
+            .table-foot {{
                 display: flex;
-                justify-content: center;
-                gap: 8px;
+                justify-content: space-between;
+                align-items: center;
                 margin-top: 12px;
                 flex-wrap: wrap;
+                gap: 12px;
+            }}
+            .pagination-controls {{
+                display: flex;
+                gap: 8px;
             }}
             .pagination-controls button {{
                 border: 1px solid #cbd5e1;
@@ -685,9 +690,7 @@ if page == "Main":
             .page-size-selector {{
                 display: flex;
                 align-items: center;
-                justify-content: flex-end;
-                margin-top: 12px;
-                gap: 10px;
+                gap: 6px;
                 font-size: 0.85rem;
             }}
             .page-size-selector select {{
@@ -717,22 +720,23 @@ if page == "Main":
                 </table>
             </div>
         
-            <div class="page-size-selector">
-                <label for="page-size-select">Rows per page:</label>
-                <select id="page-size-select">
-                    <option value="30" selected>30</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                    <option value="200">200</option>
-                </select>
-            </div>
-        
-            <div class="pagination-controls">
-                <button id="first-page">« First</button>
-                <button id="prev-page">‹ Prev</button>
-                <span id="page-info"></span>
-                <button id="next-page">Next ›</button>
-                <button id="last-page">Last »</button>
+            <div class="table-foot">
+                <div class="page-size-selector">
+                    <label for="page-size-select">Rows per page:</label>
+                    <select id="page-size-select">
+                        <option value="30" selected>30</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="200">200</option>
+                    </select>
+                </div>
+                <div class="pagination-controls">
+                    <button id="first-page">« First</button>
+                    <button id="prev-page">‹ Prev</button>
+                    <span id="page-info"></span>
+                    <button id="next-page">Next ›</button>
+                    <button id="last-page">Last »</button>
+                </div>
             </div>
         </div>
         
@@ -771,19 +775,26 @@ if page == "Main":
                 }});
             }});
         
-            [firstBtn, prevBtn, nextBtn, lastBtn].forEach((btn, idx) => {{
-                btn.addEventListener('click', () => {{
-                    const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
-                    if (idx === 0) currentPage = 1;
-                    else if (idx === 1 && currentPage > 1) currentPage--;
-                    else if (idx === 2 && currentPage < totalPages) currentPage++;
-                    else if (idx === 3) currentPage = totalPages;
-                    renderTable();
-                }});
+            firstBtn.addEventListener('click', () => {{
+                currentPage = 1;
+                renderTable();
+            }});
+            prevBtn.addEventListener('click', () => {{
+                if (currentPage > 1) currentPage--;
+                renderTable();
+            }});
+            nextBtn.addEventListener('click', () => {{
+                const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+                if (currentPage < totalPages) currentPage++;
+                renderTable();
+            }});
+            lastBtn.addEventListener('click', () => {{
+                currentPage = Math.max(1, Math.ceil(data.length / pageSize));
+                renderTable();
             }});
         
-            pageSizeSelect.addEventListener('change', () => {{
-                pageSize = parseInt(pageSizeSelect.value, 10);
+            pageSizeSelect.addEventListener('change', (e) => {{
+                pageSize = parseInt(e.target.value, 10);
                 currentPage = 1;
                 renderTable();
             }});
