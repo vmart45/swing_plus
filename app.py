@@ -574,7 +574,7 @@ if page == "Main":
             "Competitive Swings": "CS",
             "Batted Ball Events": "BBE",
             "Swing Length": "SwL",
-            "Avg Bat speed (mph)": "BatS",
+            "Avg Bat Speed (mph)": "BatS",
             "Swing Tilt (°)": "SwT",
             "Attack Angle (°)": "AA",
             "Attack Direction": "AD",
