@@ -626,7 +626,6 @@ if page == "Main":
                 border: 1px solid #e0e6ef;
                 background: #fff;
                 padding: 10px 6px;
-                max-height: 720px;
             }}
             table.custom-main-table {{
                 width: 100%;
