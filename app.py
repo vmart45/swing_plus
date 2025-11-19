@@ -593,11 +593,18 @@ if page == "Main":
             row_cells = [{"text": str(idx), "bg": ""}]
             for c in styled.columns:
                 val = row[c]
+                if c == "Team" and val in image_dict:
+                    content = f'<img src="{image_dict[val]}" alt="{val}" style="height:28px; display:block; margin:0 auto;" />'
+                else:
+                    content = format_cell(val)
                 bg = value_to_color(val) if c in plus_labels else ""
-                row_cells.append({"text": format_cell(val), "bg": bg})
+                row_cells.append({"text": content, "bg": bg})
             table_data.append(row_cells)
         
+        # rest of your HTML/JS script stays the same
         html_table = f"""
+        <!-- UNCHANGED HTML/JS from your provided snippet -->
+        <!-- Only cell content for 'Team' is updated to display logo -->
         <style>
             .main-table-container {{
                 width: 100%;
@@ -844,7 +851,9 @@ if page == "Main":
             renderTable();
         </script>
         """
+
     components.html(html_table, height=1000, scrolling=True)
+
 
 
 
