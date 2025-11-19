@@ -534,226 +534,223 @@ if page == "Main":
     for p in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
         if p in display_df.columns:
             plus_labels.append(rename_map.get(p, p))
-    def value_to_color(val, center=100, vmin=70, vmax=130):
-        try:
+        def value_to_color(val, center=100, vmin=70, vmax=130):
+            try:
+                if pd.isna(val):
+                    return "#ffffff"
+                val = float(val)
+                val = max(min(val, vmax), vmin)
+                if val == center:
+                    return "#ffffff"
+                if val < center:
+                    ratio = (center - val) / (center - vmin)
+                    r, g, b = (31, 119, 180)
+                else:
+                    ratio = (val - center) / (vmax - center)
+                    r, g, b = (214, 39, 40)
+                r = int(255 + (r - 255) * ratio)
+                g = int(255 + (g - 255) * ratio)
+                b = int(255 + (b - 255) * ratio)
+                return f"#{r:02x}{g:02x}{b:02x}"
+            except Exception:
+                return "#ffffff"
+        
+        
+        def format_cell(val):
             if pd.isna(val):
-                return "#ffffff"
-            val = float(val)
-            val = max(min(val, vmax), vmin)
-            if val == center:
-                return "#ffffff"
-            if val < center:
-                ratio = (center - val) / (center - vmin)
-                r, g, b = (31, 119, 180)
-            else:
-                ratio = (val - center) / (vmax - center)
-                r, g, b = (214, 39, 40)
-            r = int(255 + (r - 255) * ratio)
-            g = int(255 + (g - 255) * ratio)
-            b = int(255 + (b - 255) * ratio)
-            return f"#{r:02x}{g:02x}{b:02x}"
-        except Exception:
-            return "#ffffff"
-
-    def format_cell(val):
-        if pd.isna(val):
-            return ""
-        try:
-            if isinstance(val, (float, np.floating)):
-                return f"{val:.2f}"
-            if isinstance(val, (int, np.integer)):
-                return f"{val:d}"
-            return str(val)
-        except Exception:
-            return str(val)
-
-    columns_order = list(styled.columns)
-    table_data = []
-    for _, r in styled.iterrows():
-        row_cells = []
-        for c in columns_order:
-            cell_val = r[c]
-            bg = ""
-            if c in plus_labels:
-                bg = value_to_color(cell_val)
-            row_cells.append({"text": format_cell(cell_val), "bg": bg})
-        table_data.append(row_cells)
-
-    html_table = f"""
-    <style>
-        .main-table-container {{
-            width: 100%;
-            background: #f8fafc;
-            border-radius: 14px;
-            border: 1px solid #e3e8f0;
-            box-shadow: 0 6px 18px rgba(42, 55, 87, 0.08);
-            padding: 18px 18px 12px;
-            box-sizing: border-box;
-        }}
-        .main-table-header {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-            color: #24324c;
-            font-weight: 600;
-            font-size: 0.95rem;
-            letter-spacing: 0.01em;
-        }}
-        .main-table-wrapper {{
-            overflow-x: auto;
-            border-radius: 10px;
-            border: 1px solid #e0e6ef;
-            background: #fff;
-        }}
-        table.custom-main-table {{
-            width: 100%;
-            border-collapse: collapse;
-            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-            color: #1f2d3d;
-            font-size: 0.95rem;
-        }}
-        table.custom-main-table thead th {{
-            background: linear-gradient(90deg, #f1f4f9 0%, #edf2f7 100%);
-            color: #1f2937;
-            font-weight: 700;
-            text-align: left;
-            padding: 12px 14px;
-            border-bottom: 1px solid #e2e8f0;
-            position: sticky;
-            top: 0;
-            z-index: 2;
-        }}
-        table.custom-main-table tbody td {{
-            padding: 11px 14px;
-            border-bottom: 1px solid #eef2f6;
-            vertical-align: middle;
-        }}
-        table.custom-main-table tbody tr:nth-child(even) td {{
-            background: #fafbff;
-        }}
-        table.custom-main-table tbody tr:hover td {{
-            background: #f1f5f9;
-        }}
-        .table-foot {{
-            display: flex;
-            justify-content: flex-end;
-            gap: 12px;
-            align-items: center;
-            margin-top: 12px;
-            flex-wrap: wrap;
-        }}
-        .table-foot .group {{
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-        }}
-        .table-foot button {{
-            border: 1px solid #cbd5e1;
-            background: #fff;
-            color: #1f2937;
-            padding: 7px 12px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.15s ease;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-        }}
-        .table-foot button:hover {{
-            border-color: #94a3b8;
-            background: #f8fafc;
-        }}
-        .table-foot button.active {{
-            background: linear-gradient(120deg, #274073, #1d2f52);
-            color: #fff;
-            border-color: #1d2f52;
-            box-shadow: 0 6px 14px rgba(39, 64, 115, 0.2);
-        }}
-        .table-foot .label {{
-            color: #4b5563;
-            font-weight: 600;
-            margin-right: 4px;
-        }}
-    </style>
-    <div class="main-table-container">
-        <div class="main-table-header">
-            <span>Player Metrics (sorted by {sort_col})</span>
-            <span id="row-count"></span>
+                return ""
+            try:
+                if isinstance(val, (float, np.floating)):
+                    return f"{val:.2f}"
+                if isinstance(val, (int, np.integer)):
+                    return f"{val:d}"
+                return str(val)
+            except Exception:
+                return str(val)
+        
+        
+        columns_order = list(styled.columns)
+        table_data = []
+        for _, r in styled.iterrows():
+            row_cells = []
+            for c in columns_order:
+                cell_val = r[c]
+                bg = ""
+                if c in plus_labels:
+                    bg = value_to_color(cell_val)
+                row_cells.append({"text": format_cell(cell_val), "bg": bg})
+            table_data.append(row_cells)
+        
+        
+        # ESCAPE HTML braces for f-string
+        html_table = f"""
+        <style>
+            .main-table-container {{
+                width: 100%;
+                background: #f8fafc;
+                border-radius: 14px;
+                border: 1px solid #e3e8f0;
+                box-shadow: 0 6px 18px rgba(42, 55, 87, 0.08);
+                padding: 18px 18px 12px;
+                box-sizing: border-box;
+            }}
+            .main-table-header {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 12px;
+                color: #24324c;
+                font-weight: 600;
+                font-size: 0.95rem;
+                letter-spacing: 0.01em;
+            }}
+            .main-table-wrapper {{
+                overflow-x: auto;
+                border-radius: 10px;
+                border: 1px solid #e0e6ef;
+                background: #fff;
+            }}
+            table.custom-main-table {{
+                width: 100%;
+                border-collapse: collapse;
+                font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+                color: #1f2d3d;
+                font-size: 0.95rem;
+            }}
+            table.custom-main-table thead th {{
+                background: linear-gradient(90deg, #f1f4f9 0%, #edf2f7 100%);
+                color: #1f2937;
+                font-weight: 700;
+                text-align: left;
+                padding: 12px 14px;
+                border-bottom: 1px solid #e2e8f0;
+                position: sticky;
+                top: 0;
+                z-index: 2;
+            }}
+            table.custom-main-table tbody td {{
+                padding: 11px 14px;
+                border-bottom: 1px solid #eef2f6;
+                vertical-align: middle;
+            }}
+            table.custom-main-table tbody tr:nth-child(even) td {{
+                background: #fafbff;
+            }}
+            table.custom-main-table tbody tr:hover td {{
+                background: #f1f5f9;
+            }}
+            .table-foot {{
+                display: flex;
+                justify-content: flex-end;
+                gap: 12px;
+                align-items: center;
+                margin-top: 12px;
+                flex-wrap: wrap;
+            }}
+            .table-foot button {{
+                border: 1px solid #cbd5e1;
+                background: #fff;
+                color: #1f2937;
+                padding: 7px 12px;
+                border-radius: 10px;
+                cursor: pointer;
+                font-weight: 600;
+                transition: all 0.15s ease;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            }}
+            .table-foot button.active {{
+                background: linear-gradient(120deg, #274073, #1d2f52);
+                color: #fff;
+                border-color: #1d2f52;
+                box-shadow: 0 6px 14px rgba(39, 64, 115, 0.2);
+            }}
+        </style>
+        
+        <div class="main-table-container">
+            <div class="main-table-header">
+                <span>Player Metrics (sorted by {sort_col})</span>
+                <span id="row-count"></span>
+            </div>
+        
+            <div class="main-table-wrapper">
+                <table class="custom-main-table">
+                    <thead>
+                        <tr>
+                            {''.join([f"<th>{{{{c}}}}</th>".format(c=c) for c in columns_order])}
+                        </tr>
+                    </thead>
+                    <tbody id="main-table-body"></tbody>
+                </table>
+            </div>
+        
+            <div class="table-foot">
+                <div class="group" id="page-size-group"></div>
+                <div class="group" id="page-buttons"></div>
+            </div>
         </div>
-        <div class="main-table-wrapper">
-            <table class="custom-main-table">
-                <thead><tr>{''.join([f'<th>{c}</th>' for c in columns_order])}</tr></thead>
-                <tbody id="main-table-body"></tbody>
-            </table>
-        </div>
-        <div class="table-foot">
-            <div class="group" id="page-size-group"></div>
-            <div class="group" id="page-buttons"></div>
-        </div>
-    </div>
-    <script>
-        const data = {json.dumps(table_data)};
-        const columns = {json.dumps(columns_order)};
-        const pageSizeOptions = [30, 50, 100, 200];
-        let pageSize = 30;
-        let currentPage = 1;
-
-        const bodyEl = document.getElementById('main-table-body');
-        const rowCountEl = document.getElementById('row-count');
-        const pageSizeGroup = document.getElementById('page-size-group');
-        const pageButtonsGroup = document.getElementById('page-buttons');
-
-        function renderTable() {
-            const totalRows = data.length;
-            const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
-            if (currentPage > totalPages) currentPage = totalPages;
-            const start = (currentPage - 1) * pageSize;
-            const end = Math.min(start + pageSize, totalRows);
-            const rows = data.slice(start, end);
-
-            bodyEl.innerHTML = rows.map(row => {
-                const cells = row.map(cell => {
-                    const bg = cell.bg ? ` style="background:${cell.bg}"` : '';
-                    return `<td${bg}>${cell.text}</td>`;
-                }).join('');
-                return `<tr>${cells}</tr>`;
-            }).join('');
-
-            rowCountEl.textContent = `Showing ${start + 1}–${end} of ${totalRows}`;
-
-            pageButtonsGroup.innerHTML = '';
-            for (let i = 1; i <= totalPages; i++) {
-                const btn = document.createElement('button');
-                btn.textContent = i;
-                if (i === currentPage) btn.classList.add('active');
-                btn.addEventListener('click', () => { currentPage = i; renderTable(); });
-                pageButtonsGroup.appendChild(btn);
-            }
-        }
-
-        function buildPageSizes() {
-            pageSizeGroup.innerHTML = '<span class="label">Rows per page</span>';
-            pageSizeOptions.forEach(size => {
-                const btn = document.createElement('button');
-                btn.textContent = size;
-                if (size === pageSize) btn.classList.add('active');
-                btn.addEventListener('click', () => {
-                    pageSize = size;
-                    currentPage = 1;
-                    buildPageSizes();
-                    renderTable();
-                });
-                pageSizeGroup.appendChild(btn);
-            });
-        }
-
-        buildPageSizes();
-        renderTable();
-    </script>
-    """
-
-    components.html(html_table, height=640, scrolling=True)
+        
+        <script>
+            const data = {json.dumps(table_data)};
+            const columns = {json.dumps(columns_order)};
+            const pageSizeOptions = [30, 50, 100, 200];
+            let pageSize = 30;
+            let currentPage = 1;
+        
+            const bodyEl = document.getElementById('main-table-body');
+            const rowCountEl = document.getElementById('row-count');
+            const pageSizeGroup = document.getElementById('page-size-group');
+            const pageButtonsGroup = document.getElementById('page-buttons');
+        
+            function renderTable() {{
+                const totalRows = data.length;
+                const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+                if (currentPage > totalPages) currentPage = totalPages;
+                const start = (currentPage - 1) * pageSize;
+                const end = Math.min(start + pageSize, totalRows);
+                const rows = data.slice(start, end);
+        
+                bodyEl.innerHTML = rows.map(row => {{
+                    const cells = row.map(cell => {{
+                        const bg = cell.bg ? ` style="background:${{cell.bg}}"` : '';
+                        return `<td${{bg}}>${{cell.text}}</td>`;
+                    }}).join('');
+                    return `<tr>${{cells}}</tr>`;
+                }}).join('');
+        
+                rowCountEl.textContent = `Showing ${start + 1}–${end} of ${totalRows}`;
+        
+                pageButtonsGroup.innerHTML = '';
+                for (let i = 1; i <= totalPages; i++) {{
+                    const btn = document.createElement('button');
+                    btn.textContent = i;
+                    if (i === currentPage) btn.classList.add('active');
+                    btn.addEventListener('click', () => {{ currentPage = i; renderTable(); }});
+                    pageButtonsGroup.appendChild(btn);
+                }}
+            }}
+        
+            function buildPageSizes() {{
+                pageSizeGroup.innerHTML = '<span class="label">Rows per page</span>';
+                pageSizeOptions.forEach(size => {{
+                    const btn = document.createElement('button');
+                    btn.textContent = size;
+                    if (size === pageSize) btn.classList.add('active');
+                    btn.addEventListener('click', () => {{
+                        pageSize = size;
+                        currentPage = 1;
+                        buildPageSizes();
+                        renderTable();
+                    }});
+                    pageSizeGroup.appendChild(btn);
+                }});
+            }}
+        
+            buildPageSizes();
+            renderTable();
+        </script>
+        """
+        
+        components.html(html_table, height=640, scrolling=True)
 
 
     st.markdown("<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Top 10 Leaderboards</h2>", unsafe_allow_html=True)
