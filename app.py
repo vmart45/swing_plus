@@ -572,22 +572,31 @@ if page == "Main":
         
         columns_order = ["#"] + list(styled.columns)
         table_data = []
-        
+
         for idx, r in enumerate(styled.itertuples(index=False), start=1):
             r_dict = r._asdict()
             row_cells = [{"text": str(idx), "bg": ""}]
             for c in styled.columns:
-                val = r_dict.get(c)
-                bg = value_to_color(val) if c in plus_labels else ""
-        
-                # Handle team logo logic
-                if c == "Team" and val in image_dict:
-                    logo_url = image_dict[val]
-                    html_logo = f"<div style='text-align:center;'><img src='{logo_url}' alt='{val}' style='height: 22px;'></div>"
-                    row_cells.append({"text": html_logo, "bg": ""})
+                val = r_dict.get(c, "")
+                if c == "Team":
+                    logo_url = image_dict.get(val, "")
+                    if logo_url:
+                        text = f'<img src="{logo_url}" alt="{val}" style="height:28px; display:block; margin:auto;" />'
+                    else:
+                        text = val
                 else:
-                    row_cells.append({"text": format_cell(val), "bg": bg})
+                    text = format_cell(val)
+                bg = value_to_color(val) if c in plus_labels else ""
+                row_cells.append({"text": text, "bg": bg})
             table_data.append(row_cells)
+        
+        # Abbreviation map
+        abbrev_map = {
+            "Competitive Swings": "CS", "Batted Ball Events": "BBE", "Swing Length": "SwL",
+            "Avg Bat Speed (mph)": "BatS", "Swing Tilt (°)": "SwT", "Attack Angle (°)": "AA",
+            "Attack Direction": "AD", "Intercept Y vs Plate": "IvP", "Intercept Y vs Batter": "IvB",
+            "Batter Y Pos": "BatterY", "Batter X Pos": "BatterX", "Avg Foot Sep": "FS", "Avg Stance Angle": "StA"
+        }
         
         html_table = f"""
         <style>
@@ -600,8 +609,7 @@ if page == "Main":
                 border: 1px solid #e3e8f0;
                 box-shadow: 0 6px 18px rgba(42, 55, 87, 0.08);
                 padding: 18px 18px 12px;
-                box-sizing: border-box;
-                font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+                font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
             }}
             .main-table-header {{
                 display: flex;
@@ -611,7 +619,6 @@ if page == "Main":
                 color: #24324c;
                 font-weight: 600;
                 font-size: 0.95rem;
-                letter-spacing: 0.01em;
             }}
             .main-table-wrapper {{
                 overflow-x: auto;
@@ -623,50 +630,38 @@ if page == "Main":
             table.custom-main-table {{
                 width: 100%;
                 border-collapse: collapse;
-                font-family: inherit;
                 font-size: 0.85rem;
                 color: #1e293b;
-                table-layout: auto;
             }}
-            table.custom-main-table thead th {{
+            thead th {{
                 background: #f9fafb;
                 font-weight: 600;
                 text-align: left;
                 padding: 8px 12px;
                 border-bottom: 1px solid #e2e8f0;
                 font-variant-numeric: tabular-nums;
+                white-space: nowrap;
             }}
-            table.custom-main-table tbody td {{
+            tbody td {{
                 padding: 6px 12px;
                 border-bottom: 1px solid #f1f5f9;
                 font-variant-numeric: tabular-nums;
             }}
-            table.custom-main-table tbody tr:hover td {{
+            tbody tr:hover td {{
                 background: #f1f5f9;
             }}
             .table-foot {{
                 display: flex;
-                justify-content: space-between;
+                justify-content: flex-end;
+                gap: 12px;
                 align-items: center;
                 margin-top: 12px;
                 flex-wrap: wrap;
             }}
-            .table-foot button {{
+            .table-foot select {{
+                padding: 6px 10px;
+                border-radius: 8px;
                 border: 1px solid #cbd5e1;
-                background: #fff;
-                color: #1f2937;
-                padding: 7px 12px;
-                border-radius: 10px;
-                cursor: pointer;
-                font-weight: 600;
-                transition: all 0.15s ease;
-                box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-            }}
-            .table-foot button.active {{
-                background: linear-gradient(120deg, #274073, #1d2f52);
-                color: #fff;
-                border-color: #1d2f52;
-                box-shadow: 0 6px 14px rgba(39, 64, 115, 0.2);
             }}
         </style>
         
@@ -680,7 +675,7 @@ if page == "Main":
                 <table class="custom-main-table">
                     <thead>
                         <tr>
-                            {''.join([f"<th title='{c}'>{c}</th>" for c in columns_order])}
+                            {''.join([f'<th title="{c}">{abbrev_map.get(c, c)}</th>' for c in columns_order])}
                         </tr>
                     </thead>
                     <tbody id="main-table-body"></tbody>
@@ -688,38 +683,40 @@ if page == "Main":
             </div>
         
             <div class="table-foot">
-                <div class="group" id="page-size-group"></div>
+                <label for="page-size-select">Rows per page:</label>
+                <select id="page-size-select">
+                    <option value="30" selected>30</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                </select>
                 <div class="group" id="page-buttons"></div>
             </div>
         </div>
         
         <script>
             const data = {json.dumps(table_data)};
-            const columns = {json.dumps(columns_order)};
-            const pageSizeOptions = [30, 50, 100, 200];
             let pageSize = 30;
             let currentPage = 1;
         
             const bodyEl = document.getElementById('main-table-body');
             const rowCountEl = document.getElementById('row-count');
-            const pageSizeGroup = document.getElementById('page-size-group');
             const pageButtonsGroup = document.getElementById('page-buttons');
         
             function renderTable() {{
                 const totalRows = data.length;
                 const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
-                if (currentPage > totalPages) currentPage = totalPages;
-        
+                currentPage = Math.min(currentPage, totalPages);
                 const start = (currentPage - 1) * pageSize;
                 const end = Math.min(start + pageSize, totalRows);
                 const rows = data.slice(start, end);
         
                 bodyEl.innerHTML = rows.map(row => {{
-                    const cells = row.map((cell, i) => {{
-                        const isNum = !isNaN(cell.text) && cell.text !== "";
-                        const align = isNum ? 'text-align: right;' : '';
+                    const cells = row.map(cell => {{
+                        const isNum = !isNaN(cell.text) && cell.text !== "" && !cell.text.includes("<img");
+                        const align = isNum ? 'text-align:right;' : 'text-align:center;';
                         const bg = cell.bg ? `background:${{cell.bg}};` : '';
-                        const style = (bg || align) ? ` style="${{bg}}{{align}}"` : '';
+                        const style = ` style="${{bg}}{{align}}"`;
                         return `<td${{style}}>${{cell.text}}</td>`;
                     }}).join('');
                     return `<tr>${{cells}}</tr>`;
@@ -740,22 +737,12 @@ if page == "Main":
                 }}
             }}
         
-            function buildPageSizes() {{
-                pageSizeGroup.innerHTML = `
-                    <label for="page-size-select" style="margin-right: 6px;">Rows per page:</label>
-                    <select id="page-size-select" style="padding: 6px 10px; border-radius: 8px; border: 1px solid #cbd5e1;">
-                        ${{pageSizeOptions.map(size => `<option value="${{size}}" ${{size === pageSize ? 'selected' : ''}}>${{size}}</option>`).join('')}}
-                    </select>
-                `;
+            document.getElementById('page-size-select').addEventListener('change', (e) => {{
+                pageSize = parseInt(e.target.value, 10);
+                currentPage = 1;
+                renderTable();
+            }});
         
-                document.getElementById('page-size-select').addEventListener('change', (e) => {{
-                    pageSize = parseInt(e.target.value, 10);
-                    currentPage = 1;
-                    renderTable();
-                }});
-            }}
-        
-            buildPageSizes();
             renderTable();
         </script>
         """
