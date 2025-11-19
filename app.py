@@ -677,7 +677,7 @@ if page == "Main":
                 <table class="custom-main-table">
                     <thead>
                         <tr>
-                            {''.join([f"<th>{{{{c}}}}</th>".format(c=c) for c in columns_order])}
+                            {''.join([f"<th>{c}</th>" for c in columns_order])}
                         </tr>
                     </thead>
                     <tbody id="main-table-body"></tbody>
