@@ -844,7 +844,7 @@ if page == "Main":
             renderTable();
         </script>
         """
-    components.html(html_table, height=1100, scrolling=False)
+    components.html(html_table, height=1200, scrolling=False)
 
 
 
