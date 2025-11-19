@@ -530,56 +530,56 @@ if page == "Main":
         .reset_index(drop=True)
     )
 
-        plus_labels = []
-        for p in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
-            if p in display_df.columns:
-                plus_labels.append(rename_map.get(p, p))
-        
-        # Value coloring function
-        def value_to_color(val, center=100, vmin=70, vmax=130):
-            try:
-                if pd.isna(val):
-                    return "#ffffff"
-                val = float(val)
-                val = max(min(val, vmax), vmin)
-                if val == center:
-                    return "#ffffff"
-                if val < center:
-                    ratio = (center - val) / (center - vmin)
-                    r, g, b = (31, 119, 180)
-                else:
-                    ratio = (val - center) / (vmax - center)
-                    r, g, b = (214, 39, 40)
-                r = int(255 + (r - 255) * ratio)
-                g = int(255 + (g - 255) * ratio)
-                b = int(255 + (b - 255) * ratio)
-                return f"#{r:02x}{g:02x}{b:02x}"
-            except Exception:
-                return "#ffffff"
-        
-        # Cell formatting
-        def format_cell(val):
+    plus_labels = []
+    for p in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
+        if p in display_df.columns:
+            plus_labels.append(rename_map.get(p, p))
+    
+    # Value coloring function
+    def value_to_color(val, center=100, vmin=70, vmax=130):
+        try:
             if pd.isna(val):
-                return ""
-            try:
-                if isinstance(val, (float, np.floating)):
-                    return f"{val:.2f}"
-                if isinstance(val, (int, np.integer)):
-                    return f"{val:d}"
-                return str(val)
-            except Exception:
-                return str(val)
-        
-        # Build table data
-        columns_order = list(styled.columns)
-        table_data = []
-        for _, r in styled.iterrows():
-            row_cells = []
-            for c in columns_order:
-                cell_val = r[c]
-                bg = value_to_color(cell_val) if c in plus_labels else ""
-                row_cells.append({"text": format_cell(cell_val), "bg": bg})
-            table_data.append(row_cells)
+                return "#ffffff"
+            val = float(val)
+            val = max(min(val, vmax), vmin)
+            if val == center:
+                return "#ffffff"
+            if val < center:
+                ratio = (center - val) / (center - vmin)
+                r, g, b = (31, 119, 180)
+            else:
+                ratio = (val - center) / (vmax - center)
+                r, g, b = (214, 39, 40)
+            r = int(255 + (r - 255) * ratio)
+            g = int(255 + (g - 255) * ratio)
+            b = int(255 + (b - 255) * ratio)
+            return f"#{r:02x}{g:02x}{b:02x}"
+        except Exception:
+            return "#ffffff"
+    
+    # Cell formatting
+    def format_cell(val):
+        if pd.isna(val):
+            return ""
+        try:
+            if isinstance(val, (float, np.floating)):
+                return f"{val:.2f}"
+            if isinstance(val, (int, np.integer)):
+                return f"{val:d}"
+            return str(val)
+        except Exception:
+            return str(val)
+    
+    # Build table data
+    columns_order = list(styled.columns)
+    table_data = []
+    for _, r in styled.iterrows():
+        row_cells = []
+        for c in columns_order:
+            cell_val = r[c]
+            bg = value_to_color(cell_val) if c in plus_labels else ""
+            row_cells.append({"text": format_cell(cell_val), "bg": bg})
+        table_data.append(row_cells)
         
         
         # ESCAPE HTML braces for f-string
