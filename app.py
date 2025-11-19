@@ -574,16 +574,16 @@ if page == "Main":
             "Competitive Swings": "CS",
             "Batted Ball Events": "BBE",
             "Swing Length": "SwL",
-            "Bat speed": "BatS",
-            "Swing Tilt": "SwT",
-            "Attack Angle": "AA",
+            "Avg Bat speed (mph)": "BatS",
+            "Swing Tilt (°)": "SwT",
+            "Attack Angle (°)": "AA",
             "Attack Direction": "AD",
-            "Intercept Y vs. Plate": "IvP",
+            "Intercept Y vs Plate": "IvP",
             "Intercept Y vs Batter": "IvB",
             "Batter Y Pos": "BatterY",
             "Batter X Pos": "BatterX",
-            "Foot Seperation": "FS",
-            "Stance Angle": "StA"
+            "Avg Foot Sep": "FS",
+            "Avg Stance Angle": "StA"
         }
         
         columns_order = ["#"] + list(styled.columns)
