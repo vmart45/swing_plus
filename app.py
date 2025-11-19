@@ -691,8 +691,7 @@ if page == "Main":
                     <thead>
                         <tr>
                             {''.join([
-                                f"<th title='{c}' data-col='{i}'>" +
-                                f"{abbrev_map.get(c, c)}</th>"
+                                f"<th title='{c}' data-col='{i}'>" + f"{abbrev_map.get(c, c)}</th>"
                                 for i, c in enumerate(columns_order)
                             ])}
                         </tr>
@@ -722,7 +721,7 @@ if page == "Main":
             const pageButtonsGroup = document.getElementById('page-buttons');
             const headers = document.querySelectorAll('th[data-col]');
         
-            headers.forEach(th => {
+            headers.forEach((th) => {{
                 th.addEventListener('click', () => {{
                     const colIndex = parseInt(th.getAttribute('data-col'));
                     if (sortColumn === colIndex) {{
@@ -733,7 +732,7 @@ if page == "Main":
                     }}
                     renderTable();
                 }});
-            });
+            }});
         
             function renderTable() {{
                 let sortedData = data.slice();
@@ -757,7 +756,7 @@ if page == "Main":
                 const end = Math.min(start + pageSize, totalRows);
                 const rows = sortedData.slice(start, end);
         
-                bodyEl.innerHTML = rows.map(row => {{
+                bodyEl.innerHTML = rows.map((row) => {{
                     const cells = row.map((cell, i) => {{
                         const isNum = !isNaN(cell.text) && cell.text !== "";
                         const align = isNum ? 'text-align: right;' : '';
