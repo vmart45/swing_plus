@@ -554,7 +554,8 @@ if page == "Main":
             return f"#{r:02x}{g:02x}{b:02x}"
         except Exception:
             return "#ffffff"
-
+    
+    
     def format_cell(val):
         if pd.isna(val):
             return ""
@@ -566,7 +567,8 @@ if page == "Main":
             return str(val)
         except Exception:
             return str(val)
-
+    
+    
     columns_order = list(styled.columns)
     table_data = []
     for _, r in styled.iterrows():
@@ -578,8 +580,10 @@ if page == "Main":
                 bg = value_to_color(cell_val)
             row_cells.append({"text": format_cell(cell_val), "bg": bg})
         table_data.append(row_cells)
-
-    html_table = """
+    
+    
+    # ESCAPE HTML braces for f-string
+    html_table = f"""
     <style>
         .main-table-container {{
             width: 100%;
@@ -643,12 +647,6 @@ if page == "Main":
             margin-top: 12px;
             flex-wrap: wrap;
         }}
-        .table-foot .group {{
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-        }}
         .table-foot button {{
             border: 1px solid #cbd5e1;
             background: #fff;
@@ -660,100 +658,100 @@ if page == "Main":
             transition: all 0.15s ease;
             box-shadow: 0 1px 2px rgba(0,0,0,0.04);
         }}
-        .table-foot button:hover {{
-            border-color: #94a3b8;
-            background: #f8fafc;
-        }}
         .table-foot button.active {{
             background: linear-gradient(120deg, #274073, #1d2f52);
             color: #fff;
             border-color: #1d2f52;
             box-shadow: 0 6px 14px rgba(39, 64, 115, 0.2);
         }}
-        .table-foot .label {{
-            color: #4b5563;
-            font-weight: 600;
-            margin-right: 4px;
-        }}
     </style>
+    
     <div class="main-table-container">
         <div class="main-table-header">
             <span>Player Metrics (sorted by {sort_col})</span>
             <span id="row-count"></span>
         </div>
+    
         <div class="main-table-wrapper">
             <table class="custom-main-table">
-                <thead><tr>{''.join([f'<th>{c}</th>' for c in columns_order])}</tr></thead>
+                <thead>
+                    <tr>
+                        {''.join([f"<th>{{{{c}}}}</th>".format(c=c) for c in columns_order])}
+                    </tr>
+                </thead>
                 <tbody id="main-table-body"></tbody>
             </table>
         </div>
+    
         <div class="table-foot">
             <div class="group" id="page-size-group"></div>
             <div class="group" id="page-buttons"></div>
         </div>
     </div>
+    
     <script>
         const data = {json.dumps(table_data)};
         const columns = {json.dumps(columns_order)};
         const pageSizeOptions = [30, 50, 100, 200];
         let pageSize = 30;
         let currentPage = 1;
-
+    
         const bodyEl = document.getElementById('main-table-body');
         const rowCountEl = document.getElementById('row-count');
         const pageSizeGroup = document.getElementById('page-size-group');
         const pageButtonsGroup = document.getElementById('page-buttons');
-
-        function renderTable() {
+    
+        function renderTable() {{
             const totalRows = data.length;
             const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
             if (currentPage > totalPages) currentPage = totalPages;
             const start = (currentPage - 1) * pageSize;
             const end = Math.min(start + pageSize, totalRows);
             const rows = data.slice(start, end);
-
-            bodyEl.innerHTML = rows.map(row => {
-                const cells = row.map(cell => {
-                    const bg = cell.bg ? ` style="background:${cell.bg}"` : '';
-                    return `<td${bg}>${cell.text}</td>`;
-                }).join('');
-                return `<tr>${cells}</tr>`;
-            }).join('');
-
+    
+            bodyEl.innerHTML = rows.map(row => {{
+                const cells = row.map(cell => {{
+                    const bg = cell.bg ? ` style="background:${{cell.bg}}"` : '';
+                    return `<td${{bg}}>${{cell.text}}</td>`;
+                }}).join('');
+                return `<tr>${{cells}}</tr>`;
+            }}).join('');
+    
             rowCountEl.textContent = `Showing ${start + 1}–${end} of ${totalRows}`;
-
+    
             pageButtonsGroup.innerHTML = '';
-            for (let i = 1; i <= totalPages; i++) {
+            for (let i = 1; i <= totalPages; i++) {{
                 const btn = document.createElement('button');
                 btn.textContent = i;
                 if (i === currentPage) btn.classList.add('active');
-                btn.addEventListener('click', () => { currentPage = i; renderTable(); });
+                btn.addEventListener('click', () => {{ currentPage = i; renderTable(); }});
                 pageButtonsGroup.appendChild(btn);
-            }
-        }
-
-        function buildPageSizes() {
+            }}
+        }}
+    
+        function buildPageSizes() {{
             pageSizeGroup.innerHTML = '<span class="label">Rows per page</span>';
-            pageSizeOptions.forEach(size => {
+            pageSizeOptions.forEach(size => {{
                 const btn = document.createElement('button');
                 btn.textContent = size;
                 if (size === pageSize) btn.classList.add('active');
-                btn.addEventListener('click', () => {
+                btn.addEventListener('click', () => {{
                     pageSize = size;
                     currentPage = 1;
                     buildPageSizes();
                     renderTable();
-                });
+                }});
                 pageSizeGroup.appendChild(btn);
-            });
-        }
-
+            }});
+        }}
+    
         buildPageSizes();
         renderTable();
     </script>
     """
-
+    
     components.html(html_table, height=640, scrolling=True)
+
 
     st.markdown("<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Top 10 Leaderboards</h2>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
