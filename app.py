@@ -1013,7 +1013,7 @@ elif page == "Player":
                 margin=dict(l=160, r=24, t=12, b=60),
                 xaxis_title="SHAP contribution to Swing+ (signed)",
                 yaxis=dict(autorange="reversed"),
-                height=420,
+                height=520,
                 showlegend=False,
                 font=dict(size=11)
             )
