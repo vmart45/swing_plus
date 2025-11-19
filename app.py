@@ -582,6 +582,7 @@ if page == "Main":
         
         header_html = ''.join([f"<th>{str(c)}</th>" for c in columns_order])
         
+        # Use triple braces for JavaScript template literals to escape them from Python f-string
         html_table = f"""
         <style>
         
@@ -718,12 +719,12 @@ if page == "Main":
                 const end = Math.min(start + pageSize, totalRows);
                 const rows = data.slice(start, end);
         
-                const rowsHtml = rows.map(row => {{
-                    const cells = row.map(cell => {{
-                        const bg = cell.bg ? ` style="background:${{cell.bg}}"` : '';
-                        return `<td${{bg}}>${{cell.text}}</td>`;
+                const rowsHtml = rows.map(function(row) {{
+                    const cells = row.map(function(cell) {{
+                        const bg = cell.bg ? ' style="background:' + cell.bg + '"' : '';
+                        return '<td' + bg + '>' + cell.text + '</td>';
                     }}).join('');
-                    return `<tr>${{cells}}</tr>`;
+                    return '<tr>' + cells + '</tr>';
                 }}).join('');
                 
                 bodyEl.innerHTML = rowsHtml;
@@ -735,18 +736,18 @@ if page == "Main":
                     const btn = document.createElement('button');
                     btn.textContent = i;
                     if (i === currentPage) btn.classList.add('active');
-                    btn.addEventListener('click', () => {{ currentPage = i; renderTable(); }});
+                    btn.addEventListener('click', function() {{ currentPage = i; renderTable(); }});
                     pageButtonsGroup.appendChild(btn);
                 }}
             }}
         
             function buildPageSizes() {{
                 pageSizeGroup.innerHTML = '<span class="label">Rows per page</span>';
-                pageSizeOptions.forEach(size => {{
+                pageSizeOptions.forEach(function(size) {{
                     const btn = document.createElement('button');
                     btn.textContent = size;
                     if (size === pageSize) btn.classList.add('active');
-                    btn.addEventListener('click', () => {{
+                    btn.addEventListener('click', function() {{
                         pageSize = size;
                         currentPage = 1;
                         buildPageSizes();
