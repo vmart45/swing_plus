@@ -755,6 +755,7 @@ if page == "Main":
         </script>
         """
         
+        print("Rendering table HTML")  
         components.html(html_table, height=640, scrolling=True)
 
 
