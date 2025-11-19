@@ -1031,7 +1031,6 @@ elif page == "Player":
         
             else:
         
-                # ---------- Rebuild df locally ----------
                 display_df = shap_df.copy()
                 display_df["feature_label"] = display_df["feature"].map(lambda x: FEATURE_LABELS.get(x, x))
                 display_df = display_df.sort_values("abs_shap", ascending=False).head(12)
@@ -1046,13 +1045,12 @@ elif page == "Player":
                 display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{v:.0%}")
                 display_df = display_df.reset_index(drop=True)
         
-                # ---------- SAME EXACT CSS as compare table (no font-family override) ----------
                 st.markdown("""
                 <style>
                 .comp-table {
                     width: 100%;
                     border-collapse: collapse;
-                    margin-top: 1px;
+                    margin-top: 0.1px;
                     font-size: 0.88em;
                     background: #FFFFFF;
                     border: 2px solid #111827;
