@@ -581,15 +581,6 @@ if page == "Main":
                 bg = value_to_color(val) if c in plus_labels else ""
                 row_cells.append({"text": format_cell(val), "bg": bg})
             table_data.append(row_cells)
-
-        for _, r in styled.iterrows():
-            row_cells = []
-            for c in columns_order:
-                cell_val = r[c]
-                bg = value_to_color(cell_val) if c in plus_labels else ""
-                row_cells.append({"text": format_cell(cell_val), "bg": bg})
-            table_data.append(row_cells)
-        
         
         # ESCAPE HTML braces for f-string
         html_table = f"""
