@@ -574,13 +574,13 @@ if page == "Main":
         columns_order = ["#"] + list(styled.columns)
         table_data = []
         
-    for idx, r in enumerate(styled.itertuples(index=False), start=1):
-        row_cells = [{"text": str(idx), "bg": ""}]
-        for c in styled.columns:  # ← don't use columns_order here
-            val = getattr(r, c)
-            bg = value_to_color(val) if c in plus_labels else ""
-            row_cells.append({"text": format_cell(val), "bg": bg})
-        table_data.append(row_cells)
+        for idx, r in enumerate(styled.itertuples(index=False), start=1):
+            row_cells = [{"text": str(idx), "bg": ""}]
+            for c in styled.columns:  # ← don't use columns_order here
+                val = getattr(r, c)
+                bg = value_to_color(val) if c in plus_labels else ""
+                row_cells.append({"text": format_cell(val), "bg": bg})
+            table_data.append(row_cells)
 
         # ESCAPE HTML braces for f-string
         html_table = f"""
