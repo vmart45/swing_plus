@@ -861,6 +861,16 @@ if page == "Main":
         "<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Top 10 Leaderboards</h2>",
         unsafe_allow_html=True
     )
+
+    def format_cell(val):
+    if isinstance(val, (pd.Series, pd.DataFrame)):
+        return ""
+    if pd.isna(val):
+        return ""
+    if isinstance(val, float):
+        return f"{val:.2f}"
+    return str(val)
+
         
     def build_leaderboard_html(df, sort_col, title, abbrev_map, image_dict, plus_labels):
         # Ensure Age column is cleaned
