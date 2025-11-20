@@ -862,75 +862,61 @@ if page == "Main":
         unsafe_allow_html=True
     )
         
+    def generate_leaderboard_html(df_display, sort_col, abbrev_map, image_dict, plus_labels, title):
+        table_data = []
+        columns_order = ["#"] + list(df_display.columns)
+    
+        for idx, (_, row) in enumerate(df_display.iterrows(), start=1):
+            row_cells = [{"text": str(idx), "bg": ""}]
+            for c in df_display.columns:
+                val = row[c]
+                if c == "Team" and val in image_dict:
+                    content = f'<img src="{image_dict[val]}" alt="{val}" style="height:26px; display:block; margin:0 auto;" />'
+                else:
+                    content = str(val)
+                bg = value_to_color(val) if c in plus_labels else ""
+                row_cells.append({"text": content, "bg": bg})
+            table_data.append(row_cells)
+    
+        return f"""
+        <div class="main-table-container" style="margin-top: 0;">
+            <div class="main-table-header" style="justify-content:center;">
+                <span>{title}</span>
+            </div>
+            <div class="main-table-wrapper">
+                <table class="custom-main-table">
+                    <thead>
+                        <tr>
+                            {''.join([
+                                f"<th title='{c}'>{abbrev_map.get(c, c)}</th>"
+                                for c in columns_order
+                            ])}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {''.join([
+                            f"<tr>{''.join([
+                                f'<td style=\"{f"background:{cell["bg"]};" if cell["bg"] else ""}{"text-align:right;" if cell["text"].replace(\", \"\").replace(\'.\', \"\").isdigit() else ""}\">{cell['text']}</td>'
+                                for cell in row
+                            ])}</tr>"
+                            for row in table_data
+                        ])}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        """
+    
+    
+    # Example Usage (for both leaderboards)
+    left_html = generate_leaderboard_html(top_hit_renamed[leaderboard_cols_hit], "HitSkillPlus", abbrev_map, image_dict, plus_labels, "Top 10 by HitSkill+")
+    right_html = generate_leaderboard_html(top_imp_renamed[leaderboard_cols_imp], "ImpactPlus", abbrev_map, image_dict, plus_labels, "Top 10 by Impact+")
+    
     col1, col2 = st.columns(2)
-    
-    # Left: HitSkill+
     with col1:
-        st.markdown(
-            '<div style="text-align:center; font-size:1.15em; font-weight:600; margin-bottom:0.6em; color:#385684;">Top 10 by HitSkill+</div>',
-            unsafe_allow_html=True
-        )
-        if "HitSkillPlus" in df_main_filtered.columns:
-            top_hit = df_main_filtered.sort_values("HitSkillPlus", ascending=False).head(10).reset_index(drop=True)
-            top_hit_display = top_hit.copy()
-            if "Age" in top_hit_display.columns:
-                try:
-                    top_hit_display["Age"] = top_hit_display["Age"].round(0).astype("Int64")
-                except Exception:
-                    pass
-            top_hit_renamed = top_hit_display.rename(columns=rename_map)
-            leaderboard_cols_hit = [c for c in ["Name","Team","Age","HitSkillPlus","Swing+","ImpactPlus"] if c in top_hit_display.columns]
-            display_cols_hit_renamed = [rename_map.get(c, c) for c in leaderboard_cols_hit]
-            hit_label = rename_map.get("HitSkillPlus", "HitSkill+")
-            try:
-                vmin_h = min(70, float(df_main_filtered["HitSkillPlus"].min()))
-                vmax_h = max(130, float(df_main_filtered["HitSkillPlus"].max()))
-                centered_cmap = create_centered_cmap(center=100, vmin=vmin_h, vmax=vmax_h)
-                st.dataframe(
-                    top_hit_renamed[display_cols_hit_renamed]
-                    .style.format(precision=2)
-                    .background_gradient(subset=[hit_label], cmap=centered_cmap, vmin=vmin_h, vmax=vmax_h),
-                    use_container_width=True,
-                    hide_index=True
-                )
-            except Exception:
-                st.dataframe(top_hit_renamed[display_cols_hit_renamed], use_container_width=True, hide_index=True)
-        else:
-            st.info("HitSkillPlus not present in dataset; leaderboard unavailable.")
-    
-    # Right: Impact+
+        components.html(left_html, height=620, scrolling=False)
     with col2:
-        st.markdown(
-            '<div style="text-align:center; font-size:1.15em; font-weight:600; margin-bottom:0.6em; color:#385684;">Top 10 by Impact+</div>',
-            unsafe_allow_html=True
-        )
-        if "ImpactPlus" in df_main_filtered.columns:
-            top_imp = df_main_filtered.sort_values("ImpactPlus", ascending=False).head(10).reset_index(drop=True)
-            top_imp_display = top_imp.copy()
-            if "Age" in top_imp_display.columns:
-                try:
-                    top_imp_display["Age"] = top_imp_display["Age"].round(0).astype("Int64")
-                except Exception:
-                    pass
-            top_imp_renamed = top_imp_display.rename(columns=rename_map)
-            leaderboard_cols_imp = [c for c in ["Name","Team","Age","ImpactPlus","Swing+","HitSkillPlus"] if c in top_imp_display.columns]
-            display_cols_imp_renamed = [rename_map.get(c, c) for c in leaderboard_cols_imp]
-            imp_label = rename_map.get("ImpactPlus", "Impact+")
-            try:
-                vmin_i = min(70, float(df_main_filtered["ImpactPlus"].min()))
-                vmax_i = max(130, float(df_main_filtered["ImpactPlus"].max()))
-                centered_cmap = create_centered_cmap(center=100, vmin=vmin_i, vmax=vmax_i)
-                st.dataframe(
-                    top_imp_renamed[display_cols_imp_renamed]
-                    .style.format(precision=2)
-                    .background_gradient(subset=[imp_label], cmap=centered_cmap, vmin=vmin_i, vmax=vmax_i),
-                    use_container_width=True,
-                    hide_index=True
-                )
-            except Exception:
-                st.dataframe(top_imp_renamed[display_cols_imp_renamed], use_container_width=True, hide_index=True)
-        else:
-            st.info("ImpactPlus not present in dataset; leaderboard unavailable.")
+        components.html(right_html, height=620, scrolling=False)
 
 # ---------------- Player tab ----------------
 elif page == "Player":
