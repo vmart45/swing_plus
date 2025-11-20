@@ -863,24 +863,31 @@ if page == "Main":
     )
 
     def format_cell(val):
-    if isinstance(val, (pd.Series, pd.DataFrame)):
-        return ""
-    if pd.isna(val):
-        return ""
-    if isinstance(val, float):
-        return f"{val:.2f}"
-    return str(val)
-
-        
+        import pandas as pd
+        if isinstance(val, (pd.Series, pd.DataFrame)):
+            return ""
+        try:
+            if pd.isna(val):
+                return ""
+        except Exception:
+            pass
+        try:
+            if isinstance(val, (float, np.floating)):
+                return f"{val:.2f}"
+            if isinstance(val, (int, np.integer)):
+                return f"{val:d}"
+        except Exception:
+            pass
+        return str(val)
+    
     def build_leaderboard_html(df, sort_col, title, abbrev_map, image_dict, plus_labels):
-        # Ensure Age column is cleaned
+        # Clean up Age, etc
         if "Age" in df.columns:
             try:
                 df["Age"] = df["Age"].round(0).astype("Int64")
             except Exception:
                 pass
     
-        # Choose columns: Name, Team, Age, then metrics
         cols = ["Name", "Team", "Age", sort_col, "Swing+", "HitSkillPlus", "ImpactPlus"]
         cols = [c for c in cols if c in df.columns]
         columns_order = ["#"] + cols
@@ -892,7 +899,7 @@ if page == "Main":
                 val = row[c]
                 if c == "Team" and val in image_dict:
                     content = (f'<img src="{image_dict[val]}" alt="{val}" '
-                               f'style="height:28px; display:block; margin:0 auto;" />')
+                               'style="height:26px; display:block; margin:0 auto;" />')
                 else:
                     content = format_cell(val)
                 bg = value_to_color(val) if c in plus_labels else ""
@@ -933,7 +940,6 @@ if page == "Main":
     
         <script>
             const data_{sort_col} = {json.dumps(table_data)};
-            const columns_{sort_col} = {json.dumps(columns_order)};
             let pageSize_{sort_col} = 10;
             let currentPage_{sort_col} = 1;
             let sortColumn_{sort_col} = null;
@@ -943,9 +949,7 @@ if page == "Main":
             const rowCountEl_{sort_col} = document.getElementById('row-count-{sort_col}');
             const pageSizeSelect_{sort_col} = document.getElementById('page-size-select-{sort_col}');
             const paginationEl_{sort_col} = document.getElementById('pagination-{sort_col}');
-            const headers_{sort_col} = document.querySelectorAll(
-                `[data-col]`
-            );
+            const headers_{sort_col} = document.querySelectorAll('th[data-col]');
     
             headers_{sort_col}.forEach((th) => {{
                 th.addEventListener('click', () => {{
@@ -957,7 +961,7 @@ if page == "Main":
                         sortDirection_{sort_col} = 1;
                     }}
                     headers_{sort_col}.forEach(h => h.classList.remove('sorted-asc','sorted-desc'));
-                    th.classList.add(sortDirection_{sort_col} === 1 ? 'sorted-asc' : 'sorted-desc');
+                    th.classList.add(sortDirection_{sort_col] === 1 ? 'sorted-asc' : 'sorted-desc');
                     renderTable_{sort_col}();
                 }});
             }});
@@ -972,8 +976,8 @@ if page == "Main":
                 let sortedData = [...data_{sort_col}];
                 if (sortColumn_{sort_col} !== null) {{
                     sortedData.sort((a,b) => {{
-                        const av = parseFloat(a[sortColumn_{sort_col}].text.replace(/[^0-9.-]+/g,""));
-                        const bv = parseFloat(b[sortColumn_{sort_col}].text.replace(/[^0-9.-]+/g,""));
+                        const av = parseFloat(a[sortColumn_{sort_col}].text.replace(/<.*?>/g,""));
+                        const bv = parseFloat(b[sortColumn_{sort_col}].text.replace(/<.*?>/g,""));
                         if (!isNaN(av) && !isNaN(bv)) {{
                             return sortDirection_{sort_col} * (av - bv);
                         }}
@@ -986,7 +990,7 @@ if page == "Main":
     
                 const start = (currentPage_{sort_col}-1)*pageSize_{sort_col};
                 const end = Math.min(start + pageSize_{sort_col}, totalRows);
-                const pageRows = sortedData.slice(start,end);
+                const pageRows = sortedData.slice(start, end);
     
                 bodyEl_{sort_col}.innerHTML = pageRows.map(row => {{
                     return `<tr>${{row.map(cell => {{
@@ -997,16 +1001,17 @@ if page == "Main":
                     }}).join('')}}</tr>`;
                 }}).join('');
     
-                rowCountEl_{sort_col}.textContent = `Showing ${start+1}–${end} of ${totalRows}`;
+                rowCountEl_{sort_col}.textContent = `Showing ${{start+1}}–${{end}} of ${{totalRows}}`;
+    
                 paginationEl_{sort_col}.innerHTML = '';
                 for (let i = 1; i <= totalPages; i++) {{
                     const btn = document.createElement('button');
                     btn.textContent = i;
                     if (i === currentPage_{sort_col}) btn.classList.add('active');
-                    btn.addEventListener('click', (() => {{
+                    btn.addEventListener('click', () => {{
                         currentPage_{sort_col} = i;
                         renderTable_{sort_col}();
-                    }}));
+                    }});
                     paginationEl_{sort_col}.appendChild(btn);
                 }}
             }}
@@ -1016,7 +1021,7 @@ if page == "Main":
         """
         return html
     
-    # Build the two side-by-side leaderboards
+    # Then use it for both leaderboards:
     left_html = build_leaderboard_html(
         df_main_filtered.sort_values("HitSkillPlus", ascending=False).head(10),
         "HitSkillPlus",
