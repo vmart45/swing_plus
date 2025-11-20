@@ -858,151 +858,70 @@ if page == "Main":
     components.html(html_table, height=1450, scrolling=True)
 
 
-    st.markdown(
-        "<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Top 10 Leaderboards</h2>",
-        unsafe_allow_html=True
-    )
-    
-    def format_cell(val):
-        if isinstance(val, (pd.Series, pd.DataFrame)):
-            return ""
-        try:
-            if pd.isna(val):
-                return ""
-        except Exception:
-            pass
-        try:
-            if isinstance(val, (float, np.floating)):
-                return f"{val:.2f}"
-            if isinstance(val, (int, np.integer)):
-                return f"{val:d}"
-        except Exception:
-            pass
-        return str(val)
-    
-    def build_leaderboard_html(df, title, abbrev_map, image_dict, plus_labels, sort_col):
-        assert isinstance(abbrev_map, dict), "abbrev_map must be a dict"
-        columns_order = ["#"] + list(df.columns)
-        table_data = []
-    
-        for idx, (_, row) in enumerate(df.iterrows(), start=1):
-            row_cells = [{"text": str(idx), "bg": ""}]
-            for c in df.columns:
-                val = row[c]
-                if c == "Team" and val in image_dict:
-                    content = f'<img src="{image_dict[val]}" alt="{val}" style="height:28px; display:block; margin:0 auto;" />'
-                else:
-                    content = format_cell(val)
-                bg = value_to_color(val) if (c in plus_labels) else ""
-                row_cells.append({"text": content, "bg": bg})
-            table_data.append(row_cells)
-    
-        # Build header cells safely
-        th_cells = []
-        for i, c in enumerate(columns_order):
-            escaped_c = html.escape(c)
-            escaped_abbrev = html.escape(abbrev_map.get(c, c))
-            th_cells.append(f"<th title='{escaped_c}' data-col='{i}'>{escaped_abbrev}</th>")
-        th_html = "".join(th_cells)
-    
-        html_table = f"""
-        <div class="main-table-container" style="margin-top:1.5rem;">
-            <div class="main-table-header">
-                <span>{html.escape(title)}</span>
-            </div>
-            <div class="main-table-wrapper">
-                <table class="custom-main-table">
-                    <thead>
-                        <tr>
-                            {th_html}
-                        </tr>
-                    </thead>
-                    <tbody id="main-table-body-{sort_col}"></tbody>
-                </table>
-            </div>
-        </div>
-    
-        <script>
-            const data_{sort_col} = {json.dumps(table_data)};
-            const columns_{sort_col} = {json.dumps(columns_order)};
-            let sortColumn_{sort_col} = null;
-            let sortDirection_{sort_col} = 1;
-    
-            const bodyEl_{sort_col} = document.getElementById('main-table-body-{sort_col}');
-            const headers_{sort_col} = document.querySelectorAll('th[data-col]');
-    
-            headers_{sort_col}.forEach((th) => {{
-                th.addEventListener('click', () => {{
-                    const colIndex = parseInt(th.getAttribute('data-col'), 10);
-                    if (sortColumn_{sort_col} === colIndex) {{
-                        sortDirection_{sort_col} = -sortDirection_{sort_col};
-                    }} else {{
-                        sortColumn_{sort_col} = colIndex;
-                        sortDirection_{sort_col} = 1;
-                    }}
-                    headers_{sort_col}.forEach(header => {{
-                        header.classList.remove('sorted-asc', 'sorted-desc');
-                    }});
-                    th.classList.add(sortDirection_{sort_col} === 1 ? 'sorted-asc' : 'sorted-desc');
-                    renderTable_{sort_col}();
-                }});
-            }});
-    
-            function renderTable_{sort_col}() {{
-                let sortedData = [...data_{sort_col}];
-                if (sortColumn_{sort_col} !== null) {{
-                    sortedData.sort((a, b) => {{
-                        const aText = a[sortColumn_{sort_col}].text;
-                        const bText = b[sortColumn_{sort_col}].text;
-                        const aVal = parseFloat(aText);
-                        const bVal = parseFloat(bText);
-                        if (!isNaN(aVal) && !isNaN(bVal)) {{
-                            return sortDirection_{sort_col} * (aVal - bVal);
-                        }}
-                        return sortDirection_{sort_col} * aText.localeCompare(bText);
-                    }});
-                }}
-    
-                bodyEl_{sort_col}.innerHTML = sortedData.map(row => {{
-                    const cells = row.map((cell, i) => {{
-                        const isNum = !isNaN(cell.text.replace(/,/g, '').replace(/\\./g, '')) && cell.text !== "";
-                        const align = isNum ? 'text-align: right;' : '';
-                        const bg = cell.bg ? `background:${{cell.bg}};` : '';
-                        const style = (bg || align) ? ` style="${{bg}}{{align}}"` : '';
-                        return `<td${{style}}>${{cell.text}}</td>`;
-                    }}).join('');
-                    return `<tr>${{cells}}</tr>`;
-                }}).join('');
-            }}
-    
-            renderTable_{sort_col}();
-        </script>
-        """
-        return html_table
-    
-    # Usage:
-    left_html = build_leaderboard_html(
-        df_main_filtered.sort_values("HitSkillPlus", ascending=False).head(10),
-        "Top 10 by HitSkill+",
-        abbrev_map,
-        image_dict,
-        plus_labels,
-        "HitSkillPlus"
-    )
-    right_html = build_leaderboard_html(
-        df_main_filtered.sort_values("ImpactPlus", ascending=False).head(10),
-        "Top 10 by Impact+",
-        abbrev_map,
-        image_dict,
-        plus_labels,
-        "ImpactPlus"
-    )
-    
+
+    st.markdown("<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Top 10 Leaderboards</h2>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
-        components.html(left_html, height=650, scrolling=False)
+        st.markdown('<div style="text-align:center; font-size:1.15em; font-weight:600; margin-bottom:0.6em; color:#385684;">Top 10 by Swing+</div>', unsafe_allow_html=True)
+        if "Swing+" in df_main_filtered.columns:
+            top_swing = df_main_filtered.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
+            top_swing_display = top_swing.copy()
+            if "Age" in top_swing_display.columns:
+                try:
+                    top_swing_display["Age"] = top_swing_display["Age"].round(0).astype("Int64")
+                except Exception:
+                    pass
+            top_swing_renamed = top_swing_display.rename(columns=rename_map)
+            leaderboard_cols = [c for c in ["Name", "Team", "Age", "Swing+", "HitSkillPlus", "ImpactPlus"] if c in top_swing.columns]
+            display_cols_renamed = [rename_map.get(c, c) for c in leaderboard_cols]
+            swing_label = rename_map.get("Swing+", "Swing+")
+            try:
+                vmin = min(70, float(df_main_filtered["Swing+"].min()))
+                vmax = max(130, float(df_main_filtered["Swing+"].max()))
+                centered_cmap = create_centered_cmap(center=100, vmin=vmin, vmax=vmax)
+                st.dataframe(
+                    top_swing_renamed[display_cols_renamed]
+                    .style.format(precision=2)
+                    .background_gradient(subset=[swing_label], cmap=centered_cmap, vmin=vmin, vmax=vmax),
+                    use_container_width=True,
+                    hide_index=True
+                )
+            except Exception:
+                st.dataframe(top_swing_renamed[display_cols_renamed], use_container_width=True, hide_index=True)
+        else:
+            st.info("Swing+ not present in dataset; leaderboard unavailable.")
+
     with col2:
-        components.html(right_html, height=650, scrolling=False)
+        st.markdown('<div style="text-align:center; font-size:1.15em; font-weight:600; margin-bottom:0.6em; color:#385684;">Top 10 by HitSkill+</div>', unsafe_allow_html=True)
+        if "HitSkillPlus" in df_main_filtered.columns:
+            top_hit = df_main_filtered.sort_values("HitSkillPlus", ascending=False).head(10).reset_index(drop=True)
+            top_hit_display = top_hit.copy()
+            if "Age" in top_hit_display.columns:
+                try:
+                    top_hit_display["Age"] = top_hit_display["Age"].round(0).astype("Int64")
+                except Exception:
+                    pass
+            top_hit_renamed = top_hit_display.rename(columns=rename_map)
+            leaderboard_cols_hit = [c for c in ["Name", "Team", "Age", "HitSkillPlus", "Swing+", "ImpactPlus"] if c in top_hit.columns]
+            display_cols_hit_renamed = [rename_map.get(c, c) for c in leaderboard_cols_hit]
+            hit_label = rename_map.get("HitSkillPlus", "HitSkill+")
+            try:
+                vmin_h = min(70, float(df_main_filtered["HitSkillPlus"].min()))
+                vmax_h = max(130, float(df_main_filtered["HitSkillPlus"].max()))
+                centered_cmap = create_centered_cmap(center=100, vmin=vmin_h, vmax=vmax_h)
+                st.dataframe(
+                    top_hit_renamed[display_cols_hit_renamed]
+                    .style.format(precision=2)
+                    .background_gradient(subset=[hit_label], cmap=centered_cmap, vmin=vmin_h, vmax=vmax_h),
+                    use_container_width=True,
+                    hide_index=True
+                )
+            except Exception:
+                st.dataframe(top_hit_renamed[display_cols_hit_renamed], use_container_width=True, hide_index=True)
+        else:
+            st.info("HitSkillPlus not present in dataset; leaderboard unavailable.")
+
+
 
 # ---------------- Player tab ----------------
 elif page == "Player":
