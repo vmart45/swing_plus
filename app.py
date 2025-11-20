@@ -861,9 +861,8 @@ if page == "Main":
         "<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Top 10 Leaderboards</h2>",
         unsafe_allow_html=True
     )
-
+    
     def format_cell(val):
-        import pandas as pd
         if isinstance(val, (pd.Series, pd.DataFrame)):
             return ""
         try:
@@ -881,6 +880,7 @@ if page == "Main":
         return str(val)
     
     def build_leaderboard_html(df, title, abbrev_map, image_dict, plus_labels, sort_col):
+        assert isinstance(abbrev_map, dict), "abbrev_map must be a dict"
         columns_order = ["#"] + list(df.columns)
         table_data = []
     
@@ -892,23 +892,28 @@ if page == "Main":
                     content = f'<img src="{image_dict[val]}" alt="{val}" style="height:28px; display:block; margin:0 auto;" />'
                 else:
                     content = format_cell(val)
-                bg = value_to_color(val) if c in plus_labels else ""
+                bg = value_to_color(val) if (c in plus_labels) else ""
                 row_cells.append({"text": content, "bg": bg})
             table_data.append(row_cells)
+    
+        # Build header cells safely
+        th_cells = []
+        for i, c in enumerate(columns_order):
+            escaped_c = html.escape(c)
+            escaped_abbrev = html.escape(abbrev_map.get(c, c))
+            th_cells.append(f"<th title='{escaped_c}' data-col='{i}'>{escaped_abbrev}</th>")
+        th_html = "".join(th_cells)
     
         html_table = f"""
         <div class="main-table-container" style="margin-top:1.5rem;">
             <div class="main-table-header">
-                <span>{title}</span>
+                <span>{html.escape(title)}</span>
             </div>
             <div class="main-table-wrapper">
                 <table class="custom-main-table">
                     <thead>
                         <tr>
-                            {''.join([
-                                f"<th title='{c}' data-col='{i}'>{abbrev_map.get(c, c)}</th>"
-                                for i, c in enumerate(columns_order)
-                            ])}
+                            {th_html}
                         </tr>
                     </thead>
                     <tbody id="main-table-body-{sort_col}"></tbody>
@@ -927,7 +932,7 @@ if page == "Main":
     
             headers_{sort_col}.forEach((th) => {{
                 th.addEventListener('click', () => {{
-                    const colIndex = parseInt(th.getAttribute('data-col'));
+                    const colIndex = parseInt(th.getAttribute('data-col'), 10);
                     if (sortColumn_{sort_col} === colIndex) {{
                         sortDirection_{sort_col} = -sortDirection_{sort_col};
                     }} else {{
@@ -973,24 +978,23 @@ if page == "Main":
         </script>
         """
         return html_table
-
     
-    # Then use it for both leaderboards:
+    # Usage:
     left_html = build_leaderboard_html(
         df_main_filtered.sort_values("HitSkillPlus", ascending=False).head(10),
-        "HitSkillPlus",
         "Top 10 by HitSkill+",
         abbrev_map,
         image_dict,
-        plus_labels
+        plus_labels,
+        "HitSkillPlus"
     )
     right_html = build_leaderboard_html(
         df_main_filtered.sort_values("ImpactPlus", ascending=False).head(10),
-        "ImpactPlus",
         "Top 10 by Impact+",
         abbrev_map,
         image_dict,
-        plus_labels
+        plus_labels,
+        "ImpactPlus"
     )
     
     col1, col2 = st.columns(2)
@@ -998,7 +1002,6 @@ if page == "Main":
         components.html(left_html, height=650, scrolling=False)
     with col2:
         components.html(right_html, height=650, scrolling=False)
-
 
 # ---------------- Player tab ----------------
 elif page == "Player":
