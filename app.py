@@ -387,24 +387,35 @@ if page == "Main":
     import base64
     
     st.markdown("""
-    <div style="display:flex; justify-content:center; margin-top:20px; margin-bottom:10px;">
-    """, unsafe_allow_html=True)
-    
-    st.image("logo.JPG", width=140)
-    
-    st.markdown("""
-    </div>
     <div style="
-        text-align:center;
-        font-size:32px;
-        font-weight:800;
-        color:#1c2a3a;
-        margin-bottom:25px;
+        display:flex;
+        flex-direction:column;
+        justify-content:center;
+        align-items:center;
+        margin-top:20px;
     ">
-        Player Metrics Table
+        <img src="logo.JPG" style="
+            height:90px;
+            object-fit:contain;
+            display:block;
+            margin-left:auto;
+            margin-right:auto;
+        ">
+        <div style="
+            font-size:32px;
+            font-weight:800;
+            color:#1c2a3a;
+            margin-top:12px;
+            margin-bottom:18px;
+            text-align:center;
+        ">
+            Player Metrics Table
+        </div>
     </div>
-    <hr style="border:0.5px solid #e2e8f0; margin-top:10px; margin-bottom:25px;">
+    
+    <hr style="border:0.5px solid #e2e8f0; margin-top:0px; margin-bottom:20px;">
     """, unsafe_allow_html=True)
+
 
     # Filters directly in Main tab
     st.markdown("---")
