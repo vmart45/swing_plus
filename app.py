@@ -880,75 +880,49 @@ if page == "Main":
             pass
         return str(val)
     
-    def build_leaderboard_html(df, sort_col, title, abbrev_map, image_dict, plus_labels):
-        # Clean up Age, etc
-        if "Age" in df.columns:
-            try:
-                df["Age"] = df["Age"].round(0).astype("Int64")
-            except Exception:
-                pass
-    
-        cols = ["Name", "Team", "Age", sort_col, "Swing+", "HitSkillPlus", "ImpactPlus"]
-        cols = [c for c in cols if c in df.columns]
-        columns_order = ["#"] + cols
-    
+    def build_leaderboard_html(df, title, abbrev_map, image_dict, plus_labels, sort_col):
+        columns_order = ["#"] + list(df.columns)
         table_data = []
-        for idx, (_, row) in enumerate(df[cols].reset_index(drop=True).iterrows(), start=1):
+    
+        for idx, (_, row) in enumerate(df.iterrows(), start=1):
             row_cells = [{"text": str(idx), "bg": ""}]
-            for c in cols:
+            for c in df.columns:
                 val = row[c]
                 if c == "Team" and val in image_dict:
-                    content = (f'<img src="{image_dict[val]}" alt="{val}" '
-                               'style="height:26px; display:block; margin:0 auto;" />')
+                    content = f'<img src="{image_dict[val]}" alt="{val}" style="height:28px; display:block; margin:0 auto;" />'
                 else:
                     content = format_cell(val)
                 bg = value_to_color(val) if c in plus_labels else ""
                 row_cells.append({"text": content, "bg": bg})
             table_data.append(row_cells)
     
-        html = f"""
-        <div class="main-table-container" style="margin-top:1em; margin-bottom:1em;">
-            <div class="main-table-header" style="justify-content:center;">
+        html_table = f"""
+        <div class="main-table-container" style="margin-top:1.5rem;">
+            <div class="main-table-header">
                 <span>{title}</span>
-                <span id="row-count-{sort_col}"></span>
             </div>
             <div class="main-table-wrapper">
                 <table class="custom-main-table">
                     <thead>
                         <tr>
                             {''.join([
-                                f"<th title='{c}' data-col='{i}'>{abbrev_map.get(c,c)}</th>"
+                                f"<th title='{c}' data-col='{i}'>{abbrev_map.get(c, c)}</th>"
                                 for i, c in enumerate(columns_order)
                             ])}
                         </tr>
                     </thead>
-                    <tbody id="body-{sort_col}"></tbody>
+                    <tbody id="main-table-body-{sort_col}"></tbody>
                 </table>
-            </div>
-            <div class="table-foot">
-                <div class="page-size-selector">
-                    <label for="page-size-select-{sort_col}">Rows per page:</label>
-                    <select id="page-size-select-{sort_col}">
-                        <option value="10" selected>10</option>
-                        <option value="20">20</option>
-                        <option value="30">30</option>
-                    </select>
-                </div>
-                <div class="pagination-controls" id="pagination-{sort_col}"></div>
             </div>
         </div>
     
         <script>
             const data_{sort_col} = {json.dumps(table_data)};
-            let pageSize_{sort_col} = 10;
-            let currentPage_{sort_col} = 1;
+            const columns_{sort_col} = {json.dumps(columns_order)};
             let sortColumn_{sort_col} = null;
             let sortDirection_{sort_col} = 1;
     
-            const bodyEl_{sort_col} = document.getElementById('body-{sort_col}');
-            const rowCountEl_{sort_col} = document.getElementById('row-count-{sort_col}');
-            const pageSizeSelect_{sort_col} = document.getElementById('page-size-select-{sort_col}');
-            const paginationEl_{sort_col} = document.getElementById('pagination-{sort_col}');
+            const bodyEl_{sort_col} = document.getElementById('main-table-body-{sort_col}');
             const headers_{sort_col} = document.querySelectorAll('th[data-col]');
     
             headers_{sort_col}.forEach((th) => {{
@@ -960,66 +934,46 @@ if page == "Main":
                         sortColumn_{sort_col} = colIndex;
                         sortDirection_{sort_col} = 1;
                     }}
-                    headers_{sort_col}.forEach(h => h.classList.remove('sorted-asc','sorted-desc'));
-                    th.classList.add(sortDirection_{sort_col] === 1 ? 'sorted-asc' : 'sorted-desc');
+                    headers_{sort_col}.forEach(header => {{
+                        header.classList.remove('sorted-asc', 'sorted-desc');
+                    }});
+                    th.classList.add(sortDirection_{sort_col} === 1 ? 'sorted-asc' : 'sorted-desc');
                     renderTable_{sort_col}();
                 }});
-            }});
-    
-            pageSizeSelect_{sort_col}.addEventListener('change', (e) => {{
-                pageSize_{sort_col} = parseInt(e.target.value, 10);
-                currentPage_{sort_col} = 1;
-                renderTable_{sort_col}();
             }});
     
             function renderTable_{sort_col}() {{
                 let sortedData = [...data_{sort_col}];
                 if (sortColumn_{sort_col} !== null) {{
-                    sortedData.sort((a,b) => {{
-                        const av = parseFloat(a[sortColumn_{sort_col}].text.replace(/<.*?>/g,""));
-                        const bv = parseFloat(b[sortColumn_{sort_col}].text.replace(/<.*?>/g,""));
-                        if (!isNaN(av) && !isNaN(bv)) {{
-                            return sortDirection_{sort_col} * (av - bv);
+                    sortedData.sort((a, b) => {{
+                        const aText = a[sortColumn_{sort_col}].text;
+                        const bText = b[sortColumn_{sort_col}].text;
+                        const aVal = parseFloat(aText);
+                        const bVal = parseFloat(bText);
+                        if (!isNaN(aVal) && !isNaN(bVal)) {{
+                            return sortDirection_{sort_col} * (aVal - bVal);
                         }}
-                        return sortDirection_{sort_col} * a[sortColumn_{sort_col}].text.localeCompare(b[sortColumn_{sort_col}].text);
+                        return sortDirection_{sort_col} * aText.localeCompare(bText);
                     }});
                 }}
-                const totalRows = sortedData.length;
-                const totalPages = Math.max(1, Math.ceil(totalRows / pageSize_{sort_col}));
-                if (currentPage_{sort_col} > totalPages) currentPage_{sort_col} = totalPages;
     
-                const start = (currentPage_{sort_col}-1)*pageSize_{sort_col};
-                const end = Math.min(start + pageSize_{sort_col}, totalRows);
-                const pageRows = sortedData.slice(start, end);
-    
-                bodyEl_{sort_col}.innerHTML = pageRows.map(row => {{
-                    return `<tr>${{row.map(cell => {{
-                        const isNum = !isNaN(parseFloat(cell.text.replace(/<.*?>/g,"")));
-                        const align = isNum ? 'text-align:right;' : '';
+                bodyEl_{sort_col}.innerHTML = sortedData.map(row => {{
+                    const cells = row.map((cell, i) => {{
+                        const isNum = !isNaN(cell.text.replace(/,/g, '').replace(/\\./g, '')) && cell.text !== "";
+                        const align = isNum ? 'text-align: right;' : '';
                         const bg = cell.bg ? `background:${{cell.bg}};` : '';
-                        return `<td style="${{bg}}{{align}}">${{cell.text}}</td>`;
-                    }}).join('')}}</tr>`;
+                        const style = (bg || align) ? ` style="${{bg}}{{align}}"` : '';
+                        return `<td${{style}}>${{cell.text}}</td>`;
+                    }}).join('');
+                    return `<tr>${{cells}}</tr>`;
                 }}).join('');
-    
-                rowCountEl_{sort_col}.textContent = `Showing ${{start+1}}–${{end}} of ${{totalRows}}`;
-    
-                paginationEl_{sort_col}.innerHTML = '';
-                for (let i = 1; i <= totalPages; i++) {{
-                    const btn = document.createElement('button');
-                    btn.textContent = i;
-                    if (i === currentPage_{sort_col}) btn.classList.add('active');
-                    btn.addEventListener('click', () => {{
-                        currentPage_{sort_col} = i;
-                        renderTable_{sort_col}();
-                    }});
-                    paginationEl_{sort_col}.appendChild(btn);
-                }}
             }}
     
             renderTable_{sort_col}();
         </script>
         """
-        return html
+        return html_table
+
     
     # Then use it for both leaderboards:
     left_html = build_leaderboard_html(
