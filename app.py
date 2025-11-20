@@ -17,8 +17,6 @@ import matplotlib.colors as mcolors
 import json
 import html
 
-st.image("logo.JPG")
-
 st.set_page_config(
     page_title="Swing+ Dashboard",
     page_icon="icon.PNG",
