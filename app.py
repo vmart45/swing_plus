@@ -392,7 +392,7 @@ if page == "Main":
             margin-top:10px;
             margin-bottom:25px;
         ">
-            <img src="logo.JPG" style="
+            <img src="icon.JPG" style="
                 height:38px;
                 margin-right:12px;
                 border-radius:8px;
