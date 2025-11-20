@@ -384,7 +384,30 @@ def open_compare_in_same_tab(playerA, playerB, seasonA=None, seasonB=None):
 
 # ---------------- Main tab ----------------
 if page == "Main":
-    st.markdown("<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Player Metrics Table</h2>", unsafe_allow_html=True)
+    st.markdown(f"""
+        <div style="
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            margin-top:10px;
+            margin-bottom:25px;
+        ">
+            <img src="logo.JPG" style="
+                height:38px;
+                margin-right:12px;
+                border-radius:8px;
+                object-fit:contain;
+            ">
+            <span style="
+                font-size:28px;
+                font-weight:700;
+                color:#1d2b44;
+                letter-spacing:0.5px;
+            ">
+                Player Metrics Table
+            </span>
+        </div>
+    """, unsafe_allow_html=True)
 
     # Filters directly in Main tab
     st.markdown("---")
