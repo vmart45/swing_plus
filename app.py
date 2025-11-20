@@ -19,7 +19,7 @@ import html
 
 st.set_page_config(
     page_title="Swing+ & HitSkill+ Dashboard",
-    page_icon="icon.PNG",
+    page_icon="logo.PNG",
     layout="wide"
 )
 
