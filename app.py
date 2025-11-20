@@ -25,37 +25,6 @@ st.set_page_config(
 
 DATA_PATH = "Main.csv"
 MODEL_PATH = "SwingPlus.pkl"
-LOGO_PATH = "logo.JPG"
-
-# Custom CSS to fix alignment + spacing
-st.markdown(f"""
-    <style>
-        .header-container {{
-            position: fixed;
-            top: 0;
-            left: 1rem;
-            height: 2.5rem;
-            display: flex;
-            align-items: center;
-            z-index: 1000;
-        }}
-
-        .header-container img {{
-            height: 28px;
-            margin-right: 0.5rem;
-        }}
-
-        .block-container {{
-            padding-top: 3rem !important;
-        }}
-    </style>
-
-    <div class="header-container">
-        <img src="data:image/jpeg;base64,{Path(LOGO_PATH).read_bytes().hex()}">
-        <span style="font-weight:600;font-size:18px;">MiLB <span style="font-weight:300;">Tracker</span></span>
-    </div>
-""", unsafe_allow_html=True)
-
 
 def create_centered_cmap(center=100, vmin=70, vmax=130):
     """
