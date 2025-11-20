@@ -23,48 +23,43 @@ st.set_page_config(
     layout="wide"
 )
 
-DATA_PATH = "Main.csv"
-MODEL_PATH = "SwingPlus.pkl"
-
-
 st.markdown("""
 <style>
-#top-nav {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 20px;
-    background-color: white;
-    border-bottom: 1px solid #eee;
+/* --- NAV BAR --- */
+.top-nav {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    z-index: 1000;
-}
-
-#nav-left {
+    height: 55px;
+    background: white;
+    border-bottom: 1px solid #e6e6e6;
     display: flex;
     align-items: center;
-    gap: 10px;
+    padding: 0 20px;
+    z-index: 99999;
 }
 
-#nav-left img {
-    height: 28px;   /* adjust logo size */
+/* Logo styling */
+.top-nav img {
+    height: 30px;
+    margin-right: 10px;
 }
 
-body {
-    padding-top: 55px; /* pushes content below navbar */
+/* Push Streamlit content down */
+.block-container {
+    padding-top: 70px !important;
 }
 </style>
 
-<div id="top-nav">
-    <div id="nav-left">
-        <img src="logo.JPG">
-        <span style="font-size:20px; font-weight:600;">Swing+</span>
-    </div>
+<div class="top-nav">
+    <img src="logo.JPG">
+    <span style="font-size:20px; font-weight:600;">Swing+</span>
 </div>
 """, unsafe_allow_html=True)
+
+DATA_PATH = "Main.csv"
+MODEL_PATH = "SwingPlus.pkl"
 
 def create_centered_cmap(center=100, vmin=70, vmax=130):
     """
