@@ -23,40 +23,24 @@ st.set_page_config(
     layout="wide"
 )
 
-st.markdown("""
-<style>
-/* --- NAV BAR --- */
-.top-nav {
+components.html("""
+<div style="
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    height: 55px;
+    height: 60px;
     background: white;
     border-bottom: 1px solid #e6e6e6;
     display: flex;
     align-items: center;
     padding: 0 20px;
-    z-index: 99999;
-}
-
-/* Logo styling */
-.top-nav img {
-    height: 30px;
-    margin-right: 10px;
-}
-
-/* Push Streamlit content down */
-.block-container {
-    padding-top: 70px !important;
-}
-</style>
-
-<div class="top-nav">
-    <img src="logo.JPG">
+    z-index: 999999;
+">
+    <img src="logo.JPG" style="height: 32px; margin-right: 12px;">
     <span style="font-size:20px; font-weight:600;">Swing+</span>
 </div>
-""", unsafe_allow_html=True)
+""", height=60)
 
 DATA_PATH = "Main.csv"
 MODEL_PATH = "SwingPlus.pkl"
