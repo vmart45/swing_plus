@@ -15,6 +15,7 @@ import streamlit.components.v1 as components
 from urllib.parse import quote, unquote
 import matplotlib.colors as mcolors
 import json
+import html
 
 st.set_page_config(
     page_title="Swing+ & HitSkill+ Dashboard",
