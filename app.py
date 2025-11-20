@@ -18,7 +18,7 @@ import json
 import html
 
 st.set_page_config(
-    page_title="Swing+ & HitSkill+ Dashboard",
+    page_title="Swing+ - Dashboard",
     page_icon="icon.PNG",
     layout="wide"
 )
