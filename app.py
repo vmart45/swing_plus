@@ -862,83 +862,174 @@ if page == "Main":
         unsafe_allow_html=True
     )
         
-    def render_leaderboard_html(df, title, metric, abbrev_map, image_dict):
-        abbrev_map = abbrev_map.copy()
-        abbrev_map.update({
-            "Name": "Name",
-            "Team": "Team",
-            "Age": "Age",
-            "Swing+": "Swing+",
-            "HitSkillPlus": "HitSkill+",
-            "ImpactPlus": "Impact+"
-        })
+    def build_leaderboard_html(df, sort_col, title, abbrev_map, image_dict, plus_labels):
+        # Ensure Age column is cleaned
+        if "Age" in df.columns:
+            try:
+                df["Age"] = df["Age"].round(0).astype("Int64")
+            except Exception:
+                pass
     
-        columns = ["Name", "Team", "Age", "Swing+", "HitSkillPlus", "ImpactPlus"]
-        df = df[columns].copy()
-        df["Age"] = df["Age"].round(0).astype("Int64")
+        # Choose columns: Name, Team, Age, then metrics
+        cols = ["Name", "Team", "Age", sort_col, "Swing+", "HitSkillPlus", "ImpactPlus"]
+        cols = [c for c in cols if c in df.columns]
+        columns_order = ["#"] + cols
+    
         table_data = []
-    
-        for _, row in df.iterrows():
-            row_cells = []
-            for col in columns:
-                val = row[col]
-                if col == "Team" and val in image_dict:
-                    text = f'<img src="{image_dict[val]}" alt="{val}" style="height:24px; display:block; margin:0 auto;" />'
+        for idx, (_, row) in enumerate(df[cols].reset_index(drop=True).iterrows(), start=1):
+            row_cells = [{"text": str(idx), "bg": ""}]
+            for c in cols:
+                val = row[c]
+                if c == "Team" and val in image_dict:
+                    content = (f'<img src="{image_dict[val]}" alt="{val}" '
+                               f'style="height:28px; display:block; margin:0 auto;" />')
                 else:
-                    text = f"{val}" if not pd.isna(val) else ""
-                row_cells.append({"text": text, "bg": ""})
+                    content = format_cell(val)
+                bg = value_to_color(val) if c in plus_labels else ""
+                row_cells.append({"text": content, "bg": bg})
             table_data.append(row_cells)
     
-        columns_order = [abbrev_map.get(col, col) for col in columns]
         html = f"""
-        <div class="main-table-container" style="margin-top:1em; height:auto;">
+        <div class="main-table-container" style="margin-top:1em; margin-bottom:1em;">
             <div class="main-table-header" style="justify-content:center;">
                 <span>{title}</span>
+                <span id="row-count-{sort_col}"></span>
             </div>
             <div class="main-table-wrapper">
                 <table class="custom-main-table">
                     <thead>
                         <tr>
-                            {''.join([f"<th>{col}</th>" for col in columns_order])}
+                            {''.join([
+                                f"<th title='{c}' data-col='{i}'>{abbrev_map.get(c,c)}</th>"
+                                for i, c in enumerate(columns_order)
+                            ])}
                         </tr>
                     </thead>
-                    <tbody>
-                        {''.join([
-                            '<tr>' + ''.join([
-                                f'<td style="text-align:right;">{cell["text"]}</td>' if cell["text"].replace(",", "").replace(".", "").isdigit()
-                                else f'<td>{cell["text"]}</td>'
-                                for cell in row
-                            ]) + '</tr>' for row in table_data
-                        ])}
-                    </tbody>
+                    <tbody id="body-{sort_col}"></tbody>
                 </table>
             </div>
+            <div class="table-foot">
+                <div class="page-size-selector">
+                    <label for="page-size-select-{sort_col}">Rows per page:</label>
+                    <select id="page-size-select-{sort_col}">
+                        <option value="10" selected>10</option>
+                        <option value="20">20</option>
+                        <option value="30">30</option>
+                    </select>
+                </div>
+                <div class="pagination-controls" id="pagination-{sort_col}"></div>
+            </div>
         </div>
+    
+        <script>
+            const data_{sort_col} = {json.dumps(table_data)};
+            const columns_{sort_col} = {json.dumps(columns_order)};
+            let pageSize_{sort_col} = 10;
+            let currentPage_{sort_col} = 1;
+            let sortColumn_{sort_col} = null;
+            let sortDirection_{sort_col} = 1;
+    
+            const bodyEl_{sort_col} = document.getElementById('body-{sort_col}');
+            const rowCountEl_{sort_col} = document.getElementById('row-count-{sort_col}');
+            const pageSizeSelect_{sort_col} = document.getElementById('page-size-select-{sort_col}');
+            const paginationEl_{sort_col} = document.getElementById('pagination-{sort_col}');
+            const headers_{sort_col} = document.querySelectorAll(
+                `[data-col]`
+            );
+    
+            headers_{sort_col}.forEach((th) => {{
+                th.addEventListener('click', () => {{
+                    const colIndex = parseInt(th.getAttribute('data-col'));
+                    if (sortColumn_{sort_col} === colIndex) {{
+                        sortDirection_{sort_col} = -sortDirection_{sort_col};
+                    }} else {{
+                        sortColumn_{sort_col} = colIndex;
+                        sortDirection_{sort_col} = 1;
+                    }}
+                    headers_{sort_col}.forEach(h => h.classList.remove('sorted-asc','sorted-desc'));
+                    th.classList.add(sortDirection_{sort_col} === 1 ? 'sorted-asc' : 'sorted-desc');
+                    renderTable_{sort_col}();
+                }});
+            }});
+    
+            pageSizeSelect_{sort_col}.addEventListener('change', (e) => {{
+                pageSize_{sort_col} = parseInt(e.target.value, 10);
+                currentPage_{sort_col} = 1;
+                renderTable_{sort_col}();
+            }});
+    
+            function renderTable_{sort_col}() {{
+                let sortedData = [...data_{sort_col}];
+                if (sortColumn_{sort_col} !== null) {{
+                    sortedData.sort((a,b) => {{
+                        const av = parseFloat(a[sortColumn_{sort_col}].text.replace(/[^0-9.-]+/g,""));
+                        const bv = parseFloat(b[sortColumn_{sort_col}].text.replace(/[^0-9.-]+/g,""));
+                        if (!isNaN(av) && !isNaN(bv)) {{
+                            return sortDirection_{sort_col} * (av - bv);
+                        }}
+                        return sortDirection_{sort_col} * a[sortColumn_{sort_col}].text.localeCompare(b[sortColumn_{sort_col}].text);
+                    }});
+                }}
+                const totalRows = sortedData.length;
+                const totalPages = Math.max(1, Math.ceil(totalRows / pageSize_{sort_col}));
+                if (currentPage_{sort_col} > totalPages) currentPage_{sort_col} = totalPages;
+    
+                const start = (currentPage_{sort_col}-1)*pageSize_{sort_col};
+                const end = Math.min(start + pageSize_{sort_col}, totalRows);
+                const pageRows = sortedData.slice(start,end);
+    
+                bodyEl_{sort_col}.innerHTML = pageRows.map(row => {{
+                    return `<tr>${{row.map(cell => {{
+                        const isNum = !isNaN(parseFloat(cell.text.replace(/<.*?>/g,"")));
+                        const align = isNum ? 'text-align:right;' : '';
+                        const bg = cell.bg ? `background:${{cell.bg}};` : '';
+                        return `<td style="${{bg}}{{align}}">${{cell.text}}</td>`;
+                    }}).join('')}}</tr>`;
+                }}).join('');
+    
+                rowCountEl_{sort_col}.textContent = `Showing ${start+1}–${end} of ${totalRows}`;
+                paginationEl_{sort_col}.innerHTML = '';
+                for (let i = 1; i <= totalPages; i++) {{
+                    const btn = document.createElement('button');
+                    btn.textContent = i;
+                    if (i === currentPage_{sort_col}) btn.classList.add('active');
+                    btn.addEventListener('click', (() => {{
+                        currentPage_{sort_col} = i;
+                        renderTable_{sort_col}();
+                    }}));
+                    paginationEl_{sort_col}.appendChild(btn);
+                }}
+            }}
+    
+            renderTable_{sort_col}();
+        </script>
         """
         return html
     
-    # Inject styled dual leaderboard HTML
-    left_html = render_leaderboard_html(
+    # Build the two side-by-side leaderboards
+    left_html = build_leaderboard_html(
         df_main_filtered.sort_values("HitSkillPlus", ascending=False).head(10),
-        "Top 10 by HitSkill+",
         "HitSkillPlus",
+        "Top 10 by HitSkill+",
         abbrev_map,
-        image_dict
+        image_dict,
+        plus_labels
     )
-    right_html = render_leaderboard_html(
+    right_html = build_leaderboard_html(
         df_main_filtered.sort_values("ImpactPlus", ascending=False).head(10),
-        "Top 10 by Impact+",
         "ImpactPlus",
+        "Top 10 by Impact+",
         abbrev_map,
-        image_dict
+        image_dict,
+        plus_labels
     )
     
-    st.markdown("<h2 style='text-align:center; margin-top:1.5em; font-size:1.6em; color:#2a3757;'>Top 10 Leaderboards</h2>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
-        components.html(left_html, height=640, scrolling=False)
+        components.html(left_html, height=650, scrolling=False)
     with col2:
-        components.html(right_html, height=640, scrolling=False)
+        components.html(right_html, height=650, scrolling=False)
+
 
 # ---------------- Player tab ----------------
 elif page == "Player":
