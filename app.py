@@ -862,24 +862,36 @@ if page == "Main":
         unsafe_allow_html=True
     )
         
-    def generate_leaderboard_html(df_display, sort_col, abbrev_map, image_dict, plus_labels, title):
-        table_data = []
-        columns_order = ["#"] + list(df_display.columns)
+    def render_leaderboard_html(df, title, metric, abbrev_map, image_dict):
+        abbrev_map = abbrev_map.copy()
+        abbrev_map.update({
+            "Name": "Name",
+            "Team": "Team",
+            "Age": "Age",
+            "Swing+": "Swing+",
+            "HitSkillPlus": "HitSkill+",
+            "ImpactPlus": "Impact+"
+        })
     
-        for idx, (_, row) in enumerate(df_display.iterrows(), start=1):
-            row_cells = [{"text": str(idx), "bg": ""}]
-            for c in df_display.columns:
-                val = row[c]
-                if c == "Team" and val in image_dict:
-                    content = f'<img src="{image_dict[val]}" alt="{val}" style="height:26px; display:block; margin:0 auto;" />'
+        columns = ["Name", "Team", "Age", "Swing+", "HitSkillPlus", "ImpactPlus"]
+        df = df[columns].copy()
+        df["Age"] = df["Age"].round(0).astype("Int64")
+        table_data = []
+    
+        for _, row in df.iterrows():
+            row_cells = []
+            for col in columns:
+                val = row[col]
+                if col == "Team" and val in image_dict:
+                    text = f'<img src="{image_dict[val]}" alt="{val}" style="height:24px; display:block; margin:0 auto;" />'
                 else:
-                    content = str(val)
-                bg = value_to_color(val) if c in plus_labels else ""
-                row_cells.append({"text": content, "bg": bg})
+                    text = f"{val}" if not pd.isna(val) else ""
+                row_cells.append({"text": text, "bg": ""})
             table_data.append(row_cells)
     
-        return f"""
-        <div class="main-table-container" style="margin-top: 0;">
+        columns_order = [abbrev_map.get(col, col) for col in columns]
+        html = f"""
+        <div class="main-table-container" style="margin-top:1em; height:auto;">
             <div class="main-table-header" style="justify-content:center;">
                 <span>{title}</span>
             </div>
@@ -887,36 +899,46 @@ if page == "Main":
                 <table class="custom-main-table">
                     <thead>
                         <tr>
-                            {''.join([
-                                f"<th title='{c}'>{abbrev_map.get(c, c)}</th>"
-                                for c in columns_order
-                            ])}
+                            {''.join([f"<th>{col}</th>" for col in columns_order])}
                         </tr>
                     </thead>
                     <tbody>
                         {''.join([
-                            f"<tr>{''.join([
-                                f'<td style=\"{f"background:{cell["bg"]};" if cell["bg"] else ""}{"text-align:right;" if cell["text"].replace(\", \"\").replace(\'.\', \"\").isdigit() else ""}\">{cell['text']}</td>'
+                            '<tr>' + ''.join([
+                                f'<td style="text-align:right;">{cell["text"]}</td>' if cell["text"].replace(",", "").replace(".", "").isdigit()
+                                else f'<td>{cell["text"]}</td>'
                                 for cell in row
-                            ])}</tr>"
-                            for row in table_data
+                            ]) + '</tr>' for row in table_data
                         ])}
                     </tbody>
                 </table>
             </div>
         </div>
         """
+        return html
     
+    # Inject styled dual leaderboard HTML
+    left_html = render_leaderboard_html(
+        df_main_filtered.sort_values("HitSkillPlus", ascending=False).head(10),
+        "Top 10 by HitSkill+",
+        "HitSkillPlus",
+        abbrev_map,
+        image_dict
+    )
+    right_html = render_leaderboard_html(
+        df_main_filtered.sort_values("ImpactPlus", ascending=False).head(10),
+        "Top 10 by Impact+",
+        "ImpactPlus",
+        abbrev_map,
+        image_dict
+    )
     
-    # Example Usage (for both leaderboards)
-    left_html = generate_leaderboard_html(top_hit_renamed[leaderboard_cols_hit], "HitSkillPlus", abbrev_map, image_dict, plus_labels, "Top 10 by HitSkill+")
-    right_html = generate_leaderboard_html(top_imp_renamed[leaderboard_cols_imp], "ImpactPlus", abbrev_map, image_dict, plus_labels, "Top 10 by Impact+")
-    
+    st.markdown("<h2 style='text-align:center; margin-top:1.5em; font-size:1.6em; color:#2a3757;'>Top 10 Leaderboards</h2>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
-        components.html(left_html, height=620, scrolling=False)
+        components.html(left_html, height=640, scrolling=False)
     with col2:
-        components.html(right_html, height=620, scrolling=False)
+        components.html(right_html, height=640, scrolling=False)
 
 # ---------------- Player tab ----------------
 elif page == "Player":
