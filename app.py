@@ -629,6 +629,8 @@ if page == "Main":
             }}
             .main-table-wrapper {{
                 overflow-x: auto;
+                overflow-y: hidden;
+                max-height: none;
                 border-radius: 10px;
                 border: 1px solid #e0e6ef;
                 background: #fff;
