@@ -384,37 +384,28 @@ def open_compare_in_same_tab(playerA, playerB, seasonA=None, seasonB=None):
 
 # ---------------- Main tab ----------------
 if page == "Main":
-    import base64
+    import streamlit as st
     
     st.markdown("""
-    <div style="
-        display:flex;
-        flex-direction:column;
-        justify-content:center;
-        align-items:center;
-        margin-top:20px;
-    ">
-        <img src="logo.JPG" style="
-            height:90px;
-            object-fit:contain;
-            display:block;
-            margin-left:auto;
-            margin-right:auto;
-        ">
-        <div style="
-            font-size:32px;
-            font-weight:800;
-            color:#1c2a3a;
-            margin-top:12px;
-            margin-bottom:18px;
-            text-align:center;
-        ">
-            Player Metrics Table
-        </div>
-    </div>
-    
-    <hr style="border:0.5px solid #e2e8f0; margin-top:0px; margin-bottom:20px;">
+    <div style="display:flex; justify-content:center; margin-top:20px;">
     """, unsafe_allow_html=True)
+    
+    st.image("logo.PNG", width=110)
+    
+    st.markdown("""
+    </div>
+    <div style="
+        text-align:center;
+        font-size:32px;
+        font-weight:800;
+        color:#1c2a3a;
+        margin-top:12px;
+        margin-bottom:10px;
+    ">
+        Player Metrics Table
+    </div>
+    """, unsafe_allow_html=True)
+
 
 
     # Filters directly in Main tab
