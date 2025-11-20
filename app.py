@@ -857,10 +857,10 @@ if page == "Main":
     components.html(html_table, height=1450, scrolling=True)
 
 
-        st.markdown(
-            "<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Top 10 Leaderboards</h2>",
-            unsafe_allow_html=True
-        )
+    st.markdown(
+        "<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Top 10 Leaderboards</h2>",
+        unsafe_allow_html=True
+    )
         
         col1, col2 = st.columns(2)
         
