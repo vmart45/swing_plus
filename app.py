@@ -26,6 +26,46 @@ st.set_page_config(
 DATA_PATH = "Main.csv"
 MODEL_PATH = "SwingPlus.pkl"
 
+
+    st.markdown("""
+    <style>
+    #top-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 20px;
+        background-color: white;
+        border-bottom: 1px solid #eee;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        z-index: 1000;
+    }
+    
+    #nav-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    #nav-left img {
+        height: 28px;   /* adjust logo size */
+    }
+    
+    body {
+        padding-top: 55px; /* pushes content below navbar */
+    }
+    </style>
+    
+    <div id="top-nav">
+        <div id="nav-left">
+            <img src="logo.JPG">
+            <span style="font-size:20px; font-weight:600;">Swing+</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 def create_centered_cmap(center=100, vmin=70, vmax=130):
     """
     Create a diverging colormap centered at a specific value (default 100).
