@@ -899,7 +899,7 @@ if page == "Main":
     # =============================
     plus_rename_map = {
         "SwingPlus": "Swing+",
-        "HitSkillPlus": "HitSkill+",
+        "HitSkillPlus": "BatToBall+",
         "ImpactPlus": "Impact+"
     }
     shap_df = shap_df.rename(columns=plus_rename_map)
@@ -944,7 +944,7 @@ if page == "Main":
     
     all_stats_shap.append("batted_ball_events")
     
-    for plus in ["Swing+", "HitSkill+", "Impact+"]:
+    for plus in ["Swing+", "BatToBall+", "Impact+"]:
         if plus in df_shap_filtered.columns:
             all_stats_shap.append(plus)
     
@@ -1071,7 +1071,7 @@ if page == "Main":
     # =============================
     # COLOR TARGET COLUMNS
     # =============================
-    plus_labels_shap = ["Swing+", "HitSkill+", "Impact+"]
+    plus_labels_shap = ["Swing+", "BatToBall+", "Impact+"]
     
     # =============================
     # FINAL TABLE DATA
@@ -1570,7 +1570,7 @@ elif page == "Player":
           </div>
           <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
             <div style="font-size: 2.2em; font-weight: 700; color: {proj_color};">{player_row.get('ProjSwing+', player_row.get('HitSkillPlus', np.nan)):.2f}</div>
-            <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">HitSkill+</div>
+            <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">BatToBall+</div>
             <span style="background: #C8E6C933; color: #1B5E20; border-radius: 10px; font-size: 0.98em; padding: 2px 10px;">Rank {p_proj_rank if p_proj_rank is not None else 'N/A'} of {total_players if total_players is not None else 'N/A'}</span>
           </div>
           <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
