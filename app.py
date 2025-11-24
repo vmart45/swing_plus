@@ -869,6 +869,233 @@ if page == "Main":
 
     components.html(html_table, height=1550, scrolling=True)
 
+    # --- Load the SHAP values CSV
+    shap_df = pd.read_csv("SwingPlus_SHAP_Values.csv")
+    
+    # Apply the same filter logic (season, age, swings, search) to shap_df
+    df_shap_filtered = shap_df.copy()
+    if season_col and season_selected_global is not None:
+        df_shap_filtered = df_shap_filtered[df_shap_filtered[season_col] == season_selected_global]
+    if search_name:
+        df_shap_filtered = df_shap_filtered[df_shap_filtered["name"].str.contains(search_name, case=False, na=False)]
+    # Age filter (if Age exists)
+    if "Age" in df_shap_filtered.columns:
+        df_shap_filtered = df_shap_filtered[(df_shap_filtered["Age"] >= age_min) & (df_shap_filtered["Age"] <= age_max)]
+    # Competitive Swings filter
+    if comp_col and comp_col in df_shap_filtered.columns:
+        df_shap_filtered = df_shap_filtered[
+            (df_shap_filtered[comp_col] >= swings_min_input) &
+            (df_shap_filtered[comp_col] <= swings_max_input)
+        ]
+    
+    # --- Define which SHAP columns to display
+    display_cols_shap = ["name", "year", "pa", "batted_ball_events"]
+    # add SHAP value columns & their importances
+    shap_stats = [
+        ("avg_bat_speed_shap", "avg_bat_speed_importance"),
+        ("swing_tilt_shap", "swing_tilt_importance"),
+        ("attack_angle_shap", "attack_angle_importance"),
+        ("attack_direction_shap", "attack_direction_importance"),
+        ("avg_intercept_y_vs_plate_shap", "avg_intercept_y_vs_plate_importance"),
+        ("avg_intercept_y_vs_batter_shap", "avg_intercept_y_vs_batter_importance"),
+        ("avg_batter_y_position_shap", "avg_batter_y_position_importance"),
+        ("avg_batter_x_position_shap", "avg_batter_x_position_importance"),
+        ("swing_length_shap", "swing_length_importance"),
+        ("avg_foot_sep_shap", "avg_foot_sep_importance"),
+        ("avg_stance_angle_shap", "avg_stance_angle_importance"),
+    ]
+    for shap_col, imp_col in shap_stats:
+        if shap_col in df_shap_filtered.columns:
+            display_cols_shap.append(shap_col)
+        if imp_col in df_shap_filtered.columns:
+            display_cols_shap.append(imp_col)
+    
+    # Remove any unwanted columns (if needed)
+    removed_cols_shap = ["side"]  # as an example
+    display_cols_shap = [c for c in display_cols_shap if c in df_shap_filtered.columns and c not in removed_cols_shap]
+    
+    # Prepare the dataframe
+    display_df_shap = df_shap_filtered[display_cols_shap].copy()
+    # Round numeric columns
+    for c in display_df_shap.select_dtypes(include=["float", "int"]).columns:
+        display_df_shap[c] = display_df_shap[c].round(2)
+    
+    # Rename columns for legibility
+    rename_map_shap = {
+        "name": "Name",
+        "year": "Season",
+        "pa": "PA",
+        "batted_ball_events": "Batted Ball Events",
+    }
+    # Map shap/importance names
+    for shap_col, imp_col in shap_stats:
+        if shap_col in rename_map_shap:
+            rename_map_shap[shap_col] = rename_map_shap[shap_col]
+        rename_map_shap[shap_col] = shap_col.replace("_", " ").title()
+        rename_map_shap[imp_col] = imp_col.replace("_", " ").title()
+    
+    display_df_shap = display_df_shap.rename(columns=rename_map_shap)
+    
+    # Sort (using the first column or a specific one)
+    sort_col_shap = list(display_df_shap.columns)[0]
+    styled_shap = display_df_shap.sort_values(sort_col_shap, ascending=False).reset_index(drop=True)
+    
+    # Convert to the same HTML/JS table structure
+    table_data_shap = []
+    for idx, (_, row) in enumerate(styled_shap.iterrows(), start=1):
+        row_cells = [{"text": str(idx), "bg": ""}]
+        for c in styled_shap.columns:
+            val = row[c]
+            content = "" if pd.isna(val) else str(val)
+            row_cells.append({"text": content, "bg": ""})
+        table_data_shap.append(row_cells)
+    
+    html_table_shap = f"""
+    <div class="main-table-container">
+      <div class="main-table-header">
+        <span>Player SHAP Metrics (sorted by {sort_col_shap})</span>
+        <span id="row-count-shap"></span>
+      </div>
+      <div class="main-table-wrapper">
+        <table class="custom-main-table" id="shap-table">
+          <thead>
+            <tr>
+              {''.join([
+                  f"<th title='{c}' data-col='{i}'>{c}</th>"
+                  for i, c in enumerate(['#'] + list(styled_shap.columns))
+              ])}
+            </tr>
+          </thead>
+          <tbody id="shap-table-body"></tbody>
+        </table>
+      </div>
+      <div class="table-foot">
+        <div class="page-size-selector">
+          <label for="page-size-select-shap">Rows per page:</label>
+          <select id="page-size-select-shap">
+            <option value="30" selected>30</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+          </select>
+        </div>
+        <div class="pagination-controls">
+          <button id="first-page-shap">« First</button>
+          <button id="prev-page-shap">‹ Prev</button>
+          <span id="page-info-shap"></span>
+          <button id="next-page-shap">Next ›</button>
+          <button id="last-page-shap">Last »</button>
+        </div>
+      </div>
+    </div>
+    
+    <script>
+      const data_shap = {json.dumps(table_data_shap)};
+      const columns_shap = {json.dumps(['#'] + list(styled_shap.columns))};
+      let pageSize_shap = 30;
+      let currentPage_shap = 1;
+      let sortColumn_shap = null;
+      let sortDirection_shap = 1;
+    
+      const bodyEl_shap = document.getElementById('shap-table-body');
+      const rowCountEl_shap = document.getElementById('row-count-shap');
+      const pageInfoEl_shap = document.getElementById('page-info-shap');
+      const firstBtn_shap = document.getElementById('first-page-shap');
+      const prevBtn_shap = document.getElementById('prev-page-shap');
+      const nextBtn_shap = document.getElementById('next-page-shap');
+      const lastBtn_shap = document.getElementById('last-page-shap');
+      const headers_shap = document.querySelectorAll('#shap-table thead th[data-col]');
+      const pageSizeSelect_shap = document.getElementById('page-size-select-shap');
+    
+      headers_shap.forEach((th) => {
+        th.addEventListener('click', () => {
+          const colIndex = parseInt(th.getAttribute('data-col'));
+          if (sortColumn_shap === colIndex) {
+            sortDirection_shap = -sortDirection_shap;
+          } else {
+            sortColumn_shap = colIndex;
+            sortDirection_shap = 1;
+          }
+          headers_shap.forEach(header => {
+            header.classList.remove('sorted-asc', 'sorted-desc');
+          });
+          th.classList.add(sortDirection_shap === 1 ? 'sorted-asc' : 'sorted-desc');
+          renderTable_shap();
+        });
+      });
+    
+      firstBtn_shap.addEventListener('click', () => {
+        currentPage_shap = 1;
+        renderTable_shap();
+      });
+      prevBtn_shap.addEventListener('click', () => {
+        if (currentPage_shap > 1) currentPage_shap--;
+        renderTable_shap();
+      });
+      nextBtn_shap.addEventListener('click', () => {
+        const totalPages = Math.max(1, Math.ceil(data_shap.length / pageSize_shap));
+        if (currentPage_shap < totalPages) currentPage_shap++;
+        renderTable_shap();
+      });
+      lastBtn_shap.addEventListener('click', () => {
+        currentPage_shap = Math.max(1, Math.ceil(data_shap.length / pageSize_shap));
+        renderTable_shap();
+      });
+    
+      pageSizeSelect_shap.addEventListener('change', (e) => {
+        pageSize_shap = parseInt(e.target.value, 10);
+        currentPage_shap = 1;
+        renderTable_shap();
+      });
+    
+      function renderTable_shap() {
+        let sortedData = [...data_shap];
+        if (sortColumn_shap !== null) {
+          sortedData.sort((a, b) => {
+            const aText = a[sortColumn_shap].text;
+            const bText = b[sortColumn_shap].text;
+            const aVal = parseFloat(aText);
+            const bVal = parseFloat(bText);
+            if (!isNaN(aVal) && !isNaN(bVal)) {
+              return sortDirection_shap * (aVal - bVal);
+            }
+            return sortDirection_shap * aText.localeCompare(bText);
+          });
+        }
+    
+        const totalRows = sortedData.length;
+        const totalPages = Math.max(1, Math.ceil(totalRows / pageSize_shap));
+        if (currentPage_shap > totalPages) currentPage_shap = totalPages;
+    
+        const start = (currentPage_shap - 1) * pageSize_shap;
+        const end = Math.min(start + pageSize_shap, totalRows);
+        const pageRows = sortedData.slice(start, end);
+    
+        bodyEl_shap.innerHTML = pageRows.map(row => {
+          const cells = row.map((cell, i) => {
+            const isNum = !isNaN(cell.text) && cell.text !== "";
+            const align = isNum ? 'text-align: right;' : '';
+            const bg = cell.bg ? `background:${cell.bg};` : '';
+            const style = (bg || align) ? ` style="${bg}${align}"` : '';
+            return `<td${style}>${cell.text}</td>`;
+          }).join('');
+          return `<tr>${cells}</tr>`;
+        }).join('');
+    
+        rowCountEl_shap.textContent = `Showing ${start + 1}–${end} of ${totalRows}`;
+        pageInfoEl_shap.textContent = `Page ${currentPage_shap} / ${totalPages}`;
+        prevBtn_shap.disabled = currentPage_shap === 1;
+        firstBtn_shap.disabled = currentPage_shap === 1;
+        nextBtn_shap.disabled = currentPage_shap === totalPages;
+        lastBtn_shap.disabled = currentPage_shap === totalPages;
+      }
+    
+      renderTable_shap();
+    </script>
+    """
+    
+    components.html(html_table_shap, height=1550, scrolling=True)
+
 
 # ---------------- Player tab ----------------
 elif page == "Player":
