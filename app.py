@@ -872,323 +872,183 @@ if page == "Main":
     components.html(html_table, height=1550, scrolling=True)
 
 # ================== SHAP VERSION OF MAIN TABLE ==================
-
-    st.markdown("<div style='height:24px;'></div>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align:center;'>Player Metrics – SHAP Contributions</h3>", unsafe_allow_html=True)
+    mech_features_available = [f for f in mechanical_features if f in df.columns]
     
-    base_cols = ["#", "Name", "Team", "Season", "PA", "Competitive Swings", "Batted Ball Events", "Swing+", "BatToBall+", "Impact+"]
-    mechanical_cols = [c for c in styled.columns if c not in base_cols]
+    shap_df = None
+    shap_base = None
+    shap_pred = None
+    shap_values_arr = None
+    model_error = None
     
-    shap_cache = {}
+    # ---------------------------------------------------
+    # USE PRECOMPUTED SHAP CSV INSTEAD OF LIVE COMPUTING
+    # ---------------------------------------------------
+    try:
+        shap_csv = pd.read_csv("SwingPlus_SHAP_Values.csv")
     
-    def compute_shap_for_row(row):
-        key = f"{row.get('Name','')}_{row.get('Team','')}"
-        if key in shap_cache:
-            return shap_cache[key]
+        if "id" in player_row and pd.notna(player_row["id"]):
+            player_shap_row = shap_csv[shap_csv["id"] == player_row["id"]]
+        else:
+            player_shap_row = shap_csv[shap_csv["name"] == player_row["name"]]
     
-        try:
-            X_player = prepare_model_input_for_player(row, mechanical_cols, model, df_reference=df)
-            shap_values = explainer(X_player)
-            values = np.array(shap_values.values).flatten() if hasattr(shap_values, "values") else np.array(shap_values).flatten()
+        if player_shap_row.empty:
+            raise ValueError("Player not found in SwingPlus_SHAP_Values.csv")
     
-            temp = pd.DataFrame({
-                "feature": X_player.columns,
-                "shap": values
+        player_shap_row = player_shap_row.iloc[0]
+    
+        shap_rows = []
+    
+        for col in shap_csv.columns:
+            if col.endswith("_shap"):
+                base_feature = col.replace("_shap", "")
+                importance_col = f"{base_feature}_importance"
+    
+                shap_rows.append({
+                    "feature": base_feature,
+                    "raw": round(float(player_row.get(base_feature, np.nan)), 2) if pd.notna(player_row.get(base_feature, np.nan)) else np.nan,
+                    "shap_value": round(float(player_shap_row[col]), 2),
+                    "pct_of_abs": round(float(player_shap_row.get(importance_col, 0)), 4)
+                })
+    
+        shap_df = pd.DataFrame(shap_rows)
+        shap_df["abs_shap"] = shap_df["shap_value"].abs()
+    
+        total_abs = shap_df["abs_shap"].sum() if shap_df["abs_shap"].sum() != 0 else 1.0
+    
+        if shap_df["pct_of_abs"].max() > 1:
+            shap_df["pct_of_abs"] = shap_df["abs_shap"] / total_abs
+    
+        shap_df = shap_df.sort_values("abs_shap", ascending=False).reset_index(drop=True)
+    
+    except Exception as e:
+        shap_df = None
+        model_error = str(e)
+    
+    
+    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <h3 style="text-align:center; margin-top:6px; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
+            Swing+ Feature Contributions
+        </h3>
+        <div style="text-align:center; color:#6b7280; margin-bottom:6px; font-size:0.95em;">
+            How each mechanical feature moved the model's Swing+ prediction for this player.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    col1, col2 = st.columns([1, 1])
+    
+    shap_pred_label = "N/A"
+    swing_actual_label = f"{player_row.get('Swing+', np.nan):.2f}" if pd.notna(player_row.get("Swing+")) else "N/A"
+    base_label = "N/A"
+    
+    with col1:
+        st.markdown(f"<div style='text-align:center;font-weight:700;color:#183153;'>Model prediction: {shap_pred_label} &nbsp; | &nbsp; Actual Swing+: {swing_actual_label}</div>", unsafe_allow_html=True)
+    
+        if shap_df is None or len(shap_df) == 0:
+            st.info("Swing+ CSV SHAP data not available.")
+            if model_error:
+                st.caption(f"CSV load error: {model_error}")
+        else:
+            TOP_SHOW = min(8, len(shap_df))
+            df_plot_top = shap_df.head(TOP_SHOW).copy()
+            df_plot_top = df_plot_top.sort_values("pct_of_abs", ascending=False).reset_index(drop=True)
+    
+            y = df_plot_top["feature"].map(lambda x: FEATURE_LABELS.get(x, x)).tolist()
+            x_vals = df_plot_top["shap_value"].astype(float).tolist()
+            pct_vals = df_plot_top["pct_of_abs"].astype(float).tolist()
+            colors = ["#D8573C" if float(v) > 0 else "#3B82C4" for v in x_vals]
+    
+            text_labels = [f"{val:.2f}  ({pct:.0%})" for val, pct in zip(x_vals, pct_vals)]
+    
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                x=x_vals,
+                y=y,
+                orientation='h',
+                marker_color=colors,
+                hoverinfo='text',
+                hovertext=[f"Contribution: {v:.2f}<br>Importance: {p:.0%}" for v, p in zip(x_vals, pct_vals)],
+                text=text_labels,
+                textposition='inside',
+                insidetextanchor='middle'
+            ))
+            fig.update_layout(
+                margin=dict(l=160, r=24, t=12, b=60),
+                xaxis_title="SHAP contribution to Swing+ (signed)",
+                yaxis=dict(autorange="reversed"),
+                height=520,
+                showlegend=False,
+                font=dict(size=11)
+            )
+            st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
+    
+    with col2:
+    
+        st.markdown(
+            f"<div style='text-align:center;font-weight:700;color:#183153; margin-bottom:1px;'>Model baseline: {base_label}</div>",
+            unsafe_allow_html=True
+        )
+    
+        if shap_df is None or len(shap_df) == 0:
+            st.write("No SHAP data to show.")
+        else:
+    
+            display_df = shap_df.copy()
+            display_df["feature_label"] = display_df["feature"].map(lambda x: FEATURE_LABELS.get(x, x))
+            display_df = display_df.sort_values("abs_shap", ascending=False).head(12)
+            display_df = display_df[["feature_label", "raw", "shap_value", "pct_of_abs"]].rename(columns={
+                "feature_label": "Feature",
+                "raw": "Value",
+                "shap_value": "Contribution",
+                "pct_of_abs": "PctImportance"
             })
-            temp["abs"] = temp["shap"].abs()
-            total = temp["abs"].sum() or 1
-            temp["pct"] = temp["abs"] / total
     
-            shap_cache[key] = temp.set_index("feature")
-            return shap_cache[key]
-        except Exception:
-            return None
+            display_df["Value"] = display_df["Value"].apply(lambda v: f"{float(v):.2f}" if pd.notna(v) else "NaN")
+            display_df["Contribution"] = display_df["Contribution"].apply(lambda v: f"{float(v):.2f}")
+            display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{float(v):.0%}")
+            display_df = display_df.reset_index(drop=True)
     
+            st.markdown("""
+            <style>
+            .comp-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 0.1px;
+                font-size: 0.88em;
+                background: #FFFFFF;
+                border: 2px solid #111827;
+                border-radius: 10px;
+                overflow: hidden;
+            }
+            .comp-table th { background: #F3F4F6; font-weight: 700; text-align: center; padding: 10px 6px; }
+            .comp-table td { padding: 9px 6px; text-align: center; border-bottom: 1px solid #E5E7EB; }
+            .comp-feature { text-align: left; font-weight: 600; padding-left: 8px; }
+            </style>
+            """, unsafe_allow_html=True)
     
-    shap_table_rows = []
+            import html as _html
+            html_rows = ""
+            for _, r in display_df.iterrows():
+                html_rows += (
+                    "<tr>"
+                    f"<td class='comp-feature'>{_html.escape(r['Feature'])}</td>"
+                    f"<td>{_html.escape(r['Value'])}</td>"
+                    f"<td>{_html.escape(r['Contribution'])}</td>"
+                    f"<td>{_html.escape(r['PctImportance'])}</td>"
+                    "</tr>"
+                )
     
-    for idx, (_, row) in enumerate(styled.iterrows(), start=1):
-        row_cells = [{"text": str(idx), "bg": ""}]
-        shap_row = compute_shap_for_row(row)
+            html_table = (
+                "<table class='comp-table'>"
+                "<thead><tr><th>Feature</th><th>Value</th><th>Contribution</th><th>Importance</th></tr></thead>"
+                f"<tbody>{html_rows}</tbody>"
+                "</table>"
+            )
     
-        for c in styled.columns:
-            val = row[c]
-            bg = ""
-            
-            # For mechanical columns, show SHAP values
-            if c in mechanical_cols and shap_row is not None and c in shap_row.index:
-                s_val = shap_row.loc[c, "shap"]
-                pct_val = shap_row.loc[c, "pct"]
-                content = f"{s_val:+.3f} ({pct_val:.0%})"
-                # Color based on SHAP value direction (centered at 0)
-                bg = value_to_color(s_val, center=0, vmin=-1, vmax=1)
-            # For Team column, show logo
-            elif c == "Team" and val in image_dict:
-                content = f'<img src="{image_dict[val]}" alt="{val}" style="height:28px; display:block; margin:0 auto;" />'
-            # For all other columns, show formatted values
-            else:
-                content = format_cell(val)
-                # Keep color coding for plus metrics
-                if c in plus_labels:
-                    bg = value_to_color(val)
-    
-            row_cells.append({"text": content, "bg": bg})
-    
-        shap_table_rows.append(row_cells)
-
-
-# Generate SHAP HTML table with same styling and functionality
-    shap_html_table = f"""
-    <style>
-        .main-table-container {{
-            width: 100%;
-            margin: 0 auto;
-            background: #f8fafc;
-            border-radius: 14px;
-            border: 1px solid #e3e8f0;
-            box-shadow: 0 6px 18px rgba(42, 55, 87, 0.08);
-            padding: 18px 18px 12px;
-            box-sizing: border-box;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }}
-        .main-table-header {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-            color: #24324c;
-            font-weight: 600;
-            font-size: 0.95rem;
-            letter-spacing: 0.01em;
-        }}
-        .main-table-wrapper {{
-            overflow-x: auto;
-            overflow-y: hidden;
-            max-height: none;
-            border-radius: 10px;
-            border: 1px solid #e0e6ef;
-            background: #fff;
-            padding: 10px 6px;
-        }}
-        table.custom-main-table {{
-            width: 100%;
-            border-collapse: collapse;
-            font-family: inherit;
-            font-size: 0.85rem;
-            color: #1e293b;
-            table-layout: auto;
-        }}
-        table.custom-main-table thead th {{
-            background: #f9fafb;
-            font-weight: 600;
-            text-align: left;
-            padding: 8px 12px;
-            border-bottom: 1px solid #e2e8f0;
-            font-variant-numeric: tabular-nums;
-            white-space: nowrap;
-            cursor: pointer;
-        }}
-        table.custom-main-table thead th.sorted-asc::after {{
-            content: " ▲";
-        }}
-        table.custom-main-table thead th.sorted-desc::after {{
-            content: " ▼";
-        }}
-        table.custom-main-table tbody td {{
-            padding: 6px 12px;
-            border-bottom: 1px solid #f1f5f9;
-            font-variant-numeric: tabular-nums;
-        }}
-        table.custom-main-table tbody tr:hover td {{
-            background: #f1f5f9;
-        }}
-        .table-foot {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 12px;
-            flex-wrap: wrap;
-            gap: 12px;
-        }}
-        .pagination-controls {{
-            display: flex;
-            gap: 8px;
-        }}
-        .pagination-controls button {{
-            border: 1px solid #cbd5e1;
-            background: #fff;
-            color: #1f2937;
-            padding: 6px 10px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.15s ease;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-        }}
-        .pagination-controls button:disabled {{
-            opacity: 0.5;
-            cursor: default;
-        }}
-        .page-size-selector {{
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.85rem;
-        }}
-        .page-size-selector select {{
-            padding: 6px 10px;
-            border-radius: 8px;
-            border: 1px solid #cbd5e1;
-        }}
-    </style>
-    
-    <div class="main-table-container">
-        <div class="main-table-header">
-            <span>Player Metrics – SHAP Contributions</span>
-            <span id="shap-row-count"></span>
-        </div>
-    
-        <div class="main-table-wrapper">
-            <table class="custom-main-table">
-                <thead>
-                    <tr>
-                        {''.join([
-                            f"<th title='{c}' data-col='{i}'>{abbrev_map.get(c, c)}</th>"
-                            for i, c in enumerate(columns_order)
-                        ])}
-                    </tr>
-                </thead>
-                <tbody id="shap-table-body"></tbody>
-            </table>
-        </div>
-    
-        <div class="table-foot">
-            <div class="page-size-selector">
-                <label for="shap-page-size-select">Rows per page:</label>
-                <select id="shap-page-size-select">
-                    <option value="30" selected>30</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                    <option value="200">200</option>
-                </select>
-            </div>
-            <div class="pagination-controls">
-                <button id="shap-first-page">« First</button>
-                <button id="shap-prev-page">‹ Prev</button>
-                <span id="shap-page-info"></span>
-                <button id="shap-next-page">Next ›</button>
-                <button id="shap-last-page">Last »</button>
-            </div>
-        </div>
-    </div>
-    
-    <script>
-        const shapData = {json.dumps(shap_table_rows)};
-        const shapColumns = {json.dumps(columns_order)};
-        let shapPageSize = 30;
-        let shapCurrentPage = 1;
-        let shapSortColumn = null;
-        let shapSortDirection = 1;
-    
-        const shapBodyEl = document.getElementById('shap-table-body');
-        const shapRowCountEl = document.getElementById('shap-row-count');
-        const shapPageInfoEl = document.getElementById('shap-page-info');
-        const shapFirstBtn = document.getElementById('shap-first-page');
-        const shapPrevBtn = document.getElementById('shap-prev-page');
-        const shapNextBtn = document.getElementById('shap-next-page');
-        const shapLastBtn = document.getElementById('shap-last-page');
-        const shapHeaders = document.querySelectorAll('#shap-table-body').parentElement.parentElement.querySelectorAll('th[data-col]');
-        const shapPageSizeSelect = document.getElementById('shap-page-size-select');
-    
-        shapHeaders.forEach((th) => {{
-            th.addEventListener('click', () => {{
-                const colIndex = parseInt(th.getAttribute('data-col'));
-                if (shapSortColumn === colIndex) {{
-                    shapSortDirection = -shapSortDirection;
-                }} else {{
-                    shapSortColumn = colIndex;
-                    shapSortDirection = 1;
-                }}
-                shapHeaders.forEach(header => {{
-                    header.classList.remove('sorted-asc', 'sorted-desc');
-                }});
-                th.classList.add(shapSortDirection === 1 ? 'sorted-asc' : 'sorted-desc');
-                renderShapTable();
-            }});
-        }});
-    
-        shapFirstBtn.addEventListener('click', () => {{
-            shapCurrentPage = 1;
-            renderShapTable();
-        }});
-        shapPrevBtn.addEventListener('click', () => {{
-            if (shapCurrentPage > 1) shapCurrentPage--;
-            renderShapTable();
-        }});
-        shapNextBtn.addEventListener('click', () => {{
-            const totalPages = Math.max(1, Math.ceil(shapData.length / shapPageSize));
-            if (shapCurrentPage < totalPages) shapCurrentPage++;
-            renderShapTable();
-        }});
-        shapLastBtn.addEventListener('click', () => {{
-            shapCurrentPage = Math.max(1, Math.ceil(shapData.length / shapPageSize));
-            renderShapTable();
-        }});
-    
-        shapPageSizeSelect.addEventListener('change', (e) => {{
-            shapPageSize = parseInt(e.target.value, 10);
-            shapCurrentPage = 1;
-            renderShapTable();
-        }});
-    
-        function renderShapTable() {{
-            let sortedData = [...shapData];
-            if (shapSortColumn !== null) {{
-                sortedData.sort((a, b) => {{
-                    const aText = a[shapSortColumn].text;
-                    const bText = b[shapSortColumn].text;
-                    const aVal = parseFloat(aText);
-                    const bVal = parseFloat(bText);
-                    if (!isNaN(aVal) && !isNaN(bVal)) {{
-                        return shapSortDirection * (aVal - bVal);
-                    }}
-                    return shapSortDirection * aText.localeCompare(bText);
-                }});
-            }}
-    
-            const totalRows = sortedData.length;
-            const totalPages = Math.max(1, Math.ceil(totalRows / shapPageSize));
-            if (shapCurrentPage > totalPages) shapCurrentPage = totalPages;
-    
-            const start = (shapCurrentPage - 1) * shapPageSize;
-            const end = Math.min(start + shapPageSize, totalRows);
-            const pageRows = sortedData.slice(start, end);
-    
-            shapBodyEl.innerHTML = pageRows.map(row => {{
-                const cells = row.map((cell, i) => {{
-                    const isNum = !isNaN(cell.text) && cell.text !== "";
-                    const align = isNum ? 'text-align: right;' : '';
-                    const bg = cell.bg ? `background:${{cell.bg}};` : '';
-                    const style = (bg || align) ? ` style="${{bg}}${{align}}"` : '';
-                    return `<td${{style}}>${{cell.text}}</td>`;
-                }}).join('');
-                return `<tr>${{cells}}</tr>`;
-            }}).join('');
-    
-            shapRowCountEl.textContent = `Showing ${{start + 1}}–${{end}} of ${{totalRows}}`;
-            shapPageInfoEl.textContent = `Page ${{shapCurrentPage}} / ${{totalPages}}`;
-    
-            shapPrevBtn.disabled = shapCurrentPage === 1;
-            shapFirstBtn.disabled = shapCurrentPage === 1;
-            shapNextBtn.disabled = shapCurrentPage === totalPages;
-            shapLastBtn.disabled = shapCurrentPage === totalPages;
-        }}
-    
-        renderShapTable();
-    </script>
-    """
-    
-    components.html(shap_html_table, height=1550, scrolling=True)
+            st.markdown(html_table, unsafe_allow_html=True)
 
 
 # ---------------- Player tab ----------------
