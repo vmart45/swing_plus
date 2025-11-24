@@ -382,7 +382,6 @@ def open_compare_in_same_tab(playerA, playerB, seasonA=None, seasonB=None):
         except Exception:
             pass
 
-# ---------------- Main tab ----------------
 if page == "Main":
 
     # Inject custom CSS for HTML-style filters
@@ -430,12 +429,15 @@ if page == "Main":
                 season_selected_global = st.selectbox("Season", unique_years, index=default_index, key="main_season")
 
     with filter_col2:
-        st.markdown("**Age Range (Min / Max)**")
+        # Age min / max side by side (compact)
         min_age_val = int(df["Age"].min())
         max_age_val = int(df["Age"].max())
 
-        age_min = st.number_input("Min Age", min_value=min_age_val, max_value=max_age_val, value=min_age_val, step=1, key="age_min")
-        age_max = st.number_input("Max Age", min_value=min_age_val, max_value=max_age_val, value=max_age_val, step=1, key="age_max")
+        age_c1, age_c2 = st.columns(2)
+        with age_c1:
+            age_min = st.number_input("Min Age", min_value=min_age_val, max_value=max_age_val, value=min_age_val, step=1, key="age_min")
+        with age_c2:
+            age_max = st.number_input("Max Age", min_value=min_age_val, max_value=max_age_val, value=max_age_val, step=1, key="age_max")
 
     with filter_col3:
         comp_col = None
@@ -447,14 +449,17 @@ if page == "Main":
         swings_min_input = None
         swings_max_input = None
         if comp_col:
-            st.markdown("**Competitive Swings (Min / Max)**")
             swings_min_val = int(df[comp_col].min())
             swings_max_val = int(df[comp_col].max())
 
-            swings_min_input = st.number_input("Min Swings", min_value=swings_min_val, max_value=swings_max_val, value=swings_min_val, step=1, key="swings_min")
-            swings_max_input = st.number_input("Max Swings", min_value=swings_min_val, max_value=swings_max_val, value=swings_max_val, step=1, key="swings_max")
+            swing_c1, swing_c2 = st.columns(2)
+            with swing_c1:
+                swings_min_input = st.number_input("Min Swings", min_value=swings_min_val, max_value=swings_max_val, value=swings_min_val, step=1, key="swings_min")
+            with swing_c2:
+                swings_max_input = st.number_input("Max Swings", min_value=swings_min_val, max_value=swings_max_val, value=swings_max_val, step=1, key="swings_max")
 
     with filter_col4:
+
         search_name = st.text_input("Search Player by Name", key="main_search")
 
     st.markdown("---")
