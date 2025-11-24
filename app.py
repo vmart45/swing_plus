@@ -869,84 +869,92 @@ if page == "Main":
 
     components.html(html_table, height=1550, scrolling=True)
 
-# Load SHAP CSV
+    # Load SHAP CSV
     shap_df = pd.read_csv("SwingPlus_SHAP_Values.csv")
-
-    shap_stats = [
-        ("avg_bat_speed_shap", "avg_bat_speed_importance"),
-        ("swing_tilt_shap", "swing_tilt_importance"),
-        ("attack_angle_shap", "attack_angle_importance"),
-        ("attack_direction_shap", "attack_direction_importance"),
-        ("avg_intercept_y_vs_plate_shap", "avg_intercept_y_vs_plate_importance"),
-        ("avg_intercept_y_vs_batter_shap", "avg_intercept_y_vs_batter_importance"),
-        ("avg_batter_y_position_shap", "avg_batter_y_position_importance"),
-        ("avg_batter_x_position_shap", "avg_batter_x_position_importance"),
-        ("swing_length_shap", "swing_length_importance"),
-        ("avg_foot_sep_shap", "avg_foot_sep_importance"),
-        ("avg_stance_angle_shap", "avg_stance_angle_importance"),
-    ]
     
-    all_stats_shap = ["id", "batted_ball_events", "year", "pa", "competitive_swings"]
-    for shap_col, imp_col in shap_stats:
-        if shap_col in shap_df.columns:
-            all_stats_shap.append(shap_col)
-        if imp_col in shap_df.columns:
-            all_stats_shap.append(imp_col)
+    # Add missing columns if not present
+    for col in ["Name", "Team"]:
+        if col not in shap_df.columns:
+            shap_df[col] = ""
     
-    removed_cols_shap = ["bip", "batter_run_value", "side"]
-    display_cols_shap = [c for c in all_stats_shap if c not in removed_cols_shap and c in shap_df.columns]
+    # Filter logic (if needed)
+    df_shap_filtered = shap_df.copy()
+    if season_col and season_selected_global is not None and "year" in df_shap_filtered.columns:
+        df_shap_filtered = df_shap_filtered[df_shap_filtered[season_col] == season_selected_global]
+    if comp_col and comp_col in df_shap_filtered.columns:
+        df_shap_filtered = df_shap_filtered[
+            (df_shap_filtered[comp_col] >= swings_min_input) &
+            (df_shap_filtered[comp_col] <= swings_max_input)
+        ]
+    if "Age" in df_shap_filtered.columns:
+        df_shap_filtered = df_shap_filtered[(df_shap_filtered["Age"] >= age_min) & (df_shap_filtered["Age"] <= age_max)]
     
-    display_df_shap = shap_df[display_cols_shap].copy()
+    # Column setup
+    all_stats_shap = ["Name", "Team", "year", "pa", comp_col, "batted_ball_events"]
+    for base in [
+        "avg_bat_speed", "swing_tilt", "attack_angle", "attack_direction", "avg_intercept_y_vs_plate",
+        "avg_intercept_y_vs_batter", "avg_batter_y_position", "avg_batter_x_position",
+        "swing_length", "avg_foot_sep", "avg_stance_angle"
+    ]:
+        for suffix in ["_shap", "_importance"]:
+            col = f"{base}{suffix}"
+            if col in df_shap_filtered.columns:
+                all_stats_shap.append(col)
     
-    # === Rounding rules ===
-    for c in ["pa", "competitive_swings", "batted_ball_events", "year"]:
-        if c in display_df_shap.columns:
-            display_df_shap[c] = display_df_shap[c].round(0).astype("Int64")
+    removed_cols_shap = ["id", "bip", "batter_run_value", "est_ba", "est_slg", "est_woba", "side"]
+    display_cols_shap = [c for c in all_stats_shap if c in df_shap_filtered.columns and c not in removed_cols_shap]
+    display_df_shap = df_shap_filtered[display_cols_shap].copy()
     
-    for c in display_df_shap.columns:
-        if c.endswith("_shap"):
-            display_df_shap[c] = display_df_shap[c].round(3)
+    # Rounding
+    for col in ["pa", comp_col, "batted_ball_events", "year"]:
+        if col in display_df_shap.columns:
+            display_df_shap[col] = display_df_shap[col].round(0).astype("Int64")
     
-    # === Rename map ===
+    for col in display_df_shap.columns:
+        if col.endswith("_shap") or col.endswith("_importance"):
+            display_df_shap[col] = display_df_shap[col].round(3)
+    
+    # Rename
     rename_map_shap = {
-        "pa": "PA",
-        "competitive_swings": "Competitive Swings",
-        "batted_ball_events": "Batted Ball Events",
         "year": "Season",
-        "id": "ID"
+        "pa": "PA",
+        "batted_ball_events": "BBE"
     }
-    for shap_col, imp_col in shap_stats:
-        rename_map_shap[shap_col] = shap_col.replace("_", " ").title()
-        rename_map_shap[imp_col] = imp_col.replace("_", " ").title()
+    if comp_col in display_df_shap.columns:
+        rename_map_shap[comp_col] = "Competitive Swings"
     
     display_df_shap = display_df_shap.rename(columns=rename_map_shap)
-    sort_col_shap = "Avg Bat Speed Shap" if "Avg Bat Speed Shap" in display_df_shap.columns else display_df_shap.columns[0]
+    sort_col_shap = "avg_bat_speed_shap" if "avg_bat_speed_shap" in shap_df.columns else display_df_shap.columns[0]
+    styled_shap = display_df_shap.sort_values(by=sort_col_shap, ascending=False).reset_index(drop=True)
     
-    styled_shap = (
-        display_df_shap
-        .sort_values(sort_col_shap, ascending=False)
-        .reset_index(drop=True)
-    )
-    
-    # === Format table data ===
+    # Format cells
     def format_cell(val):
         if pd.isna(val):
             return ""
-        try:
-            if isinstance(val, (float, np.floating)):
-                return f"{val:.3f}"
-            if isinstance(val, (int, np.integer)):
-                return f"{val:d}"
-            return str(val)
-        except:
-            return str(val)
+        if isinstance(val, (float, np.floating)):
+            return f"{val:.3f}" if abs(val) < 100 else f"{val:.0f}"
+        if isinstance(val, (int, np.integer)):
+            return f"{val:d}"
+        return str(val)
     
+    # Abbreviations
+    abbrev_map_shap = {
+        "Competitive Swings": "CS",
+        "Batted Ball Events": "BBE",
+        "PA": "PA",
+        "Season": "Yr"
+    }
+    
+    columns_order_shap = ["#"] + list(styled_shap.columns)
     table_data_shap = []
     for idx, (_, row) in enumerate(styled_shap.iterrows(), start=1):
         row_cells = [{"text": str(idx), "bg": ""}]
         for c in styled_shap.columns:
             val = row[c]
-            content = format_cell(val)
+            if c == "Team" and val in image_dict:
+                content = f'<img src="{image_dict[val]}" alt="{val}" style="height:28px; display:block; margin:0 auto;" />'
+            else:
+                content = format_cell(val)
             row_cells.append({"text": content, "bg": ""})
         table_data_shap.append(row_cells)
     
