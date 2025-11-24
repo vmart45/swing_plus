@@ -1067,7 +1067,7 @@ if page == "Main":
             bg = value_to_color(val) if c in plus_labels_shap else ""
             row_cells.append({"text": content, "bg": bg})
     
-            table_data_shap.append(row_cells)
+        table_data_shap.append(row_cells)
     
         html_table_shap = f"""
         <style>
