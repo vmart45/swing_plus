@@ -952,152 +952,151 @@ if page == "Main":
     
 
     html_table_shap = f'''
-    <div class="main-table-container">
-      <div class="main-table-header">
-        <span>Player SHAP Metrics (sorted by SHAP)</span>
-        <span id="row-count-shap"></span>
-      </div>
-      <div class="main-table-wrapper">
-        <table class="custom-main-table" id="shap-table">
-          <thead>
-            <tr>
-              {''.join([
-                  f"<th title='{c}' data-col='{i}'>{c}</th>"
-                  for i, c in enumerate(['#'] + list(styled_shap.columns))
-              ])}
-            </tr>
-          </thead>
-          <tbody id="shap-table-body"></tbody>
-        </table>
-      </div>
-      <div class="table-foot">
-        <div class="page-size-selector">
-          <label for="page-size-select-shap">Rows per page:</label>
-          <select id="page-size-select-shap">
-            <option value="30" selected>30</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-            <option value="200">200</option>
-          </select>
+        <div class="main-table-container">
+          <div class="main-table-header">
+            <span>Player SHAP Metrics (sorted by SHAP)</span>
+            <span id="row-count-shap"></span>
+          </div>
+          <div class="main-table-wrapper">
+            <table class="custom-main-table" id="shap-table">
+              <thead>
+                <tr>
+                  {''.join([
+                      f"<th title='{c}' data-col='{i}'>{c}</th>"
+                      for i, c in enumerate(['#'] + list(styled_shap.columns))
+                  ])}
+                </tr>
+              </thead>
+              <tbody id="shap-table-body"></tbody>
+            </table>
+          </div>
+          <div class="table-foot">
+            <div class="page-size-selector">
+              <label for="page-size-select-shap">Rows per page:</label>
+              <select id="page-size-select-shap">
+                <option value="30" selected>30</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+              </select>
+            </div>
+            <div class="pagination-controls">
+              <button id="first-page-shap">« First</button>
+              <button id="prev-page-shap">‹ Prev</button>
+              <span id="page-info-shap"></span>
+              <button id="next-page-shap">Next ›</button>
+              <button id="last-page-shap">Last »</button>
+            </div>
+          </div>
         </div>
-        <div class="pagination-controls">
-          <button id="first-page-shap">« First</button>
-          <button id="prev-page-shap">‹ Prev</button>
-          <span id="page-info-shap"></span>
-          <button id="next-page-shap">Next ›</button>
-          <button id="last-page-shap">Last »</button>
-        </div>
-      </div>
-    </div>
-    
-    <script>
-      const data_shap = {json.dumps(table_data_shap)};
-      const columns_shap = {json.dumps(['#'] + list(styled_shap.columns))};
-      let pageSize_shap = 30;
-      let currentPage_shap = 1;
-      let sortColumn_shap = null;
-      let sortDirection_shap = 1;
-    
-      const bodyEl_shap = document.getElementById('shap-table-body');
-      const rowCountEl_shap = document.getElementById('row-count-shap');
-      const pageInfoEl_shap = document.getElementById('page-info-shap');
-      const firstBtn_shap = document.getElementById('first-page-shap');
-      const prevBtn_shap = document.getElementById('prev-page-shap');
-      const nextBtn_shap = document.getElementById('next-page-shap');
-      const lastBtn_shap = document.getElementById('last-page-shap');
-      const headers_shap = document.querySelectorAll('#shap-table thead th[data-col]');
-      const pageSizeSelect_shap = document.getElementById('page-size-select-shap');
-    
-      headers_shap.forEach(function(th) {{
-        th.addEventListener('click', function() {{
-          const colIndex = parseInt(th.getAttribute('data-col'));
-          if (sortColumn_shap === colIndex) {{
-            sortDirection_shap = -sortDirection_shap;
-          }} else {{
-            sortColumn_shap = colIndex;
-            sortDirection_shap = 1;
-          }}
-          headers_shap.forEach(function(header) {{
-            header.classList.remove('sorted-asc', 'sorted-desc');
+        
+        <script>
+          const data_shap = {json.dumps(table_data_shap)};
+          const columns_shap = {json.dumps(['#'] + list(styled_shap.columns))};
+          let pageSize_shap = 30;
+          let currentPage_shap = 1;
+          let sortColumn_shap = null;
+          let sortDirection_shap = 1;
+        
+          const bodyEl_shap = document.getElementById('shap-table-body');
+          const rowCountEl_shap = document.getElementById('row-count-shap');
+          const pageInfoEl_shap = document.getElementById('page-info-shap');
+          const firstBtn_shap = document.getElementById('first-page-shap');
+          const prevBtn_shap = document.getElementById('prev-page-shap');
+          const nextBtn_shap = document.getElementById('next-page-shap');
+          const lastBtn_shap = document.getElementById('last-page-shap');
+          const headers_shap = document.querySelectorAll('#shap-table thead th[data-col]');
+          const pageSizeSelect_shap = document.getElementById('page-size-select-shap');
+        
+          headers_shap.forEach(function(th) {{
+            th.addEventListener('click', function() {{
+              const colIndex = parseInt(th.getAttribute('data-col'));
+              if (sortColumn_shap === colIndex) {{
+                sortDirection_shap = -sortDirection_shap;
+              }} else {{
+                sortColumn_shap = colIndex;
+                sortDirection_shap = 1;
+              }}
+              headers_shap.forEach(function(header) {{
+                header.classList.remove('sorted-asc', 'sorted-desc');
+              }});
+              th.classList.add(sortDirection_shap === 1 ? 'sorted-asc' : 'sorted-desc');
+              renderTable_shap();
+            }});
           }});
-          th.classList.add(sortDirection_shap === 1 ? 'sorted-asc' : 'sorted-desc');
-          renderTable_shap();
-        }});
-      }});
-    
-      firstBtn_shap.addEventListener('click', function() {{
-        currentPage_shap = 1;
-        renderTable_shap();
-      }});
-      prevBtn_shap.addEventListener('click', function() {{
-        if (currentPage_shap > 1) currentPage_shap--;
-        renderTable_shap();
-      }});
-      nextBtn_shap.addEventListener('click', function() {{
-        const totalPages = Math.max(1, Math.ceil(data_shap.length / pageSize_shap));
-        if (currentPage_shap < totalPages) currentPage_shap++;
-        renderTable_shap();
-      }});
-      lastBtn_shap.addEventListener('click', function() {{
-        currentPage_shap = Math.max(1, Math.ceil(data_shap.length / pageSize_shap));
-        renderTable_shap();
-      }});
-    
-      pageSizeSelect_shap.addEventListener('change', function(e) {{
-        pageSize_shap = parseInt(e.target.value, 10);
-        currentPage_shap = 1;
-        renderTable_shap();
-      }});
-    
-      function renderTable_shap() {{
-        let sortedData = [...data_shap];
-        if (sortColumn_shap !== null) {{
-          sortedData.sort((a, b) => {{
-            const aText = a[sortColumn_shap].text;
-            const bText = b[sortColumn_shap].text;
-            const aVal = parseFloat(aText);
-            const bVal = parseFloat(bText);
-            if (!isNaN(aVal) && !isNaN(bVal)) {{
-              return sortDirection_shap * (aVal - bVal);
+        
+          firstBtn_shap.addEventListener('click', function() {{
+            currentPage_shap = 1;
+            renderTable_shap();
+          }});
+          prevBtn_shap.addEventListener('click', function() {{
+            if (currentPage_shap > 1) currentPage_shap--;
+            renderTable_shap();
+          }});
+          nextBtn_shap.addEventListener('click', function() {{
+            const totalPages = Math.max(1, Math.ceil(data_shap.length / pageSize_shap));
+            if (currentPage_shap < totalPages) currentPage_shap++;
+            renderTable_shap();
+          }});
+          lastBtn_shap.addEventListener('click', function() {{
+            currentPage_shap = Math.max(1, Math.ceil(data_shap.length / pageSize_shap));
+            renderTable_shap();
+          }});
+        
+          pageSizeSelect_shap.addEventListener('change', function(e) {{
+            pageSize_shap = parseInt(e.target.value, 10);
+            currentPage_shap = 1;
+            renderTable_shap();
+          }});
+        
+          function renderTable_shap() {{
+            let sortedData = [...data_shap];
+            if (sortColumn_shap !== null) {{
+              sortedData.sort((a, b) => {{
+                const aText = a[sortColumn_shap].text;
+                const bText = b[sortColumn_shap].text;
+                const aVal = parseFloat(aText);
+                const bVal = parseFloat(bText);
+                if (!isNaN(aVal) && !isNaN(bVal)) {{
+                  return sortDirection_shap * (aVal - bVal);
+                }}
+                return sortDirection_shap * aText.localeCompare(bText);
+              }});
             }}
-            return sortDirection_shap * aText.localeCompare(bText);
-          }});
-        }}
+        
+            const totalRows = sortedData.length;
+            const totalPages = Math.max(1, Math.ceil(totalRows / pageSize_shap));
+            if (currentPage_shap > totalPages) currentPage_shap = totalPages;
+        
+            const start = (currentPage_shap - 1) * pageSize_shap;
+            const end = Math.min(start + pageSize_shap, totalRows);
+            const pageRows = sortedData.slice(start, end);
+        
+            bodyEl_shap.innerHTML = pageRows.map(row => {{
+              const cells = row.map((cell, i) => {{
+                const isNum = !isNaN(cell.text) && cell.text !== "";
+                const align = isNum ? 'text-align: right;' : '';
+                const bg = cell.bg ? `background:${{cell.bg}};` : '';
+                const style = (bg || align) ? ` style="${{bg}}{{align}}"` : '';
+                return `<td${{style}}>${{cell.text}}</td>`;
+              }}).join('');
+              return `<tr>${{cells}}</tr>`;
+            }}).join('');
+        
+            rowCountEl_shap.textContent = `Showing ${{start + 1}}–${{end}} of ${{totalRows}}`;
+            pageInfoEl_shap.textContent = `Page ${{currentPage_shap}} / ${{totalPages}}`;
+        
+            prevBtn_shap.disabled = currentPage_shap === 1;
+            firstBtn_shap.disabled = currentPage_shap === 1;
+            nextBtn_shap.disabled = currentPage_shap === totalPages;
+            lastBtn_shap.disabled = currentPage_shap === totalPages;
+          }}
+        
+          renderTable_shap();
+        </script>
+        '''
     
-        const totalRows = sortedData.length;
-        const totalPages = Math.max(1, Math.ceil(totalRows / pageSize_shap));
-        if (currentPage_shap > totalPages) currentPage_shap = totalPages;
-    
-        const start = (currentPage_shap - 1) * pageSize_shap;
-        const end = Math.min(start + pageSize_shap, totalRows);
-        const pageRows = sortedData.slice(start, end);
-    
-        bodyEl_shap.innerHTML = pageRows.map(row => {{
-          const cells = row.map((cell, i) => {{
-            const isNum = !isNaN(cell.text) && cell.text !== "";
-            const align = isNum ? 'text-align: right;' : '';
-            const bg = cell.bg ? `background:${{cell.bg}};` : '';
-            const style = (bg || align) ? ` style="${{bg}}{{align}}"` : '';
-            return `<td${{style}}>${{cell.text}}</td>`;
-          }}).join('');
-          return `<tr>${{cells}}</tr>`;
-        }}).join('');
-    
-        rowCountEl_shap.textContent = `Showing ${{start + 1}}–${{end}} of ${{totalRows}}`;
-        pageInfoEl_shap.textContent = `Page ${{currentPage_shap}} / ${{totalPages}}`;
-    
-        prevBtn_shap.disabled = currentPage_shap === 1;
-        firstBtn_shap.disabled = currentPage_shap === 1;
-        nextBtn_shap.disabled = currentPage_shap === totalPages;
-        lastBtn_shap.disabled = currentPage_shap === totalPages;
-      }}
-    
-      renderTable_shap();
-    </script>
-    '''
-    
-    # Inject it below your other table
-components.html(html_table_shap, height=1550, scrolling=True)
+    components.html(html_table_shap, height=1550, scrolling=True)
 
 
 
