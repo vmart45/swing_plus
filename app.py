@@ -385,84 +385,105 @@ def open_compare_in_same_tab(playerA, playerB, seasonA=None, seasonB=None):
 # ---------------- Main tab ----------------
 if page == "Main":
 
-    # Filters directly in Main tab
+    # Inject custom CSS for HTML-style filters
+    st.markdown(
+        """
+        <style>
+        .filter-container {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 10px;
+        }
+        .filter-box {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .filter-box label {
+            font-weight: 600;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
     st.markdown("---")
-    
-    # Create columns for filters
+
+    # ===== DETECT SEASON COLUMN =====
+    season_col = None
+    for c in ["year", "Year", "season"]:
+        if c in df.columns:
+            season_col = c
+            break
+
+    # ===== FILTER UI =====
     filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
-    
+
     with filter_col1:
-        # Season filter
-        season_col = None
-        for c in ["year", "Year", "season"]:
-            if c in df.columns:
-                season_col = c
-                break
-        
         season_selected_global = None
         if season_col:
             unique_years = sorted(df[season_col].dropna().unique())
             default_season = 2025 if 2025 in unique_years else (unique_years[-1] if unique_years else None)
             if unique_years:
-                default_index = unique_years.index(default_season) if default_season in unique_years else len(unique_years) - 1
+                default_index = unique_years.index(default_season)
                 season_selected_global = st.selectbox("Season", unique_years, index=default_index, key="main_season")
-    
+
     with filter_col2:
-        # Age slider
-        min_age, max_age = int(df["Age"].min()), int(df["Age"].max())
-        age_range = st.slider("Age Range", min_age, max_age, (min_age, max_age), key="main_age")
-    
+        st.markdown("**Age Range (Min / Max)**")
+        min_age_val = int(df["Age"].min())
+        max_age_val = int(df["Age"].max())
+
+        age_min = st.number_input("Min Age", min_value=min_age_val, max_value=max_age_val, value=min_age_val, step=1, key="age_min")
+        age_max = st.number_input("Max Age", min_value=min_age_val, max_value=max_age_val, value=max_age_val, step=1, key="age_max")
+
     with filter_col3:
-        # Competitive swings filter
         comp_col = None
         for c in ["swings_competitive", "competitive_swings"]:
             if c in df.columns:
                 comp_col = c
                 break
-        
-        swings_range = None
+
+        swings_min_input = None
+        swings_max_input = None
         if comp_col:
-            try:
-                swings_min = int(df[comp_col].min())
-                swings_max = int(df[comp_col].max())
-                default_low = 100 if swings_max >= 100 else swings_min
-                swings_range = st.slider("Competitive Swings", swings_min, swings_max, (default_low, swings_max), key="main_swings")
-            except Exception:
-                swings_range = None
-    
+            st.markdown("**Competitive Swings (Min / Max)**")
+            swings_min_val = int(df[comp_col].min())
+            swings_max_val = int(df[comp_col].max())
+
+            swings_min_input = st.number_input("Min Swings", min_value=swings_min_val, max_value=swings_max_val, value=swings_min_val, step=1, key="swings_min")
+            swings_max_input = st.number_input("Max Swings", min_value=swings_min_val, max_value=swings_max_val, value=swings_max_val, step=1, key="swings_max")
+
     with filter_col4:
-        # Player search
         search_name = st.text_input("Search Player by Name", key="main_search")
-    
+
     st.markdown("---")
 
-    # Apply filters to create df_main_filtered
+    # ===== APPLY FILTERS =====
     df_main_filtered = df.copy()
+
     if season_col and season_selected_global is not None:
-        try:
-            df_main_filtered = df_main_filtered[df_main_filtered[season_col] == season_selected_global]
-        except Exception:
-            pass
+        df_main_filtered = df_main_filtered[df_main_filtered[season_col] == season_selected_global]
 
     if search_name:
         df_main_filtered = df_main_filtered[df_main_filtered["Name"].str.contains(search_name, case=False, na=False)]
 
-    df_main_filtered = df_main_filtered[(df_main_filtered["Age"] >= age_range[0]) & (df_main_filtered["Age"] <= age_range[1])]
+    # Age filter
+    df_main_filtered = df_main_filtered[(df_main_filtered["Age"] >= age_min) & (df_main_filtered["Age"] <= age_max)]
 
-    if comp_col and swings_range:
-        try:
-            df_main_filtered = df_main_filtered[
-                (df_main_filtered[comp_col] >= swings_range[0]) &
-                (df_main_filtered[comp_col] <= swings_range[1])
-            ]
-        except Exception:
-            pass
+    # Competitive swings filter
+    if comp_col:
+        df_main_filtered = df_main_filtered[
+            (df_main_filtered[comp_col] >= swings_min_input) &
+            (df_main_filtered[comp_col] <= swings_max_input)
+        ]
 
-    all_stats = []
-    all_stats.extend(["Name", "Team"])
+    # ===== COLUMN SELECTION =====
+    all_stats = ["Name", "Team"]
     if "year" in df_main_filtered.columns:
         all_stats.append("year")
-    for c in ["pa", comp_col if comp_col else None, "batted_ball_events"]:
+
+    for c in ["pa", comp_col, "batted_ball_events"]:
         if c and c in df_main_filtered.columns and c not in all_stats:
             all_stats.append(c)
 
@@ -475,6 +496,7 @@ if page == "Main":
         "avg_intercept_y_vs_plate", "avg_intercept_y_vs_batter", "avg_batter_y_position", "avg_batter_x_position",
         "avg_foot_sep", "avg_stance_angle"
     ]
+
     for c in remaining:
         if c in df_main_filtered.columns and c not in all_stats:
             all_stats.append(c)
@@ -484,24 +506,12 @@ if page == "Main":
 
     display_df = df_main_filtered[display_cols].copy()
 
-    for c in ["pa", comp_col if comp_col else None, "batted_ball_events"]:
+    for c in ["pa", comp_col, "batted_ball_events"]:
         if c and c in display_df.columns:
-            try:
-                display_df[c] = display_df[c].round(0).astype("Int64")
-            except Exception:
-                try:
-                    display_df[c] = display_df[c].round(0).astype(int)
-                except Exception:
-                    pass
+            display_df[c] = display_df[c].round(0).astype("Int64")
 
     if "Age" in display_df.columns:
-        try:
-            display_df["Age"] = display_df["Age"].round(0).astype("Int64")
-        except Exception:
-            try:
-                display_df["Age"] = display_df["Age"].round(0).astype(int)
-            except Exception:
-                pass
+        display_df["Age"] = display_df["Age"].round(0).astype("Int64")
 
     rename_map = {}
     if "year" in display_df.columns:
@@ -512,24 +522,20 @@ if page == "Main":
         rename_map[comp_col] = "Competitive Swings"
     if "batted_ball_events" in display_df.columns:
         rename_map["batted_ball_events"] = "Batted Ball Events"
-    if "Swing+" in display_df.columns:
-        rename_map["Swing+"] = "Swing+"
-    if "HitSkillPlus" in display_df.columns:
-        rename_map["HitSkillPlus"] = "HitSkill+"
-    if "ImpactPlus" in display_df.columns:
-        rename_map["ImpactPlus"] = "Impact+"
+
     for k, v in FEATURE_LABELS.items():
         if k in display_df.columns:
             rename_map[k] = v
 
     sort_col = "Swing+" if "Swing+" in display_df.columns else display_df.columns[0]
+
     styled = (
         display_df
         .rename(columns=rename_map)
         .sort_values(sort_col, ascending=False)
         .reset_index(drop=True)
     )
-
+    
     plus_labels = []
     for p in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
         if p in display_df.columns:
