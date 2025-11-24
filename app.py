@@ -1102,6 +1102,19 @@ if page == "Main":
     
         table_data_shap.append(row_cells)
 
+    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <h3 style="text-align:center; margin-top:6px; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
+            SHAP Breakdown Table
+        </h3>
+        <div style="text-align:center; color:#6b7280; margin-bottom:6px; font-size:0.95em;">
+            How each mechanical feature moved the model's Swing+ prediction for individual players.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
         html_table_shap = f"""
         <style>
             .main-table-container {{
