@@ -613,6 +613,19 @@ if page == "Main":
         columns_order = ["#"] + list(styled.columns)
         table_data = []
         
+        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+        st.markdown(
+            """
+            <h3 style="text-align:center; margin-top:6px; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
+                Player Metrics Table
+            </h3>
+            <div style="text-align:center; color:#6b7280; margin-bottom:6px; font-size:0.95em;">
+                Raw feature values for every player.
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        
         for idx, (_, row) in enumerate(styled.iterrows(), start=1):
             row_cells = [{"text": str(idx), "bg": ""}]
             for c in styled.columns:
@@ -624,19 +637,6 @@ if page == "Main":
                 bg = value_to_color(val) if c in plus_labels else ""
                 row_cells.append({"text": content, "bg": bg})
             table_data.append(row_cells)
-
-    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
-    st.markdown(
-        """
-        <h3 style="text-align:center; margin-top:6px; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
-            Player Metrics Table
-        </h3>
-        <div style="text-align:center; color:#6b7280; margin-bottom:6px; font-size:0.95em;">
-            Raw feature values for every player.
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
         
         # rest of your HTML/JS script stays the same
         html_table = f"""
