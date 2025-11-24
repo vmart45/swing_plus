@@ -871,48 +871,62 @@ if page == "Main":
 
     # ================== SHAP VERSION OF MAIN TABLE ==================
     
-    # Load the SHAP values CSV
     shap_df_full = pd.read_csv("SwingPlus_SHAP_Values.csv")
     
     # Specify the target player (by id or name, customize as needed)
     player_id = st.sidebar.selectbox("Select Player ID", shap_df_full["id"].unique())
     player_row = shap_df_full.loc[shap_df_full["id"] == player_id].iloc[0]
     
-    # Columns to use for features and contributions
     feature_cols = [
-        ("avg_bat_speed_shap", "avg_bat_speed_importance"),
-        ("swing_tilt_shap", "swing_tilt_importance"),
-        ("attack_angle_shap", "attack_angle_importance"),
-        ("attack_direction_shap", "attack_direction_importance"),
-        ("avg_intercept_y_vs_plate_shap", "avg_intercept_y_vs_plate_importance"),
-        ("avg_intercept_y_vs_batter_shap", "avg_intercept_y_vs_batter_importance"),
-        ("avg_batter_y_position_shap", "avg_batter_y_position_importance"),
-        ("avg_batter_x_position_shap", "avg_batter_x_position_importance"),
-        ("swing_length_shap", "swing_length_importance"),
-        ("avg_foot_sep_shap", "avg_foot_sep_importance"),
-        ("avg_stance_angle_shap", "avg_stance_angle_importance"),
+        ("avg_bat_speed_shap", "avg_bat_speed_importance", "Avg Bat Speed (mph)"),
+        ("swing_tilt_shap", "swing_tilt_importance", "Swing Tilt (°)"),
+        ("attack_angle_shap", "attack_angle_importance", "Attack Angle (°)"),
+        ("attack_direction_shap", "attack_direction_importance", "Attack Direction"),
+        ("avg_intercept_y_vs_plate_shap", "avg_intercept_y_vs_plate_importance", "Intercept Y vs Plate"),
+        ("avg_intercept_y_vs_batter_shap", "avg_intercept_y_vs_batter_importance", "Intercept Y vs Batter"),
+        ("avg_batter_y_position_shap", "avg_batter_y_position_importance", "Batter Y Pos"),
+        ("avg_batter_x_position_shap", "avg_batter_x_position_importance", "Batter X Pos"),
+        ("swing_length_shap", "swing_length_importance", "Swing Length"),
+        ("avg_foot_sep_shap", "avg_foot_sep_importance", "Avg Foot Sep"),
+        ("avg_stance_angle_shap", "avg_stance_angle_importance", "Avg Stance Angle"),
     ]
     
-    FEATURE_LABELS = {
-        "avg_bat_speed_shap": "Avg Bat Speed",
-        "swing_tilt_shap": "Swing Tilt",
-        "attack_angle_shap": "Attack Angle",
-        "attack_direction_shap": "Attack Direction",
-        "avg_intercept_y_vs_plate_shap": "Intercept Plate Y",
-        "avg_intercept_y_vs_batter_shap": "Intercept Batter Y",
-        "avg_batter_y_position_shap": "Batter Y Pos",
-        "avg_batter_x_position_shap": "Batter X Pos",
-        "swing_length_shap": "Swing Length",
-        "avg_foot_sep_shap": "Foot Separation",
-        "avg_stance_angle_shap": "Stance Angle",
+    abbrev_map = {
+        "Avg Bat Speed (mph)": "BatS",
+        "Swing Tilt (°)": "SwT",
+        "Attack Angle (°)": "AA",
+        "Attack Direction": "AD",
+        "Intercept Y vs Plate": "IvP",
+        "Intercept Y vs Batter": "IvB",
+        "Batter Y Pos": "BatterY",
+        "Batter X Pos": "BatterX",
+        "Swing Length": "SwL",
+        "Avg Foot Sep": "FS",
+        "Avg Stance Angle": "StA",
     }
     
-    # Assemble display DataFrame from loaded CSV
-    display_df = pd.DataFrame({
-        "feature": [FEATURE_LABELS.get(f, f) for f, _ in feature_cols],
-        "Contribution": [round(player_row[f], 2) for f, _ in feature_cols],
-        "PctImportance": [round(player_row[imp], 2) for _, imp in feature_cols],
-    })
+    plus_labels = [c for (feat, imp, c) in feature_cols]
+    
+    columns_order = ["#"] + [col for (_, _, col) in feature_cols]
+    
+    sort_col = "Contribution"
+    
+    def format_contrib(shap, imp):
+        """Show SHAP value rounded with the importance in small parentheses."""
+        shap_val = f"{round(shap,2):.2f}"
+        imp_val = f"{round(imp,2):.2f}"
+        return f"{shap_val} <span style='font-size:0.85em;color:#505869;'>({imp_val})</span>"
+    
+    table_data = []
+    for idx, (_, row) in enumerate([("player", player_row)], start=1):
+        row_cells = [{"text": str(idx), "bg": ""}]
+        # SHAP features and importances
+        for (feat, imp, label) in feature_cols:
+            cell_html = format_contrib(row[feat], row[imp]) if not pd.isna(row[feat]) else ""
+            row_cells.append({"text": cell_html, "bg": ""})
+        table_data.append(row_cells)
+    
+    import json
     
     html_table = f"""
     <style>
@@ -1020,7 +1034,7 @@ if page == "Main":
     
     <div class="main-table-container">
         <div class="main-table-header">
-            <span>Player Metrics (sorted by {sort_col})</span>
+            <span>Player SHAP Feature Contributions (sorted by {sort_col})</span>
             <span id="row-count"></span>
         </div>
     
@@ -1029,7 +1043,7 @@ if page == "Main":
                 <thead>
                     <tr>
                         {''.join([
-                            f"<th title='{c}' data-col='{i}'>{abbrev_map.get(c, c)}</th>"
+                            f"<th title='{c}' data-col='{i}'>{abbrev_map.get(c, c) if c != '#' else '#'}</th>"
                             for i, c in enumerate(columns_order)
                         ])}
                     </tr>
@@ -1076,61 +1090,61 @@ if page == "Main":
         const headers = document.querySelectorAll('th[data-col]');
         const pageSizeSelect = document.getElementById('page-size-select');
     
-        headers.forEach((th) => {{
-            th.addEventListener('click', () => {{
+        headers.forEach((th) => {
+            th.addEventListener('click', () => {
                 const colIndex = parseInt(th.getAttribute('data-col'));
-                if (sortColumn === colIndex) {{
+                if (sortColumn === colIndex) {
                     sortDirection = -sortDirection;
-                }} else {{
+                } else {
                     sortColumn = colIndex;
                     sortDirection = 1;
-                }}
-                headers.forEach(header => {{
+                }
+                headers.forEach(header => {
                     header.classList.remove('sorted-asc', 'sorted-desc');
-                }});
+                });
                 th.classList.add(sortDirection === 1 ? 'sorted-asc' : 'sorted-desc');
                 renderTable();
-            }});
-        }});
+            });
+        });
     
-        firstBtn.addEventListener('click', () => {{
+        firstBtn.addEventListener('click', () => {
             currentPage = 1;
             renderTable();
-        }});
-        prevBtn.addEventListener('click', () => {{
+        });
+        prevBtn.addEventListener('click', () => {
             if (currentPage > 1) currentPage--;
             renderTable();
-        }});
-        nextBtn.addEventListener('click', () => {{
+        });
+        nextBtn.addEventListener('click', () => {
             const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
             if (currentPage < totalPages) currentPage++;
             renderTable();
-        }});
-        lastBtn.addEventListener('click', () => {{
+        });
+        lastBtn.addEventListener('click', () => {
             currentPage = Math.max(1, Math.ceil(data.length / pageSize));
             renderTable();
-        }});
+        });
     
-        pageSizeSelect.addEventListener('change', (e) => {{
+        pageSizeSelect.addEventListener('change', (e) => {
             pageSize = parseInt(e.target.value, 10);
             currentPage = 1;
             renderTable();
-        }});
+        });
     
-        function renderTable() {{
+        function renderTable() {
             let sortedData = [...data];
-            if (sortColumn !== null) {{
-                sortedData.sort((a, b) => {{
-                    const aText = a[sortColumn].text;
-                    const bText = b[sortColumn].text;
+            if (sortColumn !== null) {
+                sortedData.sort((a, b) => {
+                    const aText = a[sortColumn].text.replace(/<[^>]*>/g, '');
+                    const bText = b[sortColumn].text.replace(/<[^>]*>/g, '');
                     const aVal = parseFloat(aText);
                     const bVal = parseFloat(bText);
-                    if (!isNaN(aVal) && !isNaN(bVal)) {{
+                    if (!isNaN(aVal) && !isNaN(bVal)) {
                         return sortDirection * (aVal - bVal);
-                    }}
+                    }
                     return sortDirection * aText.localeCompare(bText);
-                }});
-            }}
+                });
+            }
     
             const totalRows = sortedData.length;
             const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
@@ -1140,31 +1154,28 @@ if page == "Main":
             const end = Math.min(start + pageSize, totalRows);
             const pageRows = sortedData.slice(start, end);
     
-            bodyEl.innerHTML = pageRows.map(row => {{
-                const cells = row.map((cell, i) => {{
-                    const isNum = !isNaN(cell.text) && cell.text !== "";
-                    const align = isNum ? 'text-align: right;' : '';
-                    const bg = cell.bg ? `background:${{cell.bg}};` : '';
-                    const style = (bg || align) ? ` style="${{bg}}{{align}}"` : '';
-                    return `<td${{style}}>${{cell.text}}</td>`;
-                }}).join('');
-                return `<tr>${{cells}}</tr>`;
-            }}).join('');
+            bodyEl.innerHTML = pageRows.map(row => {
+                const cells = row.map((cell, i) => {
+                    const align = i > 0 ? 'text-align: right;' : '';
+                    return `<td style="${align}">${cell.text}</td>`;
+                }).join('');
+                return `<tr>${cells}</tr>`;
+            }).join('');
     
-            rowCountEl.textContent = `Showing ${{start + 1}}–${{end}} of ${{totalRows}}`;
-            pageInfoEl.textContent = `Page ${{currentPage}} / ${{totalPages}}`;
+            rowCountEl.textContent = `Showing ${start + 1}–${end} of ${totalRows}`;
+            pageInfoEl.textContent = `Page ${currentPage} / ${totalPages}`;
     
             prevBtn.disabled = currentPage === 1;
             firstBtn.disabled = currentPage === 1;
             nextBtn.disabled = currentPage === totalPages;
             lastBtn.disabled = currentPage === totalPages;
-        }}
+        }
     
         renderTable();
     </script>
     """
-
-    components.html(html_table, height=1550, scrolling=True)
+    
+    components.html(html_table, height=900, scrolling=True)
 
 
 # ---------------- Player tab ----------------
