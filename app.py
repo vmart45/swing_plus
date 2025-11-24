@@ -950,10 +950,11 @@ if page == "Main":
             row_cells.append({"text": content, "bg": ""})
         table_data_shap.append(row_cells)
     
-    html_table_shap = f"""
+
+    html_table_shap = f'''
     <div class="main-table-container">
       <div class="main-table-header">
-        <span>Player SHAP Metrics (sorted by {sort_col_shap})</span>
+        <span>Player SHAP Metrics (sorted by SHAP)</span>
         <span id="row-count-shap"></span>
       </div>
       <div class="main-table-wrapper">
@@ -1007,65 +1008,61 @@ if page == "Main":
       const headers_shap = document.querySelectorAll('#shap-table thead th[data-col]');
       const pageSizeSelect_shap = document.getElementById('page-size-select-shap');
     
-    html_js_script = '''
-    <script>
-      headers_shap.forEach(function(th) {
-        th.addEventListener('click', function() {
+      headers_shap.forEach(function(th) {{
+        th.addEventListener('click', function() {{
           const colIndex = parseInt(th.getAttribute('data-col'));
-          if (sortColumn_shap === colIndex) {
+          if (sortColumn_shap === colIndex) {{
             sortDirection_shap = -sortDirection_shap;
-          } else {
+          }} else {{
             sortColumn_shap = colIndex;
             sortDirection_shap = 1;
-          }
-          headers_shap.forEach(function(header) {
+          }}
+          headers_shap.forEach(function(header) {{
             header.classList.remove('sorted-asc', 'sorted-desc');
-          });
+          }});
           th.classList.add(sortDirection_shap === 1 ? 'sorted-asc' : 'sorted-desc');
           renderTable_shap();
-        });
-      });
-    </script>
-    '''
+        }});
+      }});
     
-      firstBtn_shap.addEventListener('click', () => {
+      firstBtn_shap.addEventListener('click', function() {{
         currentPage_shap = 1;
         renderTable_shap();
-      });
-      prevBtn_shap.addEventListener('click', () => {
+      }});
+      prevBtn_shap.addEventListener('click', function() {{
         if (currentPage_shap > 1) currentPage_shap--;
         renderTable_shap();
-      });
-      nextBtn_shap.addEventListener('click', () => {
+      }});
+      nextBtn_shap.addEventListener('click', function() {{
         const totalPages = Math.max(1, Math.ceil(data_shap.length / pageSize_shap));
         if (currentPage_shap < totalPages) currentPage_shap++;
         renderTable_shap();
-      });
-      lastBtn_shap.addEventListener('click', () => {
+      }});
+      lastBtn_shap.addEventListener('click', function() {{
         currentPage_shap = Math.max(1, Math.ceil(data_shap.length / pageSize_shap));
         renderTable_shap();
-      });
+      }});
     
-      pageSizeSelect_shap.addEventListener('change', (e) => {
+      pageSizeSelect_shap.addEventListener('change', function(e) {{
         pageSize_shap = parseInt(e.target.value, 10);
         currentPage_shap = 1;
         renderTable_shap();
-      });
+      }});
     
-      function renderTable_shap() {
+      function renderTable_shap() {{
         let sortedData = [...data_shap];
-        if (sortColumn_shap !== null) {
-          sortedData.sort((a, b) => {
+        if (sortColumn_shap !== null) {{
+          sortedData.sort((a, b) => {{
             const aText = a[sortColumn_shap].text;
             const bText = b[sortColumn_shap].text;
             const aVal = parseFloat(aText);
             const bVal = parseFloat(bText);
-            if (!isNaN(aVal) && !isNaN(bVal)) {
+            if (!isNaN(aVal) && !isNaN(bVal)) {{
               return sortDirection_shap * (aVal - bVal);
-            }
+            }}
             return sortDirection_shap * aText.localeCompare(bText);
-          });
-        }
+          }});
+        }}
     
         const totalRows = sortedData.length;
         const totalPages = Math.max(1, Math.ceil(totalRows / pageSize_shap));
@@ -1075,30 +1072,33 @@ if page == "Main":
         const end = Math.min(start + pageSize_shap, totalRows);
         const pageRows = sortedData.slice(start, end);
     
-        bodyEl_shap.innerHTML = pageRows.map(row => {
-          const cells = row.map((cell, i) => {
+        bodyEl_shap.innerHTML = pageRows.map(row => {{
+          const cells = row.map((cell, i) => {{
             const isNum = !isNaN(cell.text) && cell.text !== "";
             const align = isNum ? 'text-align: right;' : '';
-            const bg = cell.bg ? `background:${cell.bg};` : '';
-            const style = (bg || align) ? ` style="${bg}${align}"` : '';
-            return `<td${style}>${cell.text}</td>`;
-          }).join('');
-          return `<tr>${cells}</tr>`;
-        }).join('');
+            const bg = cell.bg ? `background:${{cell.bg}};` : '';
+            const style = (bg || align) ? ` style="${{bg}}{{align}}"` : '';
+            return `<td${{style}}>${{cell.text}}</td>`;
+          }}).join('');
+          return `<tr>${{cells}}</tr>`;
+        }}).join('');
     
-        rowCountEl_shap.textContent = `Showing ${start + 1}–${end} of ${totalRows}`;
-        pageInfoEl_shap.textContent = `Page ${currentPage_shap} / ${totalPages}`;
+        rowCountEl_shap.textContent = `Showing ${{start + 1}}–${{end}} of ${{totalRows}}`;
+        pageInfoEl_shap.textContent = `Page ${{currentPage_shap}} / ${{totalPages}}`;
+    
         prevBtn_shap.disabled = currentPage_shap === 1;
         firstBtn_shap.disabled = currentPage_shap === 1;
         nextBtn_shap.disabled = currentPage_shap === totalPages;
         lastBtn_shap.disabled = currentPage_shap === totalPages;
-      }
+      }}
     
       renderTable_shap();
     </script>
-    """
+    '''
     
-    components.html(html_table_shap, height=1550, scrolling=True)
+    # Inject it below your other table
+components.html(html_table_shap, height=1550, scrolling=True)
+
 
 
 # ---------------- Player tab ----------------
