@@ -871,12 +871,18 @@ if page == "Main":
 
     shap_df = pd.read_csv("SwingPlus_SHAP_Values.csv")
     
-    # Normalize Name / Team
     if "Name" not in shap_df.columns and "name" in shap_df.columns:
         # Convert "Last, First" to "First Last"
         shap_df["Name"] = shap_df["name"].apply(lambda x: " ".join(x.split(", ")[::-1]) if isinstance(x, str) and "," in x else x)
     if "Team" not in shap_df.columns and "team" in shap_df.columns:
-        shap_df["Team"] = shap_df["team"] and "team" in shap_df.columns:
+        # Normalize Name / Team
+    if "Name" not in shap_df.columns and "name" in shap_df.columns:
+        # Convert "Last, First" to "First Last"
+        shap_df["Name"] = shap_df["name"].apply(
+            lambda x: " ".join(x.split(", ")[::-1]) if isinstance(x, str) and "," in x else x
+        )
+    
+    if "Team" not in shap_df.columns and "team" in shap_df.columns:
         shap_df["Team"] = shap_df["team"]
     
     # Normalize Competitive Swings
