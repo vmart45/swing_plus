@@ -965,7 +965,7 @@ if page == "Main":
         "PA": "PA",
         "Season": "Season",
         "avg_bat_speed_shap": "BatS (SH)",
-        "avg_bat_speed_shap_importance": "BatS (Imp)",
+        "avg_bat_speed_importance": "BatS (Imp)",
         "swing_tilt_shap": "SwT (SH)",
         "swing_tilt_importance": "SwT (Imp)",
         "attack_angle_shap": "AA (SH)",
