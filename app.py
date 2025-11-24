@@ -869,11 +869,11 @@ if page == "Main":
 
     components.html(html_table, height=1550, scrolling=True)
 
-    # ================== SHAP VERSION OF MAIN TABLE ==================
-    
+# ================== SHAP VERSION OF MAIN TABLE ==================
+
     shap_df_full = pd.read_csv("SwingPlus_SHAP_Values.csv")
     
-    # Specify the target player (by id or name, customize as needed)
+    # Specify the target player
     player_id = st.sidebar.selectbox("Select Player ID", shap_df_full["id"].unique())
     player_row = shap_df_full.loc[shap_df_full["id"] == player_id].iloc[0]
     
@@ -905,23 +905,17 @@ if page == "Main":
         "Avg Stance Angle": "StA",
     }
     
-    plus_labels = [c for (feat, imp, c) in feature_cols]
-    
     columns_order = ["#"] + [col for (_, _, col) in feature_cols]
-    
     sort_col = "Contribution"
-    
     
     def format_contrib(shap, imp):
         shap_val = f"{round(shap, 2):.2f}"
         imp_val = f"{round(imp, 2):.2f}"
         return f"{shap_val} <span style='font-size:0.85em;color:#505869;'>({imp_val})</span>"
     
-    
     table_data = []
     for idx, (_, row) in enumerate([("player", player_row)], start=1):
         row_cells = [{"text": str(idx), "bg": ""}]
-        # SHAP features and importances
         for (feat, imp, label) in feature_cols:
             cell_html = format_contrib(row[feat], row[imp]) if not pd.isna(row[feat]) else ""
             row_cells.append({"text": cell_html, "bg": ""})
@@ -929,266 +923,109 @@ if page == "Main":
     
     html_table = f"""
     <style>
-        .main-table-container {{
-            width: 100%;
-            margin: 0 auto;
-            background: #f8fafc;
-            border-radius: 14px;
-            border: 1px solid #e3e8f0;
-            box-shadow: 0 6px 18px rgba(42, 55, 87, 0.08);
-            padding: 18px 18px 12px;
-            box-sizing: border-box;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }}
-        .main-table-header {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-            color: #24324c;
-            font-weight: 600;
-            font-size: 0.95rem;
-            letter-spacing: 0.01em;
-        }}
-        .main-table-wrapper {{
-            overflow-x: auto;
-            overflow-y: hidden;
-            max-height: none;
-            border-radius: 10px;
-            border: 1px solid #e0e6ef;
-            background: #fff;
-            padding: 10px 6px;
-        }}
-        table.custom-main-table {{
-            width: 100%;
-            border-collapse: collapse;
-            font-family: inherit;
-            font-size: 0.85rem;
-            color: #1e293b;
-            table-layout: auto;
-        }}
-        table.custom-main-table thead th {{
-            background: #f9fafb;
-            font-weight: 600;
-            text-align: left;
-            padding: 8px 12px;
-            border-bottom: 1px solid #e2e8f0;
-            font-variant-numeric: tabular-nums;
-            white-space: nowrap;
-            cursor: pointer;
-        }}
-        table.custom-main-table thead th.sorted-asc::after {{
-            content: " ▲";
-        }}
-        table.custom-main-table thead th.sorted-desc::after {{
-            content: " ▼";
-        }}
-        table.custom-main-table tbody td {{
-            padding: 6px 12px;
-            border-bottom: 1px solid #f1f5f9;
-            font-variant-numeric: tabular-nums;
-        }}
-        table.custom-main-table tbody tr:hover td {{
-            background: #f1f5f9;
-        }}
-        .table-foot {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 12px;
-            flex-wrap: wrap;
-            gap: 12px;
-        }}
-        .pagination-controls {{
-            display: flex;
-            gap: 8px;
-        }}
-        .pagination-controls button {{
-            border: 1px solid #cbd5e1;
-            background: #fff;
-            color: #1f2937;
-            padding: 6px 10px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.15s ease;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-        }}
-        .pagination-controls button:disabled {{
-            opacity: 0.5;
-            cursor: default;
-        }}
-        .page-size-selector {{
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.85rem;
-        }}
-        .page-size-selector select {{
-            padding: 6px 10px;
-            border-radius: 8px;
-            border: 1px solid #cbd5e1;
-        }}
+    .main-table-container {{
+        width: 100%;
+        background: #f8fafc;
+        border-radius: 14px;
+        border: 1px solid #e3e8f0;
+        box-shadow: 0 6px 18px rgba(42, 55, 87, 0.08);
+        padding: 18px;
+        font-family: system-ui, sans-serif;
+    }}
+    .main-table-wrapper {{
+        overflow-x: auto;
+        background: #fff;
+        border-radius: 10px;
+    }}
+    table.custom-main-table {{
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }}
+    th {{
+        background: #f9fafb;
+        padding: 8px 12px;
+        cursor: pointer;
+    }}
+    td {{
+        padding: 6px 12px;
+    }}
     </style>
     
     <div class="main-table-container">
-        <div class="main-table-header">
-            <span>Player SHAP Feature Contributions (sorted by {sort_col})</span>
-            <span id="row-count"></span>
-        </div>
+    <div class="main-table-wrapper">
+    <table class="custom-main-table">
+    <thead>
+    <tr>
+    {''.join([f"<th data-col='{i}'>{abbrev_map.get(c,c)}</th>" for i,c in enumerate(columns_order)])}
+    </tr>
+    </thead>
+    <tbody id="main-table-body"></tbody>
+    </table>
+    </div>
     
-        <div class="main-table-wrapper">
-            <table class="custom-main-table">
-                <thead>
-                    <tr>
-                        {''.join([
-        f"<th title='{c}' data-col='{i}'>{abbrev_map.get(c, c) if c != '#' else '#'}</th>"
-        for i, c in enumerate(columns_order)
-    ])}
-                    </tr>
-                </thead>
-                <tbody id="main-table-body"></tbody>
-            </table>
-        </div>
-    
-        <div class="table-foot">
-            <div class="page-size-selector">
-                <label for="page-size-select">Rows per page:</label>
-                <select id="page-size-select">
-                    <option value="30" selected>30</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                    <option value="200">200</option>
-                </select>
-            </div>
-            <div class="pagination-controls">
-                <button id="first-page">« First</button>
-                <button id="prev-page">‹ Prev</button>
-                <span id="page-info"></span>
-                <button id="next-page">Next ›</button>
-                <button id="last-page">Last »</button>
-            </div>
-        </div>
+    <div class="pagination-controls">
+    <button id="prev-page">Prev</button>
+    <span id="page-info"></span>
+    <button id="next-page">Next</button>
+    </div>
     </div>
     
     <script>
-        const data = {json.dumps(table_data)};
-        const columns = {json.dumps(columns_order)};
-        let pageSize = 30;
-        let currentPage = 1;
-        let sortColumn = null;
-        let sortDirection = 1;
+    const data = {json.dumps(table_data)};
+    let pageSize = 30;
+    let currentPage = 1;
+    let sortColumn = null;
+    let sortDirection = 1;
     
-        const bodyEl = document.getElementById('main-table-body');
-        const rowCountEl = document.getElementById('row-count');
-        const pageInfoEl = document.getElementById('page-info');
-        const firstBtn = document.getElementById('first-page');
-        const prevBtn = document.getElementById('prev-page');
-        const nextBtn = document.getElementById('next-page');
-        const lastBtn = document.getElementById('last-page');
-        const headers = document.querySelectorAll('th[data-col]');
-        const pageSizeSelect = document.getElementById('page-size-select');
+    const bodyEl = document.getElementById('main-table-body');
+    const pageInfoEl = document.getElementById('page-info');
+    const prevBtn = document.getElementById('prev-page');
+    const nextBtn = document.getElementById('next-page');
+    const headers = document.querySelectorAll('th[data-col]');
     
-        headers.forEach((th) => {
-            th.addEventListener('click', () = > {
-                     const
-    colIndex = parseInt(th.getAttribute('data-col'));
-    if (sortColumn === colIndex)
-    {
-        sortDirection = -sortDirection;
-    } else {
-        sortColumn = colIndex;
-    sortDirection = 1;
-    }
-    headers.forEach(header= > {
-        header.classList.remove('sorted-asc', 'sorted-desc');
-    });
-    th.classList.add(sortDirection == = 1 ? 'sorted-asc': 'sorted-desc');
-    renderTable();
-    });
-    });
+    headers.forEach(th => {{
+        th.addEventListener('click', () => {{
+            const colIndex = parseInt(th.getAttribute('data-col'));
+            sortDirection = sortColumn === colIndex ? -sortDirection : 1;
+            sortColumn = colIndex;
+            renderTable();
+        }});
+    }});
     
-        firstBtn.addEventListener('click', () => {
-    currentPage = 1;
-    renderTable();
-    });
-        prevBtn.addEventListener('click', () => {
-    if (currentPage > 1) currentPage--;
-    renderTable();
-    });
-        nextBtn.addEventListener('click', () => {
-    const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
-    if (currentPage < totalPages) currentPage++;
-    renderTable();
-    });
-        lastBtn.addEventListener('click', () => {
-    currentPage = Math.max(1, Math.ceil(data.length / pageSize));
-    renderTable();
-    });
+    prevBtn.onclick = () => {{ if(currentPage>1) currentPage--; renderTable(); }};
+    nextBtn.onclick = () => {{
+        if(currentPage < Math.ceil(data.length/pageSize)) currentPage++;
+        renderTable();
+    }};
     
-        pageSizeSelect.addEventListener('change', (e) => {
-    pageSize = parseInt(e.target.value, 10);
-    currentPage = 1;
-    renderTable();
-    });
+    function renderTable(){{
+        let sortedData = [...data];
+        if(sortColumn !== null){{
+            sortedData.sort((a,b)=>{
+                const av = parseFloat(a[sortColumn].text.replace(/<[^>]*>/g,''));
+                const bv = parseFloat(b[sortColumn].text.replace(/<[^>]*>/g,''));
+                return sortDirection*(av-bv);
+            }});
+        }}
     
-        function renderTable() {
-    let sortedData =[...data];
-    if (sortColumn != = null) {
-    sortedData.sort((a, b) = > {
-    const aText = a[sortColumn].text.replace( / <[^ >] * > / g, '');
-    const bText = b[sortColumn].text.replace( / <[^ >] * > / g, '');
-    const aVal = parseFloat(aText);
-    const bVal = parseFloat(bText);
-    if (!isNaN(aVal) & & !isNaN(bVal)) {
-    return sortDirection * (aVal - bVal);
-    }
-    return sortDirection * aText.localeCompare(bText);
-    });
-    }
+        const start = (currentPage-1)*pageSize;
+        const pageRows = sortedData.slice(start,start+pageSize);
     
-    const
-    totalRows = sortedData.length;
-    const
-    totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
-    if (currentPage > totalPages)
-    currentPage = totalPages;
+        bodyEl.innerHTML = pageRows.map(row =>
+            `<tr>` + row.map((c,i)=>
+            `<td style="text-align:${i>0?'right':'left'}">${c.text}</td>`).join('') +
+            `</tr>`
+        ).join('');
     
-    const
-    start = (currentPage - 1) * pageSize;
-    const
-    end = Math.min(start + pageSize, totalRows);
-    const
-    pageRows = sortedData.slice(start, end);
-    
-    bodyEl.innerHTML = pageRows.map(row= > {
-        const
-    cells = row.map((cell, i) = > {
-        const
-    align = i > 0 ? 'text-align: right;': '';
-    return ` < td
-    style = "${align}" >${cell.text} < / td > `;
-    }).join('');
-    return ` < tr >${cells} < / tr > `;
-    }).join('');
-    
-    rowCountEl.textContent = `Showing ${start + 1}–${end}
-    of ${totalRows}
-    `;
-    pageInfoEl.textContent = `Page ${currentPage} / ${totalPages}
-    `;
-    
-    prevBtn.disabled = currentPage == = 1;
-    firstBtn.disabled = currentPage == = 1;
-    nextBtn.disabled = currentPage == = totalPages;
-    lastBtn.disabled = currentPage == = totalPages;
-    }
+        pageInfoEl.textContent = `Page ${currentPage}`;
+    }}
     
     renderTable();
-    < / script > \
-        """
-      
-      components.html(html_table, height=900, scrolling=True)
+    </script>
+    """
+    
+    components.html(html_table, height=900, scrolling=True)
 
 # ---------------- Player tab ----------------
 elif page == "Player":
