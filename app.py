@@ -871,70 +871,94 @@ if page == "Main":
 
     components.html(html_table, height=1550, scrolling=True)
 
-
-
-    st.markdown("<h2 style='text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; color:#2a3757;'>Top 10 Leaderboards</h2>", unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown('<div style="text-align:center; font-size:1.15em; font-weight:600; margin-bottom:0.6em; color:#385684;">Top 10 by Swing+</div>', unsafe_allow_html=True)
-        if "Swing+" in df_main_filtered.columns:
-            top_swing = df_main_filtered.sort_values("Swing+", ascending=False).head(10).reset_index(drop=True)
-            top_swing_display = top_swing.copy()
-            if "Age" in top_swing_display.columns:
-                try:
-                    top_swing_display["Age"] = top_swing_display["Age"].round(0).astype("Int64")
-                except Exception:
-                    pass
-            top_swing_renamed = top_swing_display.rename(columns=rename_map)
-            leaderboard_cols = [c for c in ["Name", "Team", "Age", "Swing+", "HitSkillPlus", "ImpactPlus"] if c in top_swing.columns]
-            display_cols_renamed = [rename_map.get(c, c) for c in leaderboard_cols]
-            swing_label = rename_map.get("Swing+", "Swing+")
-            try:
-                vmin = min(70, float(df_main_filtered["Swing+"].min()))
-                vmax = max(130, float(df_main_filtered["Swing+"].max()))
-                centered_cmap = create_centered_cmap(center=100, vmin=vmin, vmax=vmax)
-                st.dataframe(
-                    top_swing_renamed[display_cols_renamed]
-                    .style.format(precision=2)
-                    .background_gradient(subset=[swing_label], cmap=centered_cmap, vmin=vmin, vmax=vmax),
-                    use_container_width=True,
-                    hide_index=True
-                )
-            except Exception:
-                st.dataframe(top_swing_renamed[display_cols_renamed], use_container_width=True, hide_index=True)
-        else:
-            st.info("Swing+ not present in dataset; leaderboard unavailable.")
-
-    with col2:
-        st.markdown('<div style="text-align:center; font-size:1.15em; font-weight:600; margin-bottom:0.6em; color:#385684;">Top 10 by HitSkill+</div>', unsafe_allow_html=True)
-        if "HitSkillPlus" in df_main_filtered.columns:
-            top_hit = df_main_filtered.sort_values("HitSkillPlus", ascending=False).head(10).reset_index(drop=True)
-            top_hit_display = top_hit.copy()
-            if "Age" in top_hit_display.columns:
-                try:
-                    top_hit_display["Age"] = top_hit_display["Age"].round(0).astype("Int64")
-                except Exception:
-                    pass
-            top_hit_renamed = top_hit_display.rename(columns=rename_map)
-            leaderboard_cols_hit = [c for c in ["Name", "Team", "Age", "HitSkillPlus", "Swing+", "ImpactPlus"] if c in top_hit.columns]
-            display_cols_hit_renamed = [rename_map.get(c, c) for c in leaderboard_cols_hit]
-            hit_label = rename_map.get("HitSkillPlus", "HitSkill+")
-            try:
-                vmin_h = min(70, float(df_main_filtered["HitSkillPlus"].min()))
-                vmax_h = max(130, float(df_main_filtered["HitSkillPlus"].max()))
-                centered_cmap = create_centered_cmap(center=100, vmin=vmin_h, vmax=vmax_h)
-                st.dataframe(
-                    top_hit_renamed[display_cols_hit_renamed]
-                    .style.format(precision=2)
-                    .background_gradient(subset=[hit_label], cmap=centered_cmap, vmin=vmin_h, vmax=vmax_h),
-                    use_container_width=True,
-                    hide_index=True
-                )
-            except Exception:
-                st.dataframe(top_hit_renamed[display_cols_hit_renamed], use_container_width=True, hide_index=True)
-        else:
-            st.info("HitSkillPlus not present in dataset; leaderboard unavailable.")
-
+    # ================== SHAP VERSION OF MAIN TABLE ==================
+    # Looks IDENTICAL to the raw table but shows SHAP contributions
+    
+    st.markdown("<div style='height:24px;'></div>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align:center;'>Player Metrics – SHAP Contributions</h3>", unsafe_allow_html=True)
+    
+    base_cols = ["#", "Name", "Team", "Season", "PA", "Competitive Swings", "Batted Ball Events", "Swing+", "HitSkill+", "Impact+"]
+    mechanical_cols = [c for c in styled.columns if c not in base_cols]
+    
+    shap_cache = {}
+    
+    def compute_shap_for_row(row):
+        key = f"{row.get('Name','')}_{row.get('Team','')}"
+        if key in shap_cache:
+            return shap_cache[key]
+    
+        try:
+            X_player = prepare_model_input_for_player(row, mechanical_cols, model, df_reference=df)
+            shap_values = explainer(X_player)
+            values = np.array(shap_values.values).flatten() if hasattr(shap_values, "values") else np.array(shap_values).flatten()
+    
+            temp = pd.DataFrame({
+                "feature": X_player.columns,
+                "shap": values
+            })
+            temp["abs"] = temp["shap"].abs()
+            total = temp["abs"].sum() or 1
+            temp["pct"] = temp["abs"] / total
+    
+            shap_cache[key] = temp.set_index("feature")
+            return shap_cache[key]
+        except Exception:
+            return None
+    
+    
+    shap_table_rows = []
+    
+    for idx, (_, row) in enumerate(styled.iterrows(), start=1):
+        row_cells = [{"text": str(idx), "bg": ""}]
+        shap_row = compute_shap_for_row(row)
+    
+        for c in styled.columns:
+            val = row[c]
+            content = format_cell(val)
+            bg = ""
+    
+            if c in mechanical_cols and shap_row is not None and c in shap_row.index:
+                s_val = shap_row.loc[c, "shap"]
+                pct_val = shap_row.loc[c, "pct"]
+                content = f"{s_val:+.3f} ({pct_val:.0%})"
+                bg = value_to_color(s_val, center=0, vmin=-1, vmax=1)
+    
+            if c == "Team" and val in image_dict:
+                content = f'<img src="{image_dict[val]}" alt="{val}" style="height:28px; display:block; margin:0 auto;" />'
+    
+            row_cells.append({"text": content, "bg": bg})
+    
+        shap_table_rows.append(row_cells)
+    
+    
+    shap_html_table = f"""
+    <div class="main-table-container">
+        <div class="main-table-header">
+            <span>Player Metrics (SHAP View)</span>
+        </div>
+    
+        <div class="main-table-wrapper">
+            <table class="custom-main-table">
+                <thead>
+                    <tr>
+                        {''.join([f"<th>{abbrev_map.get(c, c)}</th>" for c in columns_order])}
+                    </tr>
+                </thead>
+                <tbody>
+                    {''.join([
+                        '<tr>' + ''.join([
+                            f"<td style='background:{cell['bg']}; text-align:right;'>{cell['text']}</td>"
+                            if cell['bg'] else f"<td>{cell['text']}</td>"
+                            for cell in row]) + '</tr>'
+                        for row in shap_table_rows
+                    ])}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    """
+    
+    components.html(shap_html_table, height=1550, scrolling=True)
 
 
 # ---------------- Player tab ----------------
