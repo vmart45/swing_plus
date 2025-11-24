@@ -964,7 +964,7 @@ if page == "Main":
         "Batted Ball Events": "BBE",
         "PA": "PA",
         "Season": "Season",
-        "Avg Bat Speed Shap": "BatS (SH)",
+        "avg_bat_speed_shap": "BatS (SH)",
         "Swing Tilt Shap": "SwT (SH)",
         "Attack Angle Shap": "AA (SH)",
         "Attack Direction Shap": "AD (SH)",
