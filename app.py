@@ -869,6 +869,7 @@ if page == "Main":
 
     components.html(html_table, height=1550, scrolling=True)
 
+    # ===== LOAD SHAP CSV =====
     shap_df = pd.read_csv("SwingPlus_SHAP_Values.csv")
     
     # =============================
@@ -976,9 +977,9 @@ if page == "Main":
     # YOUR ORIGINAL ABBREV MAP (RESPECTED)
     # =============================
     abbrev_map = { "Competitive Swings": "CS",
-                   "Batted Ball Events": "BBE",
-                   "PA": "PA",
-                   "Season": "Season",
+                   "batted_ball_events": "BBE",
+                   "pa": "PA",
+                   "year": "Season",
                    "avg_bat_speed_shap": "BatS (SH)",
                    "avg_bat_speed_importance": "BatS (Imp)",
                    "swing_tilt_shap": "SwT (SH)",
@@ -1068,6 +1069,7 @@ if page == "Main":
             row_cells.append({"text": content, "bg": bg})
     
         table_data_shap.append(row_cells)
+
     
         html_table_shap = f"""
         <style>
