@@ -872,10 +872,13 @@ if page == "Main":
     # Load SHAP CSV
     shap_df = pd.read_csv("SwingPlus_SHAP_Values.csv")
     
-    # Add missing columns if not present
-    for col in ["Name", "Team"]:
-        if col not in shap_df.columns:
-            shap_df[col] = ""
+
+    if "Name" not in shap_df.columns and "name" in shap_df.columns:
+        shap_df["Name"] = shap_df["name"]
+    
+    if "Team" not in shap_df.columns and "team" in shap_df.columns:
+        shap_df["Team"] = shap_df["team"]
+
     
     # Filter logic (if needed)
     df_shap_filtered = shap_df.copy()
