@@ -384,16 +384,14 @@ def open_compare_in_same_tab(playerA, playerB, seasonA=None, seasonB=None):
 
 if page == "Main":
 
-    <div style="
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-        font-size: 26px;
-        font-weight: 700;
-        color: #1e293b;
-        margin: 10px 0 18px 0;
-        letter-spacing: 0.5px;
-    ">
-        Swing+ Player Performance Dashboard
-    </div>
+    st.markdown(
+        """
+        <h2 style="text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; letter-spacing:0.01em; color:#2a3757;">
+            Advanced Swing Metrics & SHAP Breakdown
+        </h2>
+        """,
+        unsafe_allow_html=True
+    )
 
     # Inject custom CSS for HTML-style filters
     st.markdown(
