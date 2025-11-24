@@ -869,18 +869,34 @@ if page == "Main":
 
     components.html(html_table, height=1550, scrolling=True)
 
-    # Load SHAP CSV
+# ===== LOAD SHAP CSV =====
     shap_df = pd.read_csv("SwingPlus_SHAP_Values.csv")
     
-
+    # Normalize Name / Team
     if "Name" not in shap_df.columns and "name" in shap_df.columns:
         shap_df["Name"] = shap_df["name"]
-    
     if "Team" not in shap_df.columns and "team" in shap_df.columns:
         shap_df["Team"] = shap_df["team"]
-
     
-    # Filter logic (if needed)
+    # Normalize Competitive Swings
+    if "competitive_swings" in shap_df.columns:
+        shap_df = shap_df.rename(columns={"competitive_swings": "CS"})
+        comp_col = "CS"
+    elif comp_col in shap_df.columns:
+        shap_df = shap_df.rename(columns={comp_col: "CS"})
+        comp_col = "CS"
+    else:
+        comp_col = None
+    
+    # Rename plus metrics for display
+    plus_rename_map = {
+        "SwingPlus": "Swing+",
+        "HitSkillPlus": "HitSkill+",
+        "ImpactPlus": "Impact+"
+    }
+    shap_df = shap_df.rename(columns=plus_rename_map)
+    
+    # ===== APPLY FILTERS =====
     df_shap_filtered = shap_df.copy()
     if season_col and season_selected_global is not None and "year" in df_shap_filtered.columns:
         df_shap_filtered = df_shap_filtered[df_shap_filtered[season_col] == season_selected_global]
@@ -892,11 +908,24 @@ if page == "Main":
     if "Age" in df_shap_filtered.columns:
         df_shap_filtered = df_shap_filtered[(df_shap_filtered["Age"] >= age_min) & (df_shap_filtered["Age"] <= age_max)]
     
-    # Column setup
-    all_stats_shap = ["Name", "Team", "year", "pa", comp_col, "batted_ball_events"]
+    # ===== COLUMN ORDER SETUP =====
+    all_stats_shap = [
+        "Name", "Team", "year", "pa"
+    ]
+    if comp_col:
+        all_stats_shap.append(comp_col)
+    all_stats_shap.append("batted_ball_events")
+    
+    # Insert Plus Metrics after BBE
+    for plus in ["Swing+", "HitSkill+", "Impact+"]:
+        if plus in df_shap_filtered.columns:
+            all_stats_shap.append(plus)
+    
+    # Add SHAP metrics
     for base in [
-        "avg_bat_speed", "swing_tilt", "attack_angle", "attack_direction", "avg_intercept_y_vs_plate",
-        "avg_intercept_y_vs_batter", "avg_batter_y_position", "avg_batter_x_position",
+        "avg_bat_speed", "swing_tilt", "attack_angle", "attack_direction",
+        "avg_intercept_y_vs_plate", "avg_intercept_y_vs_batter",
+        "avg_batter_y_position", "avg_batter_x_position",
         "swing_length", "avg_foot_sep", "avg_stance_angle"
     ]:
         for suffix in ["_shap", "_importance"]:
@@ -908,7 +937,7 @@ if page == "Main":
     display_cols_shap = [c for c in all_stats_shap if c in df_shap_filtered.columns and c not in removed_cols_shap]
     display_df_shap = df_shap_filtered[display_cols_shap].copy()
     
-    # Rounding
+    # ===== ROUNDING =====
     for col in ["pa", comp_col, "batted_ball_events", "year"]:
         if col in display_df_shap.columns:
             display_df_shap[col] = display_df_shap[col].round(0).astype("Int64")
@@ -917,39 +946,63 @@ if page == "Main":
         if col.endswith("_shap") or col.endswith("_importance"):
             display_df_shap[col] = display_df_shap[col].round(3)
     
-    # Rename
+    # ===== RENAME DISPLAY HEADERS =====
     rename_map_shap = {
         "year": "Season",
         "pa": "PA",
-        "batted_ball_events": "BBE"
+        "batted_ball_events": "BBE",
+        comp_col: "CS"
     }
-    if comp_col in display_df_shap.columns:
-        rename_map_shap[comp_col] = "Competitive Swings"
     
     display_df_shap = display_df_shap.rename(columns=rename_map_shap)
-    sort_col_shap = "avg_bat_speed_shap" if "avg_bat_speed_shap" in shap_df.columns else display_df_shap.columns[0]
+    
+    # ===== SORT =====
+    sort_col_shap = "avg_bat_speed_shap" if "avg_bat_speed_shap" in display_df_shap.columns else display_df_shap.columns[0]
     styled_shap = display_df_shap.sort_values(by=sort_col_shap, ascending=False).reset_index(drop=True)
     
-    # Format cells
+    # ===== COLOR + FORMAT FUNCTIONS =====
+    
+    def value_to_color(val, center=100, vmin=70, vmax=130):
+        try:
+            if pd.isna(val):
+                return "#ffffff"
+            val = float(val)
+            val = max(min(val, vmax), vmin)
+            if val == center:
+                return "#ffffff"
+            if val < center:
+                ratio = (center - val) / (center - vmin)
+                r, g, b = (31, 119, 180)
+            else:
+                ratio = (val - center) / (vmax - center)
+                r, g, b = (214, 39, 40)
+            r = int(255 + (r - 255) * ratio)
+            g = int(255 + (g - 255) * ratio)
+            b = int(255 + (b - 255) * ratio)
+            return f"#{r:02x}{g:02x}{b:02x}"
+        except Exception:
+            return "#ffffff"
+    
+    
     def format_cell(val):
         if pd.isna(val):
             return ""
-        if isinstance(val, (float, np.floating)):
-            return f"{val:.3f}" if abs(val) < 100 else f"{val:.0f}"
-        if isinstance(val, (int, np.integer)):
-            return f"{val:d}"
-        return str(val)
+        try:
+            if isinstance(val, (float, np.floating)):
+                return f"{val:.2f}"
+            if isinstance(val, (int, np.integer)):
+                return f"{val:d}"
+            return str(val)
+        except Exception:
+            return str(val)
     
-    # Abbreviations
-    abbrev_map_shap = {
-        "Competitive Swings": "CS",
-        "Batted Ball Events": "BBE",
-        "PA": "PA",
-        "Season": "Yr"
-    }
+    # ===== COLOR TARGET COLUMNS =====
+    plus_labels_shap = ["Swing+", "HitSkill+", "Impact+"]
     
+    # ===== BUILD TABLE DATA =====
     columns_order_shap = ["#"] + list(styled_shap.columns)
     table_data_shap = []
+    
     for idx, (_, row) in enumerate(styled_shap.iterrows(), start=1):
         row_cells = [{"text": str(idx), "bg": ""}]
         for c in styled_shap.columns:
@@ -958,8 +1011,10 @@ if page == "Main":
                 content = f'<img src="{image_dict[val]}" alt="{val}" style="height:28px; display:block; margin:0 auto;" />'
             else:
                 content = format_cell(val)
-            row_cells.append({"text": content, "bg": ""})
+            bg = value_to_color(val) if c in plus_labels_shap else ""
+            row_cells.append({"text": content, "bg": bg})
         table_data_shap.append(row_cells)
+
     
     # === Abbreviation Map ===
     abbrev_map = {
