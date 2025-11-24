@@ -618,8 +618,6 @@ if page == "Main":
         
         # rest of your HTML/JS script stays the same
         html_table = f"""
-        <!-- UNCHANGED HTML/JS from your provided snippet -->
-        <!-- Only cell content for 'Team' is updated to display logo -->
         <style>
             .main-table-container {{
                 width: 100%;
@@ -916,115 +914,257 @@ if page == "Main":
         "PctImportance": [round(player_row[imp], 2) for _, imp in feature_cols],
     })
     
-    # Total abs for normalizing percentage importance for plotting
-    abs_shap_vals = np.abs(display_df["Contribution"])
-    total_abs = abs_shap_vals.sum() if abs_shap_vals.sum() != 0 else 1.0
-    display_df["pct_of_abs"] = abs_shap_vals / total_abs
-    
-    # Display title and player identity
-    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
-    st.markdown(
-        """
-        <h3 style="text-align:center; margin-top:6px; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
-        Swing+ Feature Contributions
-        </h3>
-        <div style="text-align:center; color:#6b7280; margin-bottom:6px; font-size:0.95em;">
-        How each mechanical feature moved the model's Swing+ prediction for this player.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    
-    col1, col2 = st.columns([1, 1])
-    shap_pred_label = f"{player_row['batter_run_value']:.2f}" if pd.notna(player_row["batter_run_value"]) else "N/A"
-    swing_actual_label = f"{player_row.get('Swing+', np.nan):.2f}" if pd.notna(player_row.get("Swing+", np.nan)) else "N/A"
-    base_label = f"{player_row['batter_run_value']:.2f}" if pd.notna(player_row["batter_run_value"]) else "N/A"
-    
-    with col1:
-        st.markdown(
-            f"<div style='text-align:center;font-weight:700;color:#183153;'>Model prediction: {shap_pred_label} &nbsp; | &nbsp; Actual Swing+: {swing_actual_label}</div>",
-            unsafe_allow_html=True
-        )
-    
-        TOP_SHOW = min(8, len(display_df))
-        df_plot_top = display_df.head(TOP_SHOW).copy()
-        df_plot_top = df_plot_top.sort_values("pct_of_abs", ascending=False).reset_index(drop=True)
-        y = df_plot_top["feature"].tolist()
-        x_vals = df_plot_top["Contribution"].tolist()
-        pct_vals = df_plot_top["pct_of_abs"].tolist()
-        colors = ["#D8573C" if float(v) > 0 else "#3B82C4" for v in x_vals]
-        text_labels = [f"{val:.2f} ({pct:.0%})" for val, pct in zip(x_vals, pct_vals)]
-    
-        fig = go.Figure()
-        fig.add_trace(go.Bar(
-            x=x_vals,
-            y=y,
-            orientation='h',
-            marker_color=colors,
-            hoverinfo='text',
-            hovertext=[f"Contribution: {v:.2f}<br>Importance: {p:.0%}" for v, p in zip(x_vals, pct_vals)],
-            text=text_labels,
-            textposition='inside',
-            insidetextanchor='middle'
-        ))
-        fig.update_layout(
-            margin=dict(l=160, r=24, t=12, b=60),
-            xaxis_title="SHAP contribution to Swing+ (signed)",
-            yaxis=dict(autorange="reversed"),
-            height=520,
-            showlegend=False,
-            font=dict(size=11)
-        )
-        st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
-    
-    with col2:
-        st.markdown(
-            f"<div style='text-align:center;font-weight:700;color:#183153; margin-bottom:1px;'>Model baseline: {base_label}</div>",
-            unsafe_allow_html=True
-        )
-    
-        display_table_df = display_df.copy()
-        display_table_df = display_table_df.sort_values("pct_of_abs", ascending=False).head(12)
-        display_table_df = display_table_df[["feature", "Contribution", "PctImportance"]]
-        display_table_df["Contribution"] = display_table_df["Contribution"].apply(lambda v: f"{v:.2f}")
-        display_table_df["PctImportance"] = display_table_df["PctImportance"].apply(lambda v: f"{v:.2f}")
-    
-        st.markdown("""
+        html_table = f"""
         <style>
-        .comp-table { width: 100%; border-collapse: collapse; margin-top: 0.1px; font-size: 0.88em; background: #FFFFFF; border: 2px solid #111827; border-radius: 10px; overflow: hidden; }
-        .comp-table th { background: #F3F4F6; color: #374151; padding: 10px 6px; font-weight: 700; text-align: center; border-bottom: 1px solid #D1D5DB; }
-        .comp-table td { padding: 9px 6px; text-align: center; border-bottom: 1px solid #E5E7EB; color: #111827; }
-        .comp-table tr:last-child td { border-bottom: 1px solid #E5E7EB; }
-        .comp-feature { text-align: left; font-weight: 600; color: #1F2937; padding-left: 8px; }
+            .main-table-container {{
+                width: 100%;
+                margin: 0 auto;
+                background: #f8fafc;
+                border-radius: 14px;
+                border: 1px solid #e3e8f0;
+                box-shadow: 0 6px 18px rgba(42, 55, 87, 0.08);
+                padding: 18px 18px 12px;
+                box-sizing: border-box;
+                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            }}
+            .main-table-header {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 12px;
+                color: #24324c;
+                font-weight: 600;
+                font-size: 0.95rem;
+                letter-spacing: 0.01em;
+            }}
+            .main-table-wrapper {{
+                overflow-x: auto;
+                overflow-y: hidden;
+                max-height: none;
+                border-radius: 10px;
+                border: 1px solid #e0e6ef;
+                background: #fff;
+                padding: 10px 6px;
+            }}
+            table.custom-main-table {{
+                width: 100%;
+                border-collapse: collapse;
+                font-family: inherit;
+                font-size: 0.85rem;
+                color: #1e293b;
+                table-layout: auto;
+            }}
+            table.custom-main-table thead th {{
+                background: #f9fafb;
+                font-weight: 600;
+                text-align: left;
+                padding: 8px 12px;
+                border-bottom: 1px solid #e2e8f0;
+                font-variant-numeric: tabular-nums;
+                white-space: nowrap;
+                cursor: pointer;
+            }}
+            table.custom-main-table thead th.sorted-asc::after {{
+                content: " ▲";
+            }}
+            table.custom-main-table thead th.sorted-desc::after {{
+                content: " ▼";
+            }}
+            table.custom-main-table tbody td {{
+                padding: 6px 12px;
+                border-bottom: 1px solid #f1f5f9;
+                font-variant-numeric: tabular-nums;
+            }}
+            table.custom-main-table tbody tr:hover td {{
+                background: #f1f5f9;
+            }}
+            .table-foot {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 12px;
+                flex-wrap: wrap;
+                gap: 12px;
+            }}
+            .pagination-controls {{
+                display: flex;
+                gap: 8px;
+            }}
+            .pagination-controls button {{
+                border: 1px solid #cbd5e1;
+                background: #fff;
+                color: #1f2937;
+                padding: 6px 10px;
+                border-radius: 10px;
+                cursor: pointer;
+                font-weight: 600;
+                transition: all 0.15s ease;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            }}
+            .pagination-controls button:disabled {{
+                opacity: 0.5;
+                cursor: default;
+            }}
+            .page-size-selector {{
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 0.85rem;
+            }}
+            .page-size-selector select {{
+                padding: 6px 10px;
+                border-radius: 8px;
+                border: 1px solid #cbd5e1;
+            }}
         </style>
-        """, unsafe_allow_html=True)
-    
-        html_rows = ""
-        for _, r in display_table_df.iterrows():
-            feat = _html.escape(str(r["feature"]))
-            contrib = _html.escape(str(r["Contribution"]))
-            pct = _html.escape(str(r["PctImportance"]))
-            html_rows += (
-                "<tr>"
-                f"<td class='comp-feature'>{feat}</td>"
-                f"<td>{contrib}</td>"
-                f"<td>{pct}</td>"
-                "</tr>"
-            )
-    
-        html_table = (
-            "<table class='comp-table'>"
-            "<thead>"
-            "<tr>"
-            "<th>Feature</th>"
-            "<th>Contribution</th>"
-            "<th>Importance</th>"
-            "</tr>"
-            "</thead>"
-            f"<tbody>{html_rows}</tbody>"
-            "</table>"
-        )
-        st.markdown(html_table, unsafe_allow_html=True)
+        
+        <div class="main-table-container">
+            <div class="main-table-header">
+                <span>Player Metrics (sorted by {sort_col})</span>
+                <span id="row-count"></span>
+            </div>
+        
+            <div class="main-table-wrapper">
+                <table class="custom-main-table">
+                    <thead>
+                        <tr>
+                            {''.join([
+                                f"<th title='{c}' data-col='{i}'>{abbrev_map.get(c, c)}</th>"
+                                for i, c in enumerate(columns_order)
+                            ])}
+                        </tr>
+                    </thead>
+                    <tbody id="main-table-body"></tbody>
+                </table>
+            </div>
+        
+            <div class="table-foot">
+                <div class="page-size-selector">
+                    <label for="page-size-select">Rows per page:</label>
+                    <select id="page-size-select">
+                        <option value="30" selected>30</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="200">200</option>
+                    </select>
+                </div>
+                <div class="pagination-controls">
+                    <button id="first-page">« First</button>
+                    <button id="prev-page">‹ Prev</button>
+                    <span id="page-info"></span>
+                    <button id="next-page">Next ›</button>
+                    <button id="last-page">Last »</button>
+                </div>
+            </div>
+        </div>
+        
+        <script>
+            const data = {json.dumps(table_data)};
+            const columns = {json.dumps(columns_order)};
+            let pageSize = 30;
+            let currentPage = 1;
+            let sortColumn = null;
+            let sortDirection = 1;
+        
+            const bodyEl = document.getElementById('main-table-body');
+            const rowCountEl = document.getElementById('row-count');
+            const pageInfoEl = document.getElementById('page-info');
+            const firstBtn = document.getElementById('first-page');
+            const prevBtn = document.getElementById('prev-page');
+            const nextBtn = document.getElementById('next-page');
+            const lastBtn = document.getElementById('last-page');
+            const headers = document.querySelectorAll('th[data-col]');
+            const pageSizeSelect = document.getElementById('page-size-select');
+        
+            headers.forEach((th) => {{
+                th.addEventListener('click', () => {{
+                    const colIndex = parseInt(th.getAttribute('data-col'));
+                    if (sortColumn === colIndex) {{
+                        sortDirection = -sortDirection;
+                    }} else {{
+                        sortColumn = colIndex;
+                        sortDirection = 1;
+                    }}
+                    headers.forEach(header => {{
+                        header.classList.remove('sorted-asc', 'sorted-desc');
+                    }});
+                    th.classList.add(sortDirection === 1 ? 'sorted-asc' : 'sorted-desc');
+                    renderTable();
+                }});
+            }});
+        
+            firstBtn.addEventListener('click', () => {{
+                currentPage = 1;
+                renderTable();
+            }});
+            prevBtn.addEventListener('click', () => {{
+                if (currentPage > 1) currentPage--;
+                renderTable();
+            }});
+            nextBtn.addEventListener('click', () => {{
+                const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+                if (currentPage < totalPages) currentPage++;
+                renderTable();
+            }});
+            lastBtn.addEventListener('click', () => {{
+                currentPage = Math.max(1, Math.ceil(data.length / pageSize));
+                renderTable();
+            }});
+        
+            pageSizeSelect.addEventListener('change', (e) => {{
+                pageSize = parseInt(e.target.value, 10);
+                currentPage = 1;
+                renderTable();
+            }});
+        
+            function renderTable() {{
+                let sortedData = [...data];
+                if (sortColumn !== null) {{
+                    sortedData.sort((a, b) => {{
+                        const aText = a[sortColumn].text;
+                        const bText = b[sortColumn].text;
+                        const aVal = parseFloat(aText);
+                        const bVal = parseFloat(bText);
+                        if (!isNaN(aVal) && !isNaN(bVal)) {{
+                            return sortDirection * (aVal - bVal);
+                        }}
+                        return sortDirection * aText.localeCompare(bText);
+                    }});
+                }}
+        
+                const totalRows = sortedData.length;
+                const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+                if (currentPage > totalPages) currentPage = totalPages;
+        
+                const start = (currentPage - 1) * pageSize;
+                const end = Math.min(start + pageSize, totalRows);
+                const pageRows = sortedData.slice(start, end);
+        
+                bodyEl.innerHTML = pageRows.map(row => {{
+                    const cells = row.map((cell, i) => {{
+                        const isNum = !isNaN(cell.text) && cell.text !== "";
+                        const align = isNum ? 'text-align: right;' : '';
+                        const bg = cell.bg ? `background:${{cell.bg}};` : '';
+                        const style = (bg || align) ? ` style="${{bg}}{{align}}"` : '';
+                        return `<td${{style}}>${{cell.text}}</td>`;
+                    }}).join('');
+                    return `<tr>${{cells}}</tr>`;
+                }}).join('');
+        
+                rowCountEl.textContent = `Showing ${{start + 1}}–${{end}} of ${{totalRows}}`;
+                pageInfoEl.textContent = `Page ${{currentPage}} / ${{totalPages}}`;
+        
+                prevBtn.disabled = currentPage === 1;
+                firstBtn.disabled = currentPage === 1;
+                nextBtn.disabled = currentPage === totalPages;
+                lastBtn.disabled = currentPage === totalPages;
+            }}
+        
+            renderTable();
+        </script>
+        """
+
+    components.html(html_table, height=1550, scrolling=True)
 
 
 # ---------------- Player tab ----------------
