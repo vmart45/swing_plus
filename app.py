@@ -869,10 +869,14 @@ if page == "Main":
 
     components.html(html_table, height=1550, scrolling=True)
 
+    # ===== LOAD SHAP CSV =====
     shap_df = pd.read_csv("SwingPlus_SHAP_Values.csv")
     
+    # =============================
+    # FIX NAME & TEAM FORMATTING
+    # =============================
     if "Name" not in shap_df.columns and "name" in shap_df.columns:
-        # Convert "Last, First" to "First Last"
+        # Convert "Last, First" → "First Last"
         shap_df["Name"] = shap_df["name"].apply(
             lambda x: " ".join(x.split(", ")[::-1]) if isinstance(x, str) and "," in x else x
         )
@@ -880,8 +884,9 @@ if page == "Main":
     if "Team" not in shap_df.columns and "team" in shap_df.columns:
         shap_df["Team"] = shap_df["team"]
     
-    # ===== NORMALIZE COMPETITIVE SWINGS =====
-    
+    # =============================
+    # NORMALIZE COMPETITIVE SWINGS → CS
+    # =============================
     if "competitive_swings" in shap_df.columns:
         shap_df = shap_df.rename(columns={"competitive_swings": "CS"})
         comp_col = "CS"
@@ -890,17 +895,9 @@ if page == "Main":
     else:
         comp_col = None
     
-    # Normalize Competitive Swings
-    if "competitive_swings" in shap_df.columns:
-        shap_df = shap_df.rename(columns={"competitive_swings": "CS"})
-        comp_col = "CS"
-    elif comp_col in shap_df.columns:
-        shap_df = shap_df.rename(columns={comp_col: "CS"})
-        comp_col = "CS"
-    else:
-        comp_col = None
-    
-    # Rename plus metrics for display
+    # =============================
+    # RENAME PLUS METRICS
+    # =============================
     plus_rename_map = {
         "SwingPlus": "Swing+",
         "HitSkillPlus": "HitSkill+",
@@ -908,32 +905,54 @@ if page == "Main":
     }
     shap_df = shap_df.rename(columns=plus_rename_map)
     
-    # ===== APPLY FILTERS =====
+    # =============================
+    # APPLY FILTERS
+    # =============================
     df_shap_filtered = shap_df.copy()
+    
     if season_col and season_selected_global is not None and "year" in df_shap_filtered.columns:
         df_shap_filtered = df_shap_filtered[df_shap_filtered[season_col] == season_selected_global]
+    
     if comp_col and comp_col in df_shap_filtered.columns:
         df_shap_filtered = df_shap_filtered[
             (df_shap_filtered[comp_col] >= swings_min_input) &
             (df_shap_filtered[comp_col] <= swings_max_input)
         ]
-    if "Age" in df_shap_filtered.columns:
-        df_shap_filtered = df_shap_filtered[(df_shap_filtered["Age"] >= age_min) & (df_shap_filtered["Age"] <= age_max)]
     
-    # ===== COLUMN ORDER SETUP =====
-    all_stats_shap = [
-        "Name", "Team", "year", "pa"
-    ]
+    if "Age" in df_shap_filtered.columns:
+        df_shap_filtered = df_shap_filtered[
+            (df_shap_filtered["Age"] >= age_min) &
+            (df_shap_filtered["Age"] <= age_max)
+        ]
+    
+    # =============================================
+    # NORMALIZE SHAP IMPORTANCE → IMPACT SHARE (%)
+    # =============================================
+    importance_cols = [c for c in df_shap_filtered.columns if c.endswith("_importance")]
+    
+    if importance_cols:
+        imp_sum = df_shap_filtered[importance_cols].abs().sum(axis=1)
+        for col in importance_cols:
+            df_shap_filtered[col] = (
+                df_shap_filtered[col].abs() / imp_sum * 100
+            ).fillna(0)
+    
+    # =============================
+    # COLUMN ORDER STRUCTURE
+    # =============================
+    all_stats_shap = ["Name", "Team", "year", "pa"]
+    
     if comp_col:
         all_stats_shap.append(comp_col)
+    
     all_stats_shap.append("batted_ball_events")
     
-    # Insert Plus Metrics after BBE
+    # Plus metrics location
     for plus in ["Swing+", "HitSkill+", "Impact+"]:
         if plus in df_shap_filtered.columns:
             all_stats_shap.append(plus)
     
-    # Add SHAP metrics
+    # Add SHAP metric columns
     for base in [
         "avg_bat_speed", "swing_tilt", "attack_angle", "attack_direction",
         "avg_intercept_y_vs_plate", "avg_intercept_y_vs_batter",
@@ -947,32 +966,51 @@ if page == "Main":
     
     removed_cols_shap = ["id", "bip", "batter_run_value", "est_ba", "est_slg", "est_woba", "side"]
     display_cols_shap = [c for c in all_stats_shap if c in df_shap_filtered.columns and c not in removed_cols_shap]
+    
     display_df_shap = df_shap_filtered[display_cols_shap].copy()
     
-    # ===== ROUNDING =====
+    # =============================
+    # ROUNDING
+    # =============================
     for col in ["pa", comp_col, "batted_ball_events", "year"]:
         if col in display_df_shap.columns:
             display_df_shap[col] = display_df_shap[col].round(0).astype("Int64")
     
     for col in display_df_shap.columns:
-        if col.endswith("_shap") or col.endswith("_importance"):
+        if col.endswith("_shap"):
             display_df_shap[col] = display_df_shap[col].round(3)
+        if col.endswith("_importance"):
+            display_df_shap[col] = display_df_shap[col].round(1)
     
-    # ===== RENAME DISPLAY HEADERS =====
+    # =============================
+    # DISPLAY LABELS
+    # =============================
     rename_map_shap = {
         "year": "Season",
         "pa": "PA",
         "batted_ball_events": "BBE",
-        comp_col: "CS"
+        comp_col: "CS",
+        "avg_bat_speed_shap": "Bat Speed Impact",
+        "avg_bat_speed_importance": "Bat Speed Impact Share (%)",
+        "swing_tilt_shap": "Swing Tilt Impact",
+        "swing_tilt_importance": "Swing Tilt Impact Share (%)",
+        "attack_angle_shap": "Attack Angle Impact",
+        "attack_angle_importance": "Attack Angle Impact Share (%)",
+        "attack_direction_shap": "Attack Direction Impact",
+        "attack_direction_importance": "Attack Direction Impact Share (%)"
     }
     
     display_df_shap = display_df_shap.rename(columns=rename_map_shap)
     
-    # ===== SORT =====
-    sort_col_shap = "avg_bat_speed_shap" if "avg_bat_speed_shap" in display_df_shap.columns else display_df_shap.columns[0]
+    # =============================
+    # SORTING
+    # =============================
+    sort_col_shap = "Bat Speed Impact" if "Bat Speed Impact" in display_df_shap.columns else display_df_shap.columns[0]
     styled_shap = display_df_shap.sort_values(by=sort_col_shap, ascending=False).reset_index(drop=True)
     
-    # ===== COLOR + FORMAT FUNCTIONS =====
+    # =============================
+    # COLOR + FORMAT FUNCTIONS
+    # =============================
     
     def value_to_color(val, center=100, vmin=70, vmax=130):
         try:
@@ -999,60 +1037,37 @@ if page == "Main":
     def format_cell(val):
         if pd.isna(val):
             return ""
-        try:
-            if isinstance(val, (float, np.floating)):
-                return f"{val:.3f}"
-            if isinstance(val, (int, np.integer)):
-                return f"{val:d}"
-            return str(val)
-        except Exception:
-            return str(val)
+        if isinstance(val, (float, np.floating)):
+            return f"{val:.3f}"
+        if isinstance(val, (int, np.integer)):
+            return f"{val:d}"
+        return str(val)
     
-    # ===== COLOR TARGET COLUMNS =====
+    # =============================
+    # COLOR TARGET COLUMNS
+    # =============================
     plus_labels_shap = ["Swing+", "HitSkill+", "Impact+"]
-
-    abbrev_map = { "Competitive Swings": "CS",
-                  "Batted Ball Events": "BBE",
-                  "PA": "PA",
-                  "Season": "Season",
-                  "avg_bat_speed_shap": "BatS (SH)",
-                  "avg_bat_speed_importance": "BatS (Imp)",
-                  "swing_tilt_shap": "SwT (SH)",
-                  "swing_tilt_importance": "SwT (Imp)",
-                  "attack_angle_shap": "AA (SH)",
-                  "attack_angle_importance": "AA (Imp)",
-                  "attack_direction_shap": "AD (SH)",
-                  "attack_direction_importance": "AD (Imp)",
-                  "avg_intercept_y_vs_plate_shap": "IvP (SH)",
-                  "avg_intercept_y_vs_plate_importance": "IvP (Imp)",
-                  "avg_intercept_y_vs_batter_shap": "IvB (SH)",
-                  "avg_intercept_y_vs_batter_importance": "IvB (Imp)",
-                  "avg_batter_y_position_shap": "BatterY (SH)",
-                  "avg_batter_y_position_importance": "BatterY (Imp)",
-                  "avg_batter_x_position_shap": "BatterX (SH)",
-                  "avg_batter_x_position_importance": "BatterX (Imp)",
-                  "swing_length_shap": "SwL (SH)",
-                  "swing_length_importance": "SwL (Imp)",
-                  "avg_foot_sep_shap": "FS (SH)",
-                  "avg_foot_sep_importance": "FS (Imp)",
-                  "avg_stance_angle_shap": "StA (SH)",
-                  "avg_stance_angle_importance": "StA (Imp)"
-                 }
     
-    # ===== BUILD TABLE DATA =====
+    # =============================
+    # FINAL TABLE DATA
+    # =============================
     columns_order_shap = ["#"] + list(styled_shap.columns)
     table_data_shap = []
     
     for idx, (_, row) in enumerate(styled_shap.iterrows(), start=1):
         row_cells = [{"text": str(idx), "bg": ""}]
+    
         for c in styled_shap.columns:
             val = row[c]
+    
             if c == "Team" and val in image_dict:
                 content = f'<img src="{image_dict[val]}" alt="{val}" style="height:28px; display:block; margin:0 auto;" />'
             else:
                 content = format_cell(val)
+    
             bg = value_to_color(val) if c in plus_labels_shap else ""
             row_cells.append({"text": content, "bg": bg})
+    
         table_data_shap.append(row_cells)
     
         html_table_shap = f"""
