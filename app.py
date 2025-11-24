@@ -925,9 +925,7 @@ if page == "Main":
             cell_html = format_contrib(row[feat], row[imp]) if not pd.isna(row[feat]) else ""
             row_cells.append({"text": cell_html, "bg": ""})
         table_data.append(row_cells)
-    
-    import json
-    
+        
     html_table = f"""
     <style>
         .main-table-container {{
