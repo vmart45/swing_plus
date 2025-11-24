@@ -869,13 +869,14 @@ if page == "Main":
 
     components.html(html_table, height=1550, scrolling=True)
 
-# ===== LOAD SHAP CSV =====
     shap_df = pd.read_csv("SwingPlus_SHAP_Values.csv")
     
     # Normalize Name / Team
     if "Name" not in shap_df.columns and "name" in shap_df.columns:
-        shap_df["Name"] = shap_df["name"]
+        # Convert "Last, First" to "First Last"
+        shap_df["Name"] = shap_df["name"].apply(lambda x: " ".join(x.split(", ")[::-1]) if isinstance(x, str) and "," in x else x)
     if "Team" not in shap_df.columns and "team" in shap_df.columns:
+        shap_df["Team"] = shap_df["team"] and "team" in shap_df.columns:
         shap_df["Team"] = shap_df["team"]
     
     # Normalize Competitive Swings
@@ -989,7 +990,7 @@ if page == "Main":
             return ""
         try:
             if isinstance(val, (float, np.floating)):
-                return f"{val:.2f}"
+                return f"{val:.3f}"
             if isinstance(val, (int, np.integer)):
                 return f"{val:d}"
             return str(val)
@@ -1014,58 +1015,6 @@ if page == "Main":
             bg = value_to_color(val) if c in plus_labels_shap else ""
             row_cells.append({"text": content, "bg": bg})
         table_data_shap.append(row_cells)
-
-    
-    # === Abbreviation Map ===
-    abbrev_map = {
-        "Competitive Swings": "CS",
-        "Batted Ball Events": "BBE",
-        "PA": "PA",
-        "Season": "Season",
-        "avg_bat_speed_shap": "BatS (SH)",
-        "avg_bat_speed_importance": "BatS (Imp)",
-        "swing_tilt_shap": "SwT (SH)",
-        "swing_tilt_importance": "SwT (Imp)",
-        "attack_angle_shap": "AA (SH)",
-        "attack_angle_importance": "AA (Imp)",
-        "attack_direction_shap": "AD (SH)",
-        "attack_direction_importance": "AD (Imp)",
-        "avg_intercept_y_vs_plate_shap": "IvP (SH)",
-        "avg_intercept_y_vs_plate_importance": "IvP (Imp)",
-        "avg_intercept_y_vs_batter_shap": "IvB (SH)",
-        "avg_intercept_y_vs_batter_importance": "IvB (Imp)",
-        "avg_batter_y_position_shap": "BatterY (SH)",
-        "avg_batter_y_position_importance": "BatterY (Imp)",
-        "avg_batter_x_position_shap": "BatterX (SH)",
-        "avg_batter_x_position_importance": "BatterX (Imp)",
-        "swing_length_shap": "SwL (SH)",
-        "swing_length_importance": "SwL (Imp)",
-        "avg_foot_sep_shap": "FS (SH)",
-        "avg_foot_sep_importance": "FS (Imp)",
-        "avg_stance_angle_shap": "StA (SH)",
-        "avg_stance_angle_importance": "StA (Imp)"
-    }
-    
-    columns_order_shap = ["#"] + list(styled_shap.columns)
-
-    plus_labels_shap = []
-    for p in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
-        if p in display_df.columns:
-            plus_labels.append(rename_map.get(p, p))
-
-    
-    # Table data
-    columns_order_shap = ["#"] + list(styled_shap.columns)
-    table_data_shap = []
-    for idx, (_, row) in enumerate(styled_shap.iterrows(), start=1):
-        row_cells = [{"text": str(idx), "bg": ""}]
-        for c in styled_shap.columns:
-            val = row[c]
-            content = format_cell(val)
-            bg = value_to_color(val) if c in plus_labels_shap else ""
-            row_cells.append({"text": content, "bg": bg})
-        table_data_shap.append(row_cells)
-
     
         html_table_shap = f"""
         <style>
