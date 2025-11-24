@@ -2238,29 +2238,47 @@ elif page == "Compare":
     # Stat tiles
     # -------------------------------------
     stats = ["Age", "Swing+", "HitSkillPlus", "ImpactPlus"]
+    
+    # Display name mapping
+    stat_labels = {
+        "Age": "Age",
+        "Swing+": "Swing+",
+        "HitSkillPlus": "BatToBall+",
+        "ImpactPlus": "Impact+"
+    }
+    
     colA_block, _, colB_block = st.columns([1, 0.06, 1])
-
+    
     def stat_tiles(col, row, label):
         with col:
-            st.markdown(f"<div style='text-align:center;font-weight:700;margin-bottom:6px;'>{label}</div>", unsafe_allow_html=True)
+            st.markdown(
+                f"<div style='text-align:center;font-weight:700;margin-bottom:6px;'>{label}</div>",
+                unsafe_allow_html=True
+            )
             cols = st.columns(len(stats))
+    
             for i, stat in enumerate(stats):
                 v = row.get(stat, "N/A")
+    
                 if stat == "Age":
                     disp = f"{int(v)}" if pd.notnull(v) else "N/A"
                 else:
                     disp = f"{v:.2f}" if isinstance(v, (int, float)) else "N/A"
+    
+                display_name = stat_labels.get(stat, stat)
+    
                 cols[i].markdown(f"""
                     <div style="background:#FFF;border:1px solid #D1D5DB;border-radius:10px;padding:10px;text-align:center;">
                         <div style="font-weight:700;">{disp}</div>
-                        <div style="font-size:0.75em;color:#6B7280;">{stat}</div>
+                        <div style="font-size:0.75em;color:#6B7280;">{display_name}</div>
                     </div>
                 """, unsafe_allow_html=True)
-
+    
     stat_tiles(colA_block, rowA, "Player A")
     stat_tiles(colB_block, rowB, "Player B")
-
+    
     st.markdown("<hr style='margin-top:32px;margin-bottom:22px;'/>", unsafe_allow_html=True)
+
 
     # ------------------------ Mechanical comparison, table, SHAP charts ------------------------
     if len(mech_features_available) >= 2:
