@@ -871,184 +871,160 @@ if page == "Main":
 
     components.html(html_table, height=1550, scrolling=True)
 
-# ================== SHAP VERSION OF MAIN TABLE ==================
-    mech_features_available = [f for f in mechanical_features if f in df.columns]
+    # ================== SHAP VERSION OF MAIN TABLE ==================
     
-    shap_df = None
-    shap_base = None
-    shap_pred = None
-    shap_values_arr = None
-    model_error = None
+    # Load the SHAP values CSV
+    shap_df_full = pd.read_csv("SwingPlus_SHAP_Values.csv")
     
-    # ---------------------------------------------------
-    # USE PRECOMPUTED SHAP CSV INSTEAD OF LIVE COMPUTING
-    # ---------------------------------------------------
-    try:
-        shap_csv = pd.read_csv("SwingPlus_SHAP_Values.csv")
+    # Specify the target player (by id or name, customize as needed)
+    player_id = st.sidebar.selectbox("Select Player ID", shap_df_full["id"].unique())
+    player_row = shap_df_full.loc[shap_df_full["id"] == player_id].iloc[0]
     
-        if "id" in player_row and pd.notna(player_row["id"]):
-            player_shap_row = shap_csv[shap_csv["id"] == player_row["id"]]
-        else:
-            player_shap_row = shap_csv[shap_csv["name"] == player_row["name"]]
+    # Columns to use for features and contributions
+    feature_cols = [
+        ("avg_bat_speed_shap", "avg_bat_speed_importance"),
+        ("swing_tilt_shap", "swing_tilt_importance"),
+        ("attack_angle_shap", "attack_angle_importance"),
+        ("attack_direction_shap", "attack_direction_importance"),
+        ("avg_intercept_y_vs_plate_shap", "avg_intercept_y_vs_plate_importance"),
+        ("avg_intercept_y_vs_batter_shap", "avg_intercept_y_vs_batter_importance"),
+        ("avg_batter_y_position_shap", "avg_batter_y_position_importance"),
+        ("avg_batter_x_position_shap", "avg_batter_x_position_importance"),
+        ("swing_length_shap", "swing_length_importance"),
+        ("avg_foot_sep_shap", "avg_foot_sep_importance"),
+        ("avg_stance_angle_shap", "avg_stance_angle_importance"),
+    ]
     
-        if player_shap_row.empty:
-            raise ValueError("Player not found in SwingPlus_SHAP_Values.csv")
+    FEATURE_LABELS = {
+        "avg_bat_speed_shap": "Avg Bat Speed",
+        "swing_tilt_shap": "Swing Tilt",
+        "attack_angle_shap": "Attack Angle",
+        "attack_direction_shap": "Attack Direction",
+        "avg_intercept_y_vs_plate_shap": "Intercept Plate Y",
+        "avg_intercept_y_vs_batter_shap": "Intercept Batter Y",
+        "avg_batter_y_position_shap": "Batter Y Pos",
+        "avg_batter_x_position_shap": "Batter X Pos",
+        "swing_length_shap": "Swing Length",
+        "avg_foot_sep_shap": "Foot Separation",
+        "avg_stance_angle_shap": "Stance Angle",
+    }
     
-        player_shap_row = player_shap_row.iloc[0]
+    # Assemble display DataFrame from loaded CSV
+    display_df = pd.DataFrame({
+        "feature": [FEATURE_LABELS.get(f, f) for f, _ in feature_cols],
+        "Contribution": [round(player_row[f], 2) for f, _ in feature_cols],
+        "PctImportance": [round(player_row[imp], 2) for _, imp in feature_cols],
+    })
     
-        shap_rows = []
+    # Total abs for normalizing percentage importance for plotting
+    abs_shap_vals = np.abs(display_df["Contribution"])
+    total_abs = abs_shap_vals.sum() if abs_shap_vals.sum() != 0 else 1.0
+    display_df["pct_of_abs"] = abs_shap_vals / total_abs
     
-        for col in shap_csv.columns:
-            if col.endswith("_shap"):
-                base_feature = col.replace("_shap", "")
-                importance_col = f"{base_feature}_importance"
-    
-                shap_rows.append({
-                    "feature": base_feature,
-                    "raw": round(float(player_row.get(base_feature, np.nan)), 2) if pd.notna(player_row.get(base_feature, np.nan)) else np.nan,
-                    "shap_value": round(float(player_shap_row[col]), 2),
-                    "pct_of_abs": round(float(player_shap_row.get(importance_col, 0)), 4)
-                })
-    
-        shap_df = pd.DataFrame(shap_rows)
-        shap_df["abs_shap"] = shap_df["shap_value"].abs()
-    
-        total_abs = shap_df["abs_shap"].sum() if shap_df["abs_shap"].sum() != 0 else 1.0
-    
-        if shap_df["pct_of_abs"].max() > 1:
-            shap_df["pct_of_abs"] = shap_df["abs_shap"] / total_abs
-    
-        shap_df = shap_df.sort_values("abs_shap", ascending=False).reset_index(drop=True)
-    
-    except Exception as e:
-        shap_df = None
-        model_error = str(e)
-    
-    
+    # Display title and player identity
     st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
     st.markdown(
         """
         <h3 style="text-align:center; margin-top:6px; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
-            Swing+ Feature Contributions
+        Swing+ Feature Contributions
         </h3>
         <div style="text-align:center; color:#6b7280; margin-bottom:6px; font-size:0.95em;">
-            How each mechanical feature moved the model's Swing+ prediction for this player.
+        How each mechanical feature moved the model's Swing+ prediction for this player.
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
     
     col1, col2 = st.columns([1, 1])
-    
-    shap_pred_label = "N/A"
-    swing_actual_label = f"{player_row.get('Swing+', np.nan):.2f}" if pd.notna(player_row.get("Swing+")) else "N/A"
-    base_label = "N/A"
+    shap_pred_label = f"{player_row['batter_run_value']:.2f}" if pd.notna(player_row["batter_run_value"]) else "N/A"
+    swing_actual_label = f"{player_row.get('Swing+', np.nan):.2f}" if pd.notna(player_row.get("Swing+", np.nan)) else "N/A"
+    base_label = f"{player_row['batter_run_value']:.2f}" if pd.notna(player_row["batter_run_value"]) else "N/A"
     
     with col1:
-        st.markdown(f"<div style='text-align:center;font-weight:700;color:#183153;'>Model prediction: {shap_pred_label} &nbsp; | &nbsp; Actual Swing+: {swing_actual_label}</div>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div style='text-align:center;font-weight:700;color:#183153;'>Model prediction: {shap_pred_label} &nbsp; | &nbsp; Actual Swing+: {swing_actual_label}</div>",
+            unsafe_allow_html=True
+        )
     
-        if shap_df is None or len(shap_df) == 0:
-            st.info("Swing+ CSV SHAP data not available.")
-            if model_error:
-                st.caption(f"CSV load error: {model_error}")
-        else:
-            TOP_SHOW = min(8, len(shap_df))
-            df_plot_top = shap_df.head(TOP_SHOW).copy()
-            df_plot_top = df_plot_top.sort_values("pct_of_abs", ascending=False).reset_index(drop=True)
+        TOP_SHOW = min(8, len(display_df))
+        df_plot_top = display_df.head(TOP_SHOW).copy()
+        df_plot_top = df_plot_top.sort_values("pct_of_abs", ascending=False).reset_index(drop=True)
+        y = df_plot_top["feature"].tolist()
+        x_vals = df_plot_top["Contribution"].tolist()
+        pct_vals = df_plot_top["pct_of_abs"].tolist()
+        colors = ["#D8573C" if float(v) > 0 else "#3B82C4" for v in x_vals]
+        text_labels = [f"{val:.2f} ({pct:.0%})" for val, pct in zip(x_vals, pct_vals)]
     
-            y = df_plot_top["feature"].map(lambda x: FEATURE_LABELS.get(x, x)).tolist()
-            x_vals = df_plot_top["shap_value"].astype(float).tolist()
-            pct_vals = df_plot_top["pct_of_abs"].astype(float).tolist()
-            colors = ["#D8573C" if float(v) > 0 else "#3B82C4" for v in x_vals]
-    
-            text_labels = [f"{val:.2f}  ({pct:.0%})" for val, pct in zip(x_vals, pct_vals)]
-    
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                x=x_vals,
-                y=y,
-                orientation='h',
-                marker_color=colors,
-                hoverinfo='text',
-                hovertext=[f"Contribution: {v:.2f}<br>Importance: {p:.0%}" for v, p in zip(x_vals, pct_vals)],
-                text=text_labels,
-                textposition='inside',
-                insidetextanchor='middle'
-            ))
-            fig.update_layout(
-                margin=dict(l=160, r=24, t=12, b=60),
-                xaxis_title="SHAP contribution to Swing+ (signed)",
-                yaxis=dict(autorange="reversed"),
-                height=520,
-                showlegend=False,
-                font=dict(size=11)
-            )
-            st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            x=x_vals,
+            y=y,
+            orientation='h',
+            marker_color=colors,
+            hoverinfo='text',
+            hovertext=[f"Contribution: {v:.2f}<br>Importance: {p:.0%}" for v, p in zip(x_vals, pct_vals)],
+            text=text_labels,
+            textposition='inside',
+            insidetextanchor='middle'
+        ))
+        fig.update_layout(
+            margin=dict(l=160, r=24, t=12, b=60),
+            xaxis_title="SHAP contribution to Swing+ (signed)",
+            yaxis=dict(autorange="reversed"),
+            height=520,
+            showlegend=False,
+            font=dict(size=11)
+        )
+        st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
     
     with col2:
-    
         st.markdown(
             f"<div style='text-align:center;font-weight:700;color:#183153; margin-bottom:1px;'>Model baseline: {base_label}</div>",
             unsafe_allow_html=True
         )
     
-        if shap_df is None or len(shap_df) == 0:
-            st.write("No SHAP data to show.")
-        else:
+        display_table_df = display_df.copy()
+        display_table_df = display_table_df.sort_values("pct_of_abs", ascending=False).head(12)
+        display_table_df = display_table_df[["feature", "Contribution", "PctImportance"]]
+        display_table_df["Contribution"] = display_table_df["Contribution"].apply(lambda v: f"{v:.2f}")
+        display_table_df["PctImportance"] = display_table_df["PctImportance"].apply(lambda v: f"{v:.2f}")
     
-            display_df = shap_df.copy()
-            display_df["feature_label"] = display_df["feature"].map(lambda x: FEATURE_LABELS.get(x, x))
-            display_df = display_df.sort_values("abs_shap", ascending=False).head(12)
-            display_df = display_df[["feature_label", "raw", "shap_value", "pct_of_abs"]].rename(columns={
-                "feature_label": "Feature",
-                "raw": "Value",
-                "shap_value": "Contribution",
-                "pct_of_abs": "PctImportance"
-            })
+        st.markdown("""
+        <style>
+        .comp-table { width: 100%; border-collapse: collapse; margin-top: 0.1px; font-size: 0.88em; background: #FFFFFF; border: 2px solid #111827; border-radius: 10px; overflow: hidden; }
+        .comp-table th { background: #F3F4F6; color: #374151; padding: 10px 6px; font-weight: 700; text-align: center; border-bottom: 1px solid #D1D5DB; }
+        .comp-table td { padding: 9px 6px; text-align: center; border-bottom: 1px solid #E5E7EB; color: #111827; }
+        .comp-table tr:last-child td { border-bottom: 1px solid #E5E7EB; }
+        .comp-feature { text-align: left; font-weight: 600; color: #1F2937; padding-left: 8px; }
+        </style>
+        """, unsafe_allow_html=True)
     
-            display_df["Value"] = display_df["Value"].apply(lambda v: f"{float(v):.2f}" if pd.notna(v) else "NaN")
-            display_df["Contribution"] = display_df["Contribution"].apply(lambda v: f"{float(v):.2f}")
-            display_df["PctImportance"] = display_df["PctImportance"].apply(lambda v: f"{float(v):.0%}")
-            display_df = display_df.reset_index(drop=True)
-    
-            st.markdown("""
-            <style>
-            .comp-table {
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 0.1px;
-                font-size: 0.88em;
-                background: #FFFFFF;
-                border: 2px solid #111827;
-                border-radius: 10px;
-                overflow: hidden;
-            }
-            .comp-table th { background: #F3F4F6; font-weight: 700; text-align: center; padding: 10px 6px; }
-            .comp-table td { padding: 9px 6px; text-align: center; border-bottom: 1px solid #E5E7EB; }
-            .comp-feature { text-align: left; font-weight: 600; padding-left: 8px; }
-            </style>
-            """, unsafe_allow_html=True)
-    
-            import html as _html
-            html_rows = ""
-            for _, r in display_df.iterrows():
-                html_rows += (
-                    "<tr>"
-                    f"<td class='comp-feature'>{_html.escape(r['Feature'])}</td>"
-                    f"<td>{_html.escape(r['Value'])}</td>"
-                    f"<td>{_html.escape(r['Contribution'])}</td>"
-                    f"<td>{_html.escape(r['PctImportance'])}</td>"
-                    "</tr>"
-                )
-    
-            html_table = (
-                "<table class='comp-table'>"
-                "<thead><tr><th>Feature</th><th>Value</th><th>Contribution</th><th>Importance</th></tr></thead>"
-                f"<tbody>{html_rows}</tbody>"
-                "</table>"
+        html_rows = ""
+        for _, r in display_table_df.iterrows():
+            feat = _html.escape(str(r["feature"]))
+            contrib = _html.escape(str(r["Contribution"]))
+            pct = _html.escape(str(r["PctImportance"]))
+            html_rows += (
+                "<tr>"
+                f"<td class='comp-feature'>{feat}</td>"
+                f"<td>{contrib}</td>"
+                f"<td>{pct}</td>"
+                "</tr>"
             )
     
-            st.markdown(html_table, unsafe_allow_html=True)
+        html_table = (
+            "<table class='comp-table'>"
+            "<thead>"
+            "<tr>"
+            "<th>Feature</th>"
+            "<th>Contribution</th>"
+            "<th>Importance</th>"
+            "</tr>"
+            "</thead>"
+            f"<tbody>{html_rows}</tbody>"
+            "</table>"
+        )
+        st.markdown(html_table, unsafe_allow_html=True)
 
 
 # ---------------- Player tab ----------------
