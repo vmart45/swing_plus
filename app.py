@@ -977,7 +977,7 @@ if page == "Main":
         "avg_intercept_y_vs_batter_shap": "IvB (SH)",
         "avg_intercept_y_vs_batter_importance": "IvB (Imp)",
         "avg_batter_y_position_shap": "BatterY (SH)",
-        "avg_batter_y_position_importance": "BatterY (Imp), 
+        "avg_batter_y_position_importance": "BatterY (Imp)",
         "avg_batter_x_position_shap": "BatterX (SH)",
         "avg_batter_x_position_importance": "BatterY (Imp), 
         "swing_length_shap": "SwL (SH)",
