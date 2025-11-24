@@ -979,7 +979,7 @@ if page == "Main":
         "avg_batter_y_position_shap": "BatterY (SH)",
         "avg_batter_y_position_importance": "BatterY (Imp)",
         "avg_batter_x_position_shap": "BatterX (SH)",
-        "avg_batter_x_position_importance": "BatterY (Imp), 
+        "avg_batter_x_position_importance": "BatterX (Imp)",
         "swing_length_shap": "SwL (SH)",
         "swing_length_importance": "SwL (Imp)",
         "avg_foot_sep_shap": "FS (SH)",
