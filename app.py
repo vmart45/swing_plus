@@ -873,10 +873,11 @@ if page == "Main":
 
     shap_df_full = pd.read_csv("SwingPlus_SHAP_Values.csv")
     
-    # Specify the target player
+    # Sidebar selection
     player_id = st.sidebar.selectbox("Select Player ID", shap_df_full["id"].unique())
     player_row = shap_df_full.loc[shap_df_full["id"] == player_id].iloc[0]
     
+    # Feature columns with shap + importance mappings
     feature_cols = [
         ("avg_bat_speed_shap", "avg_bat_speed_importance", "Avg Bat Speed (mph)"),
         ("swing_tilt_shap", "swing_tilt_importance", "Swing Tilt (°)"),
@@ -905,22 +906,25 @@ if page == "Main":
         "Avg Stance Angle": "StA",
     }
     
-    columns_order = ["#"] + [col for (_, _, col) in feature_cols]
-    sort_col = "Contribution"
+    columns_order = ["#"] + [label for _, _, label in feature_cols]
     
     def format_contrib(shap, imp):
-        shap_val = f"{round(shap, 2):.2f}"
-        imp_val = f"{round(imp, 2):.2f}"
-        return f"{shap_val} <span style='font-size:0.85em;color:#505869;'>({imp_val})</span>"
+        try:
+            shap_val = f"{round(float(shap), 2):.2f}"
+            imp_val = f"{round(float(imp), 2):.2f}"
+            return f"{shap_val} <span style='font-size:0.85em;color:#505869;'>({imp_val})</span>"
+        except:
+            return ""
     
+    # Create table data
     table_data = []
-    for idx, (_, row) in enumerate([("player", player_row)], start=1):
-        row_cells = [{"text": str(idx), "bg": ""}]
-        for (feat, imp, label) in feature_cols:
-            cell_html = format_contrib(row[feat], row[imp]) if not pd.isna(row[feat]) else ""
-            row_cells.append({"text": cell_html, "bg": ""})
-        table_data.append(row_cells)
+    row_cells = [{"text": "1", "bg": ""}]
+    for shap_col, imp_col, label in feature_cols:
+        text = format_contrib(player_row[shap_col], player_row[imp_col])
+        row_cells.append({"text": text, "bg": ""})
+    table_data.append(row_cells)
     
+    # HTML + JS Table Output
     html_table = f"""
     <style>
     .main-table-container {{
@@ -932,43 +936,84 @@ if page == "Main":
         padding: 18px;
         font-family: system-ui, sans-serif;
     }}
+    .main-table-header {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        color: #24324c;
+        font-weight: 600;
+        font-size: 0.95rem;
+    }}
     .main-table-wrapper {{
         overflow-x: auto;
         background: #fff;
         border-radius: 10px;
+        border: 1px solid #e0e6ef;
+        padding: 10px 6px;
     }}
     table.custom-main-table {{
         width: 100%;
         border-collapse: collapse;
         font-size: 0.85rem;
     }}
-    th {{
+    table.custom-main-table th {{
         background: #f9fafb;
         padding: 8px 12px;
         cursor: pointer;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 1px solid #e2e8f0;
+        white-space: nowrap;
     }}
-    td {{
+    table.custom-main-table th.sorted-asc::after {{
+        content: " ▲";
+    }}
+    table.custom-main-table th.sorted-desc::after {{
+        content: " ▼";
+    }}
+    table.custom-main-table td {{
         padding: 6px 12px;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }}
+    .pagination-controls {{
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 10px;
+        gap: 10px;
+    }}
+    .pagination-controls button {{
+        padding: 6px 10px;
+        border-radius: 6px;
+        background: #fff;
+        border: 1px solid #cbd5e1;
+        font-weight: 600;
+        cursor: pointer;
     }}
     </style>
     
     <div class="main-table-container">
-    <div class="main-table-wrapper">
-    <table class="custom-main-table">
-    <thead>
-    <tr>
-    {''.join([f"<th data-col='{i}'>{abbrev_map.get(c,c)}</th>" for i,c in enumerate(columns_order)])}
-    </tr>
-    </thead>
-    <tbody id="main-table-body"></tbody>
-    </table>
-    </div>
-    
-    <div class="pagination-controls">
-    <button id="prev-page">Prev</button>
-    <span id="page-info"></span>
-    <button id="next-page">Next</button>
-    </div>
+        <div class="main-table-header">
+            <span>SHAP Contributions (with Importance)</span>
+            <span id="row-count"></span>
+        </div>
+        <div class="main-table-wrapper">
+            <table class="custom-main-table">
+                <thead>
+                    <tr>
+                        {''.join([f"<th data-col='{i}'>{abbrev_map.get(c, c)}</th>" for i, c in enumerate(columns_order)])}
+                    </tr>
+                </thead>
+                <tbody id="main-table-body"></tbody>
+            </table>
+        </div>
+        <div class="pagination-controls">
+            <button id="prev-page">Prev</button>
+            <span id="page-info"></span>
+            <button id="next-page">Next</button>
+        </div>
     </div>
     
     <script>
@@ -980,6 +1025,7 @@ if page == "Main":
     
     const bodyEl = document.getElementById('main-table-body');
     const pageInfoEl = document.getElementById('page-info');
+    const rowCountEl = document.getElementById('row-count');
     const prevBtn = document.getElementById('prev-page');
     const nextBtn = document.getElementById('next-page');
     const headers = document.querySelectorAll('th[data-col]');
@@ -989,43 +1035,47 @@ if page == "Main":
             const colIndex = parseInt(th.getAttribute('data-col'));
             sortDirection = sortColumn === colIndex ? -sortDirection : 1;
             sortColumn = colIndex;
+            headers.forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
+            th.classList.add(sortDirection === 1 ? 'sorted-asc' : 'sorted-desc');
             renderTable();
         }});
     }});
     
-    prevBtn.onclick = () => {{ if(currentPage>1) currentPage--; renderTable(); }};
+    prevBtn.onclick = () => {{ if (currentPage > 1) currentPage--; renderTable(); }};
     nextBtn.onclick = () => {{
-        if(currentPage < Math.ceil(data.length/pageSize)) currentPage++;
+        if (currentPage < Math.ceil(data.length / pageSize)) currentPage++;
         renderTable();
     }};
     
-    function renderTable(){{
+    function renderTable() {{
         let sortedData = [...data];
-        if(sortColumn !== null){{
-            sortedData.sort((a,b)=>{
-                const av = parseFloat(a[sortColumn].text.replace(/<[^>]*>/g,''));
-                const bv = parseFloat(b[sortColumn].text.replace(/<[^>]*>/g,''));
-                return sortDirection*(av-bv);
+        if (sortColumn !== null) {{
+            sortedData.sort((a, b) => {{
+                const aVal = parseFloat(a[sortColumn].text.replace(/<[^>]*>/g, ''));
+                const bVal = parseFloat(b[sortColumn].text.replace(/<[^>]*>/g, ''));
+                return sortDirection * (aVal - bVal);
             }});
         }}
-    
-        const start = (currentPage-1)*pageSize;
-        const pageRows = sortedData.slice(start,start+pageSize);
-    
-        bodyEl.innerHTML = pageRows.map(row =>
-            `<tr>` + row.map((c,i)=>
-            `<td style="text-align:${i>0?'right':'left'}">${c.text}</td>`).join('') +
-            `</tr>`
-        ).join('');
-    
-        pageInfoEl.textContent = `Page ${currentPage}`;
+        const totalRows = sortedData.length;
+        const totalPages = Math.ceil(totalRows / pageSize);
+        const start = (currentPage - 1) * pageSize;
+        const end = Math.min(start + pageSize, totalRows);
+        const pageRows = sortedData.slice(start, end);
+        bodyEl.innerHTML = pageRows.map(row => `<tr>` +
+            row.map((c, i) => `<td style="text-align:${i > 0 ? 'right' : 'left'}">${c.text}</td>`).join('') +
+            `</tr>`).join('');
+        pageInfoEl.textContent = `Page ${currentPage} of ${totalPages}`;
+        rowCountEl.textContent = `Showing ${start + 1}–${end} of ${totalRows}`;
+        prevBtn.disabled = currentPage === 1;
+        nextBtn.disabled = currentPage === totalPages;
     }}
     
     renderTable();
     </script>
     """
     
-    components.html(html_table, height=900, scrolling=True)
+    components.html(html_table, height=1050, scrolling=True)
+
 
 # ---------------- Player tab ----------------
 elif page == "Player":
