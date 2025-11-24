@@ -1007,8 +1007,10 @@ if page == "Main":
       const headers_shap = document.querySelectorAll('#shap-table thead th[data-col]');
       const pageSizeSelect_shap = document.getElementById('page-size-select-shap');
     
-      headers_shap.forEach((th) => {
-        th.addEventListener('click', () => {
+    html_js_script = '''
+    <script>
+      headers_shap.forEach(function(th) {
+        th.addEventListener('click', function() {
           const colIndex = parseInt(th.getAttribute('data-col'));
           if (sortColumn_shap === colIndex) {
             sortDirection_shap = -sortDirection_shap;
@@ -1016,13 +1018,15 @@ if page == "Main":
             sortColumn_shap = colIndex;
             sortDirection_shap = 1;
           }
-          headers_shap.forEach(header => {
+          headers_shap.forEach(function(header) {
             header.classList.remove('sorted-asc', 'sorted-desc');
           });
           th.classList.add(sortDirection_shap === 1 ? 'sorted-asc' : 'sorted-desc');
           renderTable_shap();
         });
       });
+    </script>
+    '''
     
       firstBtn_shap.addEventListener('click', () => {
         currentPage_shap = 1;
