@@ -965,7 +965,23 @@ if page == "Main":
     display_df_shap = df_shap_filtered[display_cols_shap].copy()
     
     # =============================
-    # ROUNDING (NO % STRINGS)
+    # ROUNDING (SIGNED SHARES)
+    # =============================
+    for col in display_df_shap.columns:
+        # SHAP share values → 1 decimal
+        if col.endswith("_shap"):
+            display_df_shap[col] = display_df_shap[col].round(1)
+    
+        # IMPORTANCE share values → percentage with 2 decimals
+        elif col.endswith("_importance"):
+            display_df_shap[col] = display_df_shap[col].round(2)
+    
+        elif display_df_shap[col].dtype.kind in "fc":
+            display_df_shap[col] = display_df_shap[col].round(2)
+    
+        elif display_df_shap[col].dtype.kind in "i":
+            display_df_shap[col] = display_df_shap[col].astype("Int64")
+    
     # =============================
     for col in display_df_shap.columns:
         if display_df_shap[col].dtype.kind in "fc":
@@ -1036,13 +1052,20 @@ if page == "Main":
             return "#ffffff"
     
     
-    def format_cell(val):
+    def format_cell(val, col_name=None):
         if pd.isna(val):
             return ""
+    
+        # Importance columns are true percentages
+        if col_name and col_name.endswith("_importance"):
+            return f"{val:.2f}%"
+    
         if isinstance(val, (float, np.floating)):
-            return f"{val:.3f}"
+            return f"{val:.1f}"
+    
         if isinstance(val, (int, np.integer)):
             return f"{val:d}"
+    
         return str(val)
     
     # =============================
@@ -1064,13 +1087,12 @@ if page == "Main":
             if c == "Team" and val in image_dict:
                 content = f'<img src="{image_dict[val]}" alt="{val}" style="height:28px; display:block; margin:0 auto;" />'
             else:
-                content = format_cell(val)
+                content = format_cell(val, c)
             bg = value_to_color(val) if c in plus_labels_shap else ""
             row_cells.append({"text": content, "bg": bg})
     
         table_data_shap.append(row_cells)
 
-    
         html_table_shap = f"""
         <style>
             .main-table-container {{
