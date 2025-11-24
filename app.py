@@ -871,27 +871,7 @@ if page == "Main":
 
 # Load SHAP CSV
     shap_df = pd.read_csv("SwingPlus_SHAP_Values.csv")
-    
-    # Filter
-    df_shap_filtered = shap_df.copy()
-    if season_col and season_selected_global is not None:
-        df_shap_filtered = df_shap_filtered[df_shap_filtered[season_col] == season_selected_global]
-    if search_name and "name" in df_shap_filtered.columns:
-        df_shap_filtered = df_shap_filtered[df_shap_filtered["name"].str.contains(search_name, case=False, na=False)]
-    if "Age" in df_shap_filtered.columns:
-        df_shap_filtered = df_shap_filtered[(df_shap_filtered["Age"] >= age_min) & (df_shap_filtered["Age"] <= age_max)]
-    if comp_col and comp_col in df_shap_filtered.columns:
-        df_shap_filtered = df_shap_filtered[
-            (df_shap_filtered[comp_col] >= swings_min_input) &
-            (df_shap_filtered[comp_col] <= swings_max_input)
-        ]
-# Display columns (with name/team/comp swings if available)
-    base_cols = []
-    for c in ["name", "Team", "year", "pa", "batted_ball_events", "competitive_swings"]:
-        if c in df_shap_filtered.columns:
-            base_cols.append(c)
-    
-    # SHAP + importance cols
+
     shap_stats = [
         ("avg_bat_speed_shap", "avg_bat_speed_importance"),
         ("swing_tilt_shap", "swing_tilt_importance"),
@@ -906,53 +886,91 @@ if page == "Main":
         ("avg_stance_angle_shap", "avg_stance_angle_importance"),
     ]
     
-    shap_cols = []
-    importance_cols = []
+    all_stats_shap = ["id", "batted_ball_events", "year", "pa", "competitive_swings"]
     for shap_col, imp_col in shap_stats:
-        if shap_col in df_shap_filtered.columns:
-            shap_cols.append(shap_col)
-        if imp_col in df_shap_filtered.columns:
-            importance_cols.append(imp_col)
+        if shap_col in df_shap_raw.columns:
+            all_stats_shap.append(shap_col)
+        if imp_col in df_shap_raw.columns:
+            all_stats_shap.append(imp_col)
     
-    removed_cols_shap = ["id", "side", "bip", "batter_run_value", "est_ba", "est_slg", "est_woba"]
-    display_cols_shap = [c for c in base_cols + shap_cols + importance_cols if c not in removed_cols_shap]
-    display_df_shap = df_shap_filtered[display_cols_shap].copy()
+    removed_cols_shap = ["bip", "batter_run_value", "side"]
+    display_cols_shap = [c for c in all_stats_shap if c not in removed_cols_shap and c in df_shap_raw.columns]
     
-    # Rounding logic
-    for col in ["year", "batted_ball_events"]:
-        if col in display_df_shap.columns:
-            display_df_shap[col] = display_df_shap[col].round(0).astype("Int64")
-    for col in shap_cols:
-        if col in display_df_shap.columns:
-            display_df_shap[col] = display_df_shap[col].round(3)
+    display_df_shap = df_shap_raw[display_cols_shap].copy()
     
-    # Renaming
+    # === Rounding rules ===
+    for c in ["pa", "competitive_swings", "batted_ball_events", "year"]:
+        if c in display_df_shap.columns:
+            display_df_shap[c] = display_df_shap[c].round(0).astype("Int64")
+    
+    for c in display_df_shap.columns:
+        if c.endswith("_shap"):
+            display_df_shap[c] = display_df_shap[c].round(3)
+    
+    # === Rename map ===
     rename_map_shap = {
-        "year": "Season",
         "pa": "PA",
+        "competitive_swings": "Competitive Swings",
         "batted_ball_events": "Batted Ball Events",
-        "competitive_swings": "Competitive Swings"
+        "year": "Season",
+        "id": "ID"
     }
-    if "name" in display_df_shap.columns:
-        rename_map_shap["name"] = "Name"
-    if "Team" in display_df_shap.columns:
-        rename_map_shap["Team"] = "Team"
-    
-    for shap_col in shap_cols:
+    for shap_col, imp_col in shap_stats:
         rename_map_shap[shap_col] = shap_col.replace("_", " ").title()
-    for imp_col in importance_cols:
         rename_map_shap[imp_col] = imp_col.replace("_", " ").title()
     
-    # Highlight SHAP contribution cols only
-    plus_labels_shap = [rename_map_shap[c] for c in shap_cols if c in rename_map_shap]
+    display_df_shap = display_df_shap.rename(columns=rename_map_shap)
+    sort_col_shap = "Avg Bat Speed Shap" if "Avg Bat Speed Shap" in display_df_shap.columns else display_df_shap.columns[0]
     
-    # Sort
-    sort_col_shap = rename_map_shap.get("avg_bat_speed_shap", list(rename_map_shap.values())[0])
     styled_shap = (
-        display_df_shap.rename(columns=rename_map_shap)
+        display_df_shap
         .sort_values(sort_col_shap, ascending=False)
         .reset_index(drop=True)
     )
+    
+    # === Format table data ===
+    def format_cell(val):
+        if pd.isna(val):
+            return ""
+        try:
+            if isinstance(val, (float, np.floating)):
+                return f"{val:.3f}"
+            if isinstance(val, (int, np.integer)):
+                return f"{val:d}"
+            return str(val)
+        except:
+            return str(val)
+    
+    table_data_shap = []
+    for idx, (_, row) in enumerate(styled_shap.iterrows(), start=1):
+        row_cells = [{"text": str(idx), "bg": ""}]
+        for c in styled_shap.columns:
+            val = row[c]
+            content = format_cell(val)
+            row_cells.append({"text": content, "bg": ""})
+        table_data_shap.append(row_cells)
+    
+    # === Abbreviation Map ===
+    abbrev_map = {
+        "Competitive Swings": "CS",
+        "Batted Ball Events": "BBE",
+        "PA": "PA",
+        "Season": "Season",
+        "Avg Bat Speed Shap": "BatS (SH)",
+        "Swing Tilt Shap": "SwT (SH)",
+        "Attack Angle Shap": "AA (SH)",
+        "Attack Direction Shap": "AD (SH)",
+        "Avg Intercept Y Vs Plate Shap": "IvP (SH)",
+        "Avg Intercept Y Vs Batter Shap": "IvB (SH)",
+        "Avg Batter Y Position Shap": "BatterY (SH)",
+        "Avg Batter X Position Shap": "BatterX (SH)",
+        "Swing Length Shap": "SwL (SH)",
+        "Avg Foot Sep Shap": "FS (SH)",
+        "Avg Stance Angle Shap": "StA (SH)"
+    }
+    
+    columns_order_shap = ["#"] + list(styled_shap.columns)
+
     
     # Table data
     columns_order_shap = ["#"] + list(styled_shap.columns)
