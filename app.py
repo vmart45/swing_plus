@@ -912,7 +912,6 @@ if page == "Main":
     sort_col = "Contribution"
     
     def format_contrib(shap, imp):
-        """Show SHAP value rounded with the importance in small parentheses."""
         shap_val = f"{round(shap,2):.2f}"
         imp_val = f"{round(imp,2):.2f}"
         return f"{shap_val} <span style='font-size:0.85em;color:#505869;'>({imp_val})</span>"
