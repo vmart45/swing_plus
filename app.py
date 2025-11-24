@@ -873,17 +873,22 @@ if page == "Main":
     
     if "Name" not in shap_df.columns and "name" in shap_df.columns:
         # Convert "Last, First" to "First Last"
-        shap_df["Name"] = shap_df["name"].apply(lambda x: " ".join(x.split(", ")[::-1]) if isinstance(x, str) and "," in x else x)
-    if "Team" not in shap_df.columns and "team" in shap_df.columns:
-        # Normalize Name / Team
-    if "Name" not in shap_df.columns and "name" in shap_df.columns:
-        # Convert "Last, First" to "First Last"
         shap_df["Name"] = shap_df["name"].apply(
             lambda x: " ".join(x.split(", ")[::-1]) if isinstance(x, str) and "," in x else x
         )
     
     if "Team" not in shap_df.columns and "team" in shap_df.columns:
         shap_df["Team"] = shap_df["team"]
+    
+    # ===== NORMALIZE COMPETITIVE SWINGS =====
+    
+    if "competitive_swings" in shap_df.columns:
+        shap_df = shap_df.rename(columns={"competitive_swings": "CS"})
+        comp_col = "CS"
+    elif "CS" in shap_df.columns:
+        comp_col = "CS"
+    else:
+        comp_col = None
     
     # Normalize Competitive Swings
     if "competitive_swings" in shap_df.columns:
