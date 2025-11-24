@@ -1764,7 +1764,7 @@ elif page == "Compare":
     # -------------------------------------
     # Stat tiles
     # -------------------------------------
-    stats = ["Age", "Swing+", "HitSkill+", "ImpactPlus"]
+    stats = ["Age", "Swing+", "HitSkillPlus", "ImpactPlus"]
     colA_block, _, colB_block = st.columns([1, 0.06, 1])
 
     def stat_tiles(col, row, label):
