@@ -527,6 +527,10 @@ if page == "Main":
         rename_map[comp_col] = "Competitive Swings"
     if "batted_ball_events" in display_df.columns:
         rename_map["batted_ball_events"] = "Batted Ball Events"
+    if "HitSkillPlus" in display_df.columns:
+        rename_map["HitSkillPlus"] = "BatToBall+"
+    if "ImpactPlus" in display_df.columns:
+        rename_map["ImpactPlus"] = "Impact+"
 
     for k, v in FEATURE_LABELS.items():
         if k in display_df.columns:
