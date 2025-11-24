@@ -888,15 +888,15 @@ if page == "Main":
     
     all_stats_shap = ["id", "batted_ball_events", "year", "pa", "competitive_swings"]
     for shap_col, imp_col in shap_stats:
-        if shap_col in df_shap_raw.columns:
+        if shap_col in shap_df.columns:
             all_stats_shap.append(shap_col)
-        if imp_col in df_shap_raw.columns:
+        if imp_col in shap_df.columns:
             all_stats_shap.append(imp_col)
     
     removed_cols_shap = ["bip", "batter_run_value", "side"]
-    display_cols_shap = [c for c in all_stats_shap if c not in removed_cols_shap and c in df_shap_raw.columns]
+    display_cols_shap = [c for c in all_stats_shap if c not in removed_cols_shap and c in shap_df.columns]
     
-    display_df_shap = df_shap_raw[display_cols_shap].copy()
+    display_df_shap = shap_df[display_cols_shap].copy()
     
     # === Rounding rules ===
     for c in ["pa", "competitive_swings", "batted_ball_events", "year"]:
