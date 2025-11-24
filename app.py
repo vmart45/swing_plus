@@ -1404,26 +1404,41 @@ elif page == "Player":
     default_index = 0
     if qp_player and qp_player in player_options:
         default_index = player_options.index(qp_player)
-
-    player_select = st.selectbox(
-        "Select a Player",
-        player_options,
-        key="player_select",
-        index=default_index
-    )
-
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        player_select = st.selectbox(
+            "Select a Player",
+            player_options,
+            key="player_select",
+            index=default_index
+        )
+    
     player_season_selected = None
+    
     if season_col:
         try:
-            player_seasons = sorted(df[df["Name"] == player_select][season_col].dropna().unique())
+            player_seasons = sorted(
+                df[df["Name"] == player_select][season_col].dropna().unique()
+            )
+    
             if player_seasons:
                 default_player_season = player_seasons[-1]
                 idx = player_seasons.index(default_player_season) if default_player_season in player_seasons else 0
-                player_season_selected = st.selectbox("Season (player)", player_seasons, index=idx, key="player_season_select")
+    
+                with col2:
+                    player_season_selected = st.selectbox(
+                        "Season",
+                        player_seasons,
+                        index=idx,
+                        key="player_season_select"
+                    )
             else:
                 player_season_selected = None
         except Exception:
             player_season_selected = None
+
 
     if player_season_selected is not None and season_col:
         try:
