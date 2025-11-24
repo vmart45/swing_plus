@@ -979,6 +979,11 @@ if page == "Main":
     
     columns_order_shap = ["#"] + list(styled_shap.columns)
 
+    plus_labels_shap = []
+    for p in ["Swing+", "HitSkillPlus", "ImpactPlus"]:
+        if p in display_df.columns:
+            plus_labels.append(rename_map.get(p, p))
+
     
     # Table data
     columns_order_shap = ["#"] + list(styled_shap.columns)
