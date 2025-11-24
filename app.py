@@ -925,14 +925,14 @@ if page == "Main":
         ]
     
     # =====================================================
-    # NORMALIZE BOTH SHAP + IMPORTANCE → PERCENTAGE SHARE
+    # NORMALIZE SHAP + IMPORTANCE → SIGNED SHARE (NO % SYMBOL)
     # =====================================================
     share_cols = [c for c in df_shap_filtered.columns if c.endswith("_shap") or c.endswith("_importance")]
     
     if share_cols:
         share_sum = df_shap_filtered[share_cols].abs().sum(axis=1)
         for col in share_cols:
-            df_shap_filtered[col] = (df_shap_filtered[col].abs() / share_sum * 100).fillna(0)
+            df_shap_filtered[col] = (df_shap_filtered[col] / share_sum * 100).fillna(0)
     
     # =============================
     # COLUMN ORDER STRUCTURE
@@ -965,16 +965,16 @@ if page == "Main":
     display_df_shap = df_shap_filtered[display_cols_shap].copy()
     
     # =============================
-    # ROUND EVERYTHING CLEANLY
+    # ROUNDING (NO % STRINGS)
     # =============================
     for col in display_df_shap.columns:
         if display_df_shap[col].dtype.kind in "fc":
-            display_df_shap[col] = display_df_shap[col].round(2)
+            display_df_shap[col] = display_df_shap[col].round(3)
         elif display_df_shap[col].dtype.kind in "i":
             display_df_shap[col] = display_df_shap[col].astype("Int64")
     
     # =============================
-    # YOUR ORIGINAL ABBREV MAP (RESPECTED)
+    # YOUR ORIGINAL ABBREV MAP (UNCHANGED)
     # =============================
     abbrev_map = { "Competitive Swings": "CS",
                    "batted_ball_events": "BBE",
@@ -1005,9 +1005,9 @@ if page == "Main":
                  }
     
     # =============================
-    # SORTING
+    # SORTING (BY Swing+)
     # =============================
-    sort_col_shap = display_df_shap.columns[0]
+    sort_col_shap = "Swing+" if "Swing+" in display_df_shap.columns else display_df_shap.columns[0]
     styled_shap = display_df_shap.sort_values(by=sort_col_shap, ascending=False).reset_index(drop=True)
     
     # =============================
@@ -1040,7 +1040,7 @@ if page == "Main":
         if pd.isna(val):
             return ""
         if isinstance(val, (float, np.floating)):
-            return f"{val:.2f}%"
+            return f"{val:.3f}"
         if isinstance(val, (int, np.integer)):
             return f"{val:d}"
         return str(val)
