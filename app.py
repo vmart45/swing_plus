@@ -1117,7 +1117,8 @@ if page == "Main":
         """,
         unsafe_allow_html=True
     )
-
+    
+    table_data_shap = []
     grade_columns = [c for c in styled_shap.columns if c.endswith("(20-80)")]
     
     for idx, (_, row) in enumerate(styled_shap.iterrows(), start=1):
