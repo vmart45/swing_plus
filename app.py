@@ -1108,7 +1108,7 @@ if page == "Main":
             if c == "Team" and val in image_dict:
                 content = f'<img src="{image_dict[val]}" alt="{val}" style="height:28px; display:block; margin:0 auto;" />'
             else:
-                content = format_cell_shap(val, c)
+                content = value_to_color_20_80(val, c)
     
             bg = value_to_color_20_80(val) if c in grade_columns else ""
             row_cells.append({"text": content, "bg": bg})
