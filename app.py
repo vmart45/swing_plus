@@ -573,323 +573,331 @@ if page == "Main":
             plus_labels.append(rename_map.get(p, p))
     
     # Value coloring function
-        def value_to_color(val, center=100, vmin=70, vmax=130):
-            try:
-                if pd.isna(val):
-                    return "#ffffff"
-                val = float(val)
-                val = max(min(val, vmax), vmin)
-                if val == center:
-                    return "#ffffff"
-                if val < center:
-                    ratio = (center - val) / (center - vmin)
-                    r, g, b = (31, 119, 180)
-                else:
-                    ratio = (val - center) / (vmax - center)
-                    r, g, b = (214, 39, 40)
-                r = int(255 + (r - 255) * ratio)
-                g = int(255 + (g - 255) * ratio)
-                b = int(255 + (b - 255) * ratio)
-                return f"#{r:02x}{g:02x}{b:02x}"
-            except Exception:
-                return "#ffffff"
-        
-        # Cell formatting
-        def format_cell(val):
+    def value_to_color(val, center=100, vmin=70, vmax=130):
+        try:
             if pd.isna(val):
-                return ""
-            try:
-                if isinstance(val, (float, np.floating)):
-                    return f"{val:.2f}"
-                if isinstance(val, (int, np.integer)):
-                    return f"{val:d}"
-                return str(val)
-            except Exception:
-                return str(val)
+                return "#ffffff"
+            val = float(val)
+            val = max(min(val, vmax), vmin)
+            if val == center:
+                return "#ffffff"
+            if val < center:
+                ratio = (center - val) / (center - vmin)
+                r, g, b = (31, 119, 180)
+            else:
+                ratio = (val - center) / (vmax - center)
+                r, g, b = (214, 39, 40)
+            r = int(255 + (r - 255) * ratio)
+            g = int(255 + (g - 255) * ratio)
+            b = int(255 + (b - 255) * ratio)
+            return f"#{r:02x}{g:02x}{b:02x}"
+        except Exception:
+            return "#ffffff"
         
-        abbrev_map = {
-            "Competitive Swings": "CS",
-            "Batted Ball Events": "BBE",
-            "Swing Length": "SwL",
-            "Avg Bat Speed (mph)": "BatS",
-            "Swing Tilt (°)": "SwT",
-            "Attack Angle (°)": "AA",
-            "Attack Direction": "AD",
-            "Intercept Y vs Plate": "IvP",
-            "Intercept Y vs Batter": "IvB",
-            "Batter Y Pos": "BatterY",
-            "Batter X Pos": "BatterX",
-            "Avg Foot Sep": "FS",
-            "Avg Stance Angle": "StA"
-        }
+    # Cell formatting
+    def format_cell(val):
+        if pd.isna(val):
+            return ""
+        try:
+            if isinstance(val, (float, np.floating)):
+                return f"{val:.2f}"
+            if isinstance(val, (int, np.integer)):
+                return f"{val:d}"
+            return str(val)
+        except Exception:
+            return str(val)
         
-        columns_order = ["#"] + list(styled.columns)
-        table_data = []
+    abbrev_map = {
+        "Competitive Swings": "CS",
+        "Batted Ball Events": "BBE",
+        "Swing Length": "SwL",
+        "Avg Bat Speed (mph)": "BatS",
+        "Swing Tilt (°)": "SwT",
+        "Attack Angle (°)": "AA",
+        "Attack Direction": "AD",
+        "Intercept Y vs Plate": "IvP",
+        "Intercept Y vs Batter": "IvB",
+        "Batter Y Pos": "BatterY",
+        "Batter X Pos": "BatterX",
+        "Avg Foot Sep": "FS",
+        "Avg Stance Angle": "StA"
+    }
         
-        for idx, (_, row) in enumerate(styled.iterrows(), start=1):
-            row_cells = [{"text": str(idx), "bg": ""}]
-            for c in styled.columns:
-                val = row[c]
-                if c == "Team" and val in image_dict:
-                    content = f'<img src="{image_dict[val]}" alt="{val}" style="height:28px; display:block; margin:0 auto;" />'
-                else:
-                    content = format_cell(val)
-                bg = value_to_color(val) if c in plus_labels else ""
-                row_cells.append({"text": content, "bg": bg})
-            table_data.append(row_cells)
+    columns_order = ["#"] + list(styled.columns)
+    table_data = []
         
-        # rest of your HTML/JS script stays the same
-        html_table = f"""
-        <style>
-            .main-table-container {{
-                width: 100%;
-                margin: 0 auto;
-                background: #f8fafc;
-                border-radius: 14px;
-                border: 1px solid #e3e8f0;
-                box-shadow: 0 6px 18px rgba(42, 55, 87, 0.08);
-                padding: 18px 18px 12px;
-                box-sizing: border-box;
-                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            }}
-            .main-table-header {{
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 12px;
-                color: #24324c;
-                font-weight: 600;
-                font-size: 0.95rem;
-                letter-spacing: 0.01em;
-            }}
-            .main-table-wrapper {{
-                overflow-x: auto;
-                overflow-y: hidden;
-                max-height: none;
-                border-radius: 10px;
-                border: 1px solid #e0e6ef;
-                background: #fff;
-                padding: 10px 6px;
-            }}
-            table.custom-main-table {{
-                width: 100%;
-                border-collapse: collapse;
-                font-family: inherit;
-                font-size: 0.85rem;
-                color: #1e293b;
-                table-layout: auto;
-            }}
-            table.custom-main-table thead th {{
-                background: #f9fafb;
-                font-weight: 600;
-                text-align: left;
-                padding: 8px 12px;
-                border-bottom: 1px solid #e2e8f0;
-                font-variant-numeric: tabular-nums;
-                white-space: nowrap;
-                cursor: pointer;
-            }}
-            table.custom-main-table thead th.sorted-asc::after {{
-                content: " ▲";
-            }}
-            table.custom-main-table thead th.sorted-desc::after {{
-                content: " ▼";
-            }}
-            table.custom-main-table tbody td {{
-                padding: 6px 12px;
-                border-bottom: 1px solid #f1f5f9;
-                font-variant-numeric: tabular-nums;
-            }}
-            table.custom-main-table tbody tr:hover td {{
-                background: #f1f5f9;
-            }}
-            .table-foot {{
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-top: 12px;
-                flex-wrap: wrap;
-                gap: 12px;
-            }}
-            .pagination-controls {{
-                display: flex;
-                gap: 8px;
-            }}
-            .pagination-controls button {{
-                border: 1px solid #cbd5e1;
-                background: #fff;
-                color: #1f2937;
-                padding: 6px 10px;
-                border-radius: 10px;
-                cursor: pointer;
-                font-weight: 600;
-                transition: all 0.15s ease;
-                box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-            }}
-            .pagination-controls button:disabled {{
-                opacity: 0.5;
-                cursor: default;
-            }}
-            .page-size-selector {{
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                font-size: 0.85rem;
-            }}
-            .page-size-selector select {{
-                padding: 6px 10px;
-                border-radius: 8px;
-                border: 1px solid #cbd5e1;
-            }}
-        </style>
+    for idx, (_, row) in enumerate(styled.iterrows(), start=1):
+        row_cells = [{"text": str(idx), "bg": ""}]
+        for c in styled.columns:
+            val = row[c]
+            if c == "Team" and val in image_dict:
+                content = f'<img src="{image_dict[val]}" alt="{val}" style="height:28px; display:block; margin:0 auto;" />'
+            else:
+                content = format_cell(val)
+            bg = value_to_color(val) if c in plus_labels else ""
+            row_cells.append({"text": content, "bg": bg})
+        table_data.append(row_cells)
         
-        <div class="main-table-container">
-            <div class="main-table-header">
-                <span>Player Metrics (sorted by {sort_col})</span>
-                <span id="row-count"></span>
+    # rest of your HTML/JS script stays the same
+    html_table = f"""
+    <style>
+        .main-table-container {{
+            width: 100%;
+            margin: 0 auto;
+            background: #f8fafc;
+            border-radius: 14px;
+            border: 1px solid #e3e8f0;
+            box-shadow: 0 6px 18px rgba(42, 55, 87, 0.08);
+            padding: 18px 18px 12px;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }}
+        .main-table-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            color: #24324c;
+            font-weight: 600;
+            font-size: 0.95rem;
+            letter-spacing: 0.01em;
+        }}
+        .main-table-wrapper {{
+            overflow-x: auto;
+            overflow-y: hidden;
+            max-height: none;
+            border-radius: 10px;
+            border: 1px solid #e0e6ef;
+            background: #fff;
+            padding: 10px 6px;
+        }}
+        table.custom-main-table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-family: inherit;
+            font-size: 0.85rem;
+            color: #1e293b;
+            table-layout: auto;
+        }}
+        table.custom-main-table thead th {{
+            background: #f9fafb;
+            font-weight: 600;
+            text-align: left;
+            padding: 8px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            cursor: pointer;
+        }}
+        table.custom-main-table thead th.sorted-asc::after {{
+            content: " ▲";
+        }}
+        table.custom-main-table thead th.sorted-desc::after {{
+            content: " ▼";
+        }}
+        table.custom-main-table tbody td {{
+            padding: 6px 12px;
+            border-bottom: 1px solid #f1f5f9;
+            font-variant-numeric: tabular-nums;
+        }}
+        table.custom-main-table tbody tr:hover td {{
+            background: #f1f5f9;
+        }}
+        .table-foot {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }}
+        .pagination-controls {{
+            display: flex;
+            gap: 8px;
+        }}
+        .pagination-controls button {{
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #1f2937;
+            padding: 6px 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }}
+        .pagination-controls button:disabled {{
+            opacity: 0.5;
+            cursor: default;
+        }}
+        .page-size-selector {{
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+        }}
+        .page-size-selector select {{
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+        }}
+    </style>
+    
+    <div class="main-table-container">
+        <div class="main-table-header">
+            <span>Player Metrics (sorted by {sort_col})</span>
+            <span id="row-count"></span>
+        </div>
+    
+        <div class="main-table-wrapper">
+            <table class="custom-main-table">
+                <thead>
+                    <tr>
+                        {''.join([
+                            f"<th title='{c}' data-col='{i}'>{abbrev_map.get(c, c)}</th>"
+                            for i, c in enumerate(columns_order)
+                        ])}
+                    </tr>
+                </thead>
+                <tbody id="main-table-body"></tbody>
+            </table>
+        </div>
+    
+        <div class="table-foot">
+            <div class="page-size-selector">
+                <label for="page-size-select">Rows per page:</label>
+                <select id="page-size-select">
+                    <option value="30" selected>30</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                </select>
             </div>
-        
-            <div class="main-table-wrapper">
-                <table class="custom-main-table">
-                    <thead>
-                        <tr>
-                            {''.join([
-                                f"<th title='{c}' data-col='{i}'>{abbrev_map.get(c, c)}</th>"
-                                for i, c in enumerate(columns_order)
-                            ])}
-                        </tr>
-                    </thead>
-                    <tbody id="main-table-body"></tbody>
-                </table>
-            </div>
-        
-            <div class="table-foot">
-                <div class="page-size-selector">
-                    <label for="page-size-select">Rows per page:</label>
-                    <select id="page-size-select">
-                        <option value="30" selected>30</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                        <option value="200">200</option>
-                    </select>
-                </div>
-                <div class="pagination-controls">
-                    <button id="first-page">« First</button>
-                    <button id="prev-page">‹ Prev</button>
-                    <span id="page-info"></span>
-                    <button id="next-page">Next ›</button>
-                    <button id="last-page">Last »</button>
-                </div>
+            <div class="pagination-controls">
+                <button id="first-page">« First</button>
+                <button id="prev-page">‹ Prev</button>
+                <span id="page-info"></span>
+                <button id="next-page">Next ›</button>
+                <button id="last-page">Last »</button>
             </div>
         </div>
-        
-        <script>
-            const data = {json.dumps(table_data)};
-            const columns = {json.dumps(columns_order)};
-            let pageSize = 30;
-            let currentPage = 1;
-            let sortColumn = null;
-            let sortDirection = 1;
-        
-            const bodyEl = document.getElementById('main-table-body');
-            const rowCountEl = document.getElementById('row-count');
-            const pageInfoEl = document.getElementById('page-info');
-            const firstBtn = document.getElementById('first-page');
-            const prevBtn = document.getElementById('prev-page');
-            const nextBtn = document.getElementById('next-page');
-            const lastBtn = document.getElementById('last-page');
-            const headers = document.querySelectorAll('th[data-col]');
-            const pageSizeSelect = document.getElementById('page-size-select');
-        
-            headers.forEach((th) => {{
-                th.addEventListener('click', () => {{
-                    const colIndex = parseInt(th.getAttribute('data-col'));
-                    if (sortColumn === colIndex) {{
-                        sortDirection = -sortDirection;
-                    }} else {{
-                        sortColumn = colIndex;
-                        sortDirection = 1;
-                    }}
-                    headers.forEach(header => {{
-                        header.classList.remove('sorted-asc', 'sorted-desc');
-                    }});
-                    th.classList.add(sortDirection === 1 ? 'sorted-asc' : 'sorted-desc');
-                    renderTable();
-                }});
-            }});
-        
-            firstBtn.addEventListener('click', () => {{
-                currentPage = 1;
-                renderTable();
-            }});
-            prevBtn.addEventListener('click', () => {{
-                if (currentPage > 1) currentPage--;
-                renderTable();
-            }});
-            nextBtn.addEventListener('click', () => {{
-                const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
-                if (currentPage < totalPages) currentPage++;
-                renderTable();
-            }});
-            lastBtn.addEventListener('click', () => {{
-                currentPage = Math.max(1, Math.ceil(data.length / pageSize));
-                renderTable();
-            }});
-        
-            pageSizeSelect.addEventListener('change', (e) => {{
-                pageSize = parseInt(e.target.value, 10);
-                currentPage = 1;
-                renderTable();
-            }});
-        
-            function renderTable() {{
-                let sortedData = [...data];
-                if (sortColumn !== null) {{
-                    sortedData.sort((a, b) => {{
-                        const aText = a[sortColumn].text;
-                        const bText = b[sortColumn].text;
-                        const aVal = parseFloat(aText);
-                        const bVal = parseFloat(bText);
-                        if (!isNaN(aVal) && !isNaN(bVal)) {{
-                            return sortDirection * (aVal - bVal);
-                        }}
-                        return sortDirection * aText.localeCompare(bText);
-                    }});
+    </div>
+    
+    <script>
+        const data = {json.dumps(table_data)};
+        const columns = {json.dumps(columns_order)};
+        let pageSize = 30;
+        let currentPage = 1;
+        let sortColumn = null;
+        let sortDirection = 1;
+    
+        const bodyEl = document.getElementById('main-table-body');
+        const rowCountEl = document.getElementById('row-count');
+        const pageInfoEl = document.getElementById('page-info');
+        const firstBtn = document.getElementById('first-page');
+        const prevBtn = document.getElementById('prev-page');
+        const nextBtn = document.getElementById('next-page');
+        const lastBtn = document.getElementById('last-page');
+        const headers = document.querySelectorAll('th[data-col]');
+        const pageSizeSelect = document.getElementById('page-size-select');
+    
+        headers.forEach((th) => {{
+            th.addEventListener('click', () => {{
+                const colIndex = parseInt(th.getAttribute('data-col'));
+                if (sortColumn === colIndex) {{
+                    sortDirection = -sortDirection;
+                }} else {{
+                    sortColumn = colIndex;
+                    sortDirection = 1;
                 }}
-        
-                const totalRows = sortedData.length;
-                const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
-                if (currentPage > totalPages) currentPage = totalPages;
-        
-                const start = (currentPage - 1) * pageSize;
-                const end = Math.min(start + pageSize, totalRows);
-                const pageRows = sortedData.slice(start, end);
-        
-                bodyEl.innerHTML = pageRows.map(row => {{
-                    const cells = row.map((cell, i) => {{
-                        const isNum = !isNaN(cell.text) && cell.text !== "";
-                        const align = isNum ? 'text-align: right;' : '';
-                        const bg = cell.bg ? `background:${{cell.bg}};` : '';
-                        const style = (bg || align) ? ` style="${{bg}}{{align}}"` : '';
-                        return `<td${{style}}>${{cell.text}}</td>`;
-                    }}).join('');
-                    return `<tr>${{cells}}</tr>`;
-                }}).join('');
-        
-                rowCountEl.textContent = `Showing ${{start + 1}}–${{end}} of ${{totalRows}}`;
-                pageInfoEl.textContent = `Page ${{currentPage}} / ${{totalPages}}`;
-        
-                prevBtn.disabled = currentPage === 1;
-                firstBtn.disabled = currentPage === 1;
-                nextBtn.disabled = currentPage === totalPages;
-                lastBtn.disabled = currentPage === totalPages;
-            }}
-        
+                headers.forEach(header => {{
+                    header.classList.remove('sorted-asc', 'sorted-desc');
+                }});
+                th.classList.add(sortDirection === 1 ? 'sorted-asc' : 'sorted-desc');
+                renderTable();
+            }});
+        }});
+    
+        firstBtn.addEventListener('click', () => {{
+            currentPage = 1;
             renderTable();
-        </script>
-        """
+        }});
+        prevBtn.addEventListener('click', () => {{
+            if (currentPage > 1) currentPage--;
+            renderTable();
+        }});
+        nextBtn.addEventListener('click', () => {{
+            const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+            if (currentPage < totalPages) currentPage++;
+            renderTable();
+        }});
+        lastBtn.addEventListener('click', () => {{
+            currentPage = Math.max(1, Math.ceil(data.length / pageSize));
+            renderTable();
+        }});
+    
+        pageSizeSelect.addEventListener('change', (e) => {{
+            pageSize = parseInt(e.target.value, 10);
+            currentPage = 1;
+            renderTable();
+        }});
+    
+        function renderTable() {{
+            let sortedData = [...data];
+            if (sortColumn !== null) {{
+                sortedData.sort((a, b) => {{
+                    const aText = a[sortColumn].text;
+                    const bText = b[sortColumn].text;
+                    const aVal = parseFloat(aText);
+                    const bVal = parseFloat(bText);
+                    if (!isNaN(aVal) && !isNaN(bVal)) {{
+                        return sortDirection * (aVal - bVal);
+                    }}
+                    return sortDirection * aText.localeCompare(bText);
+                }});
+            }}
+    
+            const totalRows = sortedData.length;
+            const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+            if (currentPage > totalPages) currentPage = totalPages;
+    
+            const start = (currentPage - 1) * pageSize;
+            const end = Math.min(start + pageSize, totalRows);
+            const pageRows = sortedData.slice(start, end);
+    
+            bodyEl.innerHTML = pageRows.map(row => {{
+                const cells = row.map((cell, i) => {{
+                    const isNum = !isNaN(cell.text) && cell.text !== "";
+                    const align = isNum ? 'text-align: right;' : '';
+                    const bg = cell.bg ? `background:${{cell.bg}};` : '';
+                    const style = (bg || align) ? ` style="${{bg}}{{align}}"` : '';
+                    return `<td${{style}}>${{cell.text}}</td>`;
+                }}).join('');
+                return `<tr>${{cells}}</tr>`;
+            }}).join('');
+    
+            rowCountEl.textContent = `Showing ${{start + 1}}–${{end}} of ${{totalRows}}`;
+            pageInfoEl.textContent = `Page ${{currentPage}} / ${{totalPages}}`;
+    
+            prevBtn.disabled = currentPage === 1;
+            firstBtn.disabled = currentPage === 1;
+            nextBtn.disabled = currentPage === totalPages;
+            lastBtn.disabled = currentPage === totalPages;
+        }}
+    
+        renderTable();
+    </script>
+    """
 
-    components.html(html_table, height=1550, scrolling=True)
+    # Choose a dynamic height for the table component so when filtered down to few rows it doesn't leave
+    # excessive blank vertical space. Height scales with number of rows.
+    try:
+        nrows_main = len(table_data)
+        computed_height_main = max(420, min(1200, 110 + nrows_main * 36))
+    except Exception:
+        computed_height_main = 800
+
+    components.html(html_table, height=computed_height_main, scrolling=True)
 
     # ===== LOAD NEW SHAP CSV =====
     shap_df = pd.read_csv("SwingPlus_SHAP_20_80_Profile.csv")
@@ -914,7 +922,7 @@ if page == "Main":
     elif "CS" in shap_df.columns:
         comp_col = "CS"
     else:
-        comp_col = None
+        comp_col = comp_col  # keep previous comp_col if exists
     
     # =============================
     # RENAME PLUS METRICS
@@ -927,14 +935,14 @@ if page == "Main":
     shap_df = shap_df.rename(columns=plus_rename_map)
     
     # =============================
-    # APPLY FILTERS (UNCHANGED)
+    # APPLY FILTERS (NOW INCLUDES search_name)
     # =============================
     df_shap_filtered = shap_df.copy()
     
     if season_col and season_selected_global is not None and "year" in df_shap_filtered.columns:
         df_shap_filtered = df_shap_filtered[df_shap_filtered[season_col] == season_selected_global]
     
-    if comp_col and comp_col in df_shap_filtered.columns:
+    if comp_col and comp_col in df_shap_filtered.columns and swings_min_input is not None and swings_max_input is not None:
         df_shap_filtered = df_shap_filtered[
             (df_shap_filtered[comp_col] >= swings_min_input) &
             (df_shap_filtered[comp_col] <= swings_max_input)
@@ -945,6 +953,11 @@ if page == "Main":
             (df_shap_filtered["Age"] >= age_min) &
             (df_shap_filtered["Age"] <= age_max)
         ]
+
+    # IMPORTANT: apply the same search_name filter to the SHAP table so it shows the same subset
+    if 'search_name' in locals() and search_name:
+        if "Name" in df_shap_filtered.columns:
+            df_shap_filtered = df_shap_filtered[df_shap_filtered["Name"].str.contains(search_name, case=False, na=False)]
     
     # =============================
     # COLUMN STRUCTURE (NEW FORMAT)
@@ -1041,8 +1054,11 @@ if page == "Main":
     # =============================
     # SORT BY Swing+
     # =============================
-    sort_col_shap = "Swing+" if "Swing+" in display_df_shap.columns else display_df_shap.columns[0]
-    styled_shap = display_df_shap.sort_values(by=sort_col_shap, ascending=False).reset_index(drop=True)
+    sort_col_shap = "Swing+" if "Swing+" in display_df_shap.columns else (display_df_shap.columns[0] if len(display_df_shap.columns)>0 else None)
+    if sort_col_shap:
+        styled_shap = display_df_shap.sort_values(by=sort_col_shap, ascending=False).reset_index(drop=True)
+    else:
+        styled_shap = display_df_shap.reset_index(drop=True)
 
     def format_cell_shap(val, col_name=None):
         if pd.isna(val):
@@ -1137,256 +1153,262 @@ if page == "Main":
     
         table_data_shap.append(row_cells)
 
-        html_table_shap = f"""
-        <style>
-            .main-table-container {{
-                width: 100%;
-                margin: 0 auto;
-                background: #f8fafc;
-                border-radius: 14px;
-                border: 1px solid #e3e8f0;
-                box-shadow: 0 6px 18px rgba(42, 55, 87, 0.08);
-                padding: 18px 18px 12px;
-                box-sizing: border-box;
-                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            }}
-            .main-table-header {{
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 12px;
-                color: #24324c;
-                font-weight: 600;
-                font-size: 0.95rem;
-                letter-spacing: 0.01em;
-            }}
-            .main-table-wrapper {{
-                overflow-x: auto;
-                overflow-y: hidden;
-                max-height: none;
-                border-radius: 10px;
-                border: 1px solid #e0e6ef;
-                background: #fff;
-                padding: 10px 6px;
-            }}
-            table.custom-main-table {{
-                width: 100%;
-                border-collapse: collapse;
-                font-family: inherit;
-                font-size: 0.85rem;
-                color: #1e293b;
-                table-layout: auto;
-            }}
-            table.custom-main-table thead th {{
-                background: #f9fafb;
-                font-weight: 600;
-                text-align: left;
-                padding: 8px 12px;
-                border-bottom: 1px solid #e2e8f0;
-                font-variant-numeric: tabular-nums;
-                white-space: nowrap;
-                cursor: pointer;
-            }}
-            table.custom-main-table thead th.sorted-asc::after {{
-                content: " ▲";
-            }}
-            table.custom-main-table thead th.sorted-desc::after {{
-                content: " ▼";
-            }}
-            table.custom-main-table tbody td {{
-                padding: 6px 12px;
-                border-bottom: 1px solid #f1f5f9;
-                font-variant-numeric: tabular-nums;
-            }}
-            table.custom-main-table tbody tr:hover td {{
-                background: #f1f5f9;
-            }}
-            .table-foot {{
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-top: 12px;
-                flex-wrap: wrap;
-                gap: 12px;
-            }}
-            .pagination-controls {{
-                display: flex;
-                gap: 8px;
-            }}
-            .pagination-controls button {{
-                border: 1px solid #cbd5e1;
-                background: #fff;
-                color: #1f2937;
-                padding: 6px 10px;
-                border-radius: 10px;
-                cursor: pointer;
-                font-weight: 600;
-                transition: all 0.15s ease;
-                box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-            }}
-            .pagination-controls button:disabled {{
-                opacity: 0.5;
-                cursor: default;
-            }}
-            .page-size-selector {{
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                font-size: 0.85rem;
-            }}
-            .page-size-selector select {{
-                padding: 6px 10px;
-                border-radius: 8px;
-                border: 1px solid #cbd5e1;
-            }}
-        </style>
-        
-        <div class="main-table-container">
-            <div class="main-table-header">
-                <span>Player SHAP Metrics (sorted by {sort_col_shap})</span>
-                <span id="row-count-shap"></span>
+    html_table_shap = f"""
+    <style>
+        .main-table-container {{
+            width: 100%;
+            margin: 0 auto;
+            background: #f8fafc;
+            border-radius: 14px;
+            border: 1px solid #e3e8f0;
+            box-shadow: 0 6px 18px rgba(42, 55, 87, 0.08);
+            padding: 18px 18px 12px;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }}
+        .main-table-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            color: #24324c;
+            font-weight: 600;
+            font-size: 0.95rem;
+            letter-spacing: 0.01em;
+        }}
+        .main-table-wrapper {{
+            overflow-x: auto;
+            overflow-y: hidden;
+            max-height: none;
+            border-radius: 10px;
+            border: 1px solid #e0e6ef;
+            background: #fff;
+            padding: 10px 6px;
+        }}
+        table.custom-main-table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-family: inherit;
+            font-size: 0.85rem;
+            color: #1e293b;
+            table-layout: auto;
+        }}
+        table.custom-main-table thead th {{
+            background: #f9fafb;
+            font-weight: 600;
+            text-align: left;
+            padding: 8px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            cursor: pointer;
+        }}
+        table.custom-main-table thead th.sorted-asc::after {{
+            content: " ▲";
+        }}
+        table.custom-main-table thead th.sorted-desc::after {{
+            content: " ▼";
+        }}
+        table.custom-main-table tbody td {{
+            padding: 6px 12px;
+            border-bottom: 1px solid #f1f5f9;
+            font-variant-numeric: tabular-nums;
+        }}
+        table.custom-main-table tbody tr:hover td {{
+            background: #f1f5f9;
+        }}
+        .table-foot {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }}
+        .pagination-controls {{
+            display: flex;
+            gap: 8px;
+        }}
+        .pagination-controls button {{
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #1f2937;
+            padding: 6px 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }}
+        .pagination-controls button:disabled {{
+            opacity: 0.5;
+            cursor: default;
+        }}
+        .page-size-selector {{
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+        }}
+        .page-size-selector select {{
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+        }}
+    </style>
+    
+    <div class="main-table-container">
+        <div class="main-table-header">
+            <span>Player SHAP Metrics (sorted by {sort_col_shap})</span>
+            <span id="row-count-shap"></span>
+        </div>
+    
+        <div class="main-table-wrapper">
+            <table class="custom-main-table">
+                <thead>
+                    <tr>
+                        {''.join([
+                            f"<th title='{c}' data-col='{i}'>{abbrev_map.get(c, c)}</th>"
+                            for i, c in enumerate(['#'] + list(styled_shap.columns))
+                        ])}
+                    </tr>
+                </thead>
+                <tbody id="shap-table-body"></tbody>
+            </table>
+        </div>
+    
+        <div class="table-foot">
+            <div class="page-size-selector">
+                <label for="page-size-select-shap">Rows per page:</label>
+                <select id="page-size-select-shap">
+                    <option value="30" selected>30</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                </select>
             </div>
-        
-            <div class="main-table-wrapper">
-                <table class="custom-main-table">
-                    <thead>
-                        <tr>
-                            {''.join([
-                                f"<th title='{c}' data-col='{i}'>{abbrev_map.get(c, c)}</th>"
-                                for i, c in enumerate(["#"] + list(styled_shap.columns))
-                            ])}
-                        </tr>
-                    </thead>
-                    <tbody id="shap-table-body"></tbody>
-                </table>
-            </div>
-        
-            <div class="table-foot">
-                <div class="page-size-selector">
-                    <label for="page-size-select-shap">Rows per page:</label>
-                    <select id="page-size-select-shap">
-                        <option value="30" selected>30</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                        <option value="200">200</option>
-                    </select>
-                </div>
-                <div class="pagination-controls">
-                    <button id="first-page-shap">« First</button>
-                    <button id="prev-page-shap">‹ Prev</button>
-                    <span id="page-info-shap"></span>
-                    <button id="next-page-shap">Next ›</button>
-                    <button id="last-page-shap">Last »</button>
-                </div>
+            <div class="pagination-controls">
+                <button id="first-page-shap">« First</button>
+                <button id="prev-page-shap">‹ Prev</button>
+                <span id="page-info-shap"></span>
+                <button id="next-page-shap">Next ›</button>
+                <button id="last-page-shap">Last »</button>
             </div>
         </div>
-        
-        <script>
-            const data_shap = {json.dumps(table_data_shap)};
-            const columns_shap = {json.dumps(['#'] + list(styled_shap.columns))};
-            let pageSize_shap = 30;
-            let currentPage_shap = 1;
-            let sortColumn_shap = null;
-            let sortDirection_shap = 1;
-        
-            const bodyEl_shap = document.getElementById('shap-table-body');
-            const rowCountEl_shap = document.getElementById('row-count-shap');
-            const pageInfoEl_shap = document.getElementById('page-info-shap');
-            const firstBtn_shap = document.getElementById('first-page-shap');
-            const prevBtn_shap = document.getElementById('prev-page-shap');
-            const nextBtn_shap = document.getElementById('next-page-shap');
-            const lastBtn_shap = document.getElementById('last-page-shap');
-            const headers_shap = document.querySelectorAll('th[data-col]');
-            const pageSizeSelect_shap = document.getElementById('page-size-select-shap');
-        
-            headers_shap.forEach((th) => {{
-                th.addEventListener('click', () => {{
-                    const colIndex = parseInt(th.getAttribute('data-col'));
-                    if (sortColumn_shap === colIndex) {{
-                        sortDirection_shap = -sortDirection_shap;
-                    }} else {{
-                        sortColumn_shap = colIndex;
-                        sortDirection_shap = 1;
-                    }}
-                    headers_shap.forEach(header => {{
-                        header.classList.remove('sorted-asc', 'sorted-desc');
-                    }});
-                    th.classList.add(sortDirection_shap === 1 ? 'sorted-asc' : 'sorted-desc');
-                    renderTableShap();
-                }});
-            }});
-        
-            firstBtn_shap.addEventListener('click', () => {{
-                currentPage_shap = 1;
-                renderTableShap();
-            }});
-            prevBtn_shap.addEventListener('click', () => {{
-                if (currentPage_shap > 1) currentPage_shap--;
-                renderTableShap();
-            }});
-            nextBtn_shap.addEventListener('click', () => {{
-                const totalPages = Math.max(1, Math.ceil(data_shap.length / pageSize_shap));
-                if (currentPage_shap < totalPages) currentPage_shap++;
-                renderTableShap();
-            }});
-            lastBtn_shap.addEventListener('click', () => {{
-                currentPage_shap = Math.max(1, Math.ceil(data_shap.length / pageSize_shap));
-                renderTableShap();
-            }});
-            pageSizeSelect_shap.addEventListener('change', (e) => {{
-                pageSize_shap = parseInt(e.target.value, 10);
-                currentPage_shap = 1;
-                renderTableShap();
-            }});
-        
-            function renderTableShap() {{
-                let sortedData = [...data_shap];
-                if (sortColumn_shap !== null) {{
-                    sortedData.sort((a, b) => {{
-                        const aText = a[sortColumn_shap].text;
-                        const bText = b[sortColumn_shap].text;
-                        const aVal = parseFloat(aText);
-                        const bVal = parseFloat(bText);
-                        if (!isNaN(aVal) && !isNaN(bVal)) {{
-                            return sortDirection_shap * (aVal - bVal);
-                        }}
-                        return sortDirection_shap * aText.localeCompare(bText);
-                    }});
+    </div>
+    
+    <script>
+        const data_shap = {json.dumps(table_data_shap)};
+        const columns_shap = {json.dumps(['#'] + list(styled_shap.columns))};
+        let pageSize_shap = 30;
+        let currentPage_shap = 1;
+        let sortColumn_shap = null;
+        let sortDirection_shap = 1;
+    
+        const bodyEl_shap = document.getElementById('shap-table-body');
+        const rowCountEl_shap = document.getElementById('row-count-shap');
+        const pageInfoEl_shap = document.getElementById('page-info-shap');
+        const firstBtn_shap = document.getElementById('first-page-shap');
+        const prevBtn_shap = document.getElementById('prev-page-shap');
+        const nextBtn_shap = document.getElementById('next-page-shap');
+        const lastBtn_shap = document.getElementById('last-page-shap');
+        const headers_shap = document.querySelectorAll('th[data-col]');
+        const pageSizeSelect_shap = document.getElementById('page-size-select-shap');
+    
+        headers_shap.forEach((th) => {{
+            th.addEventListener('click', () => {{
+                const colIndex = parseInt(th.getAttribute('data-col'));
+                if (sortColumn_shap === colIndex) {{
+                    sortDirection_shap = -sortDirection_shap;
+                }} else {{
+                    sortColumn_shap = colIndex;
+                    sortDirection_shap = 1;
                 }}
-        
-                const totalRows = sortedData.length;
-                const totalPages = Math.max(1, Math.ceil(totalRows / pageSize_shap));
-                if (currentPage_shap > totalPages) currentPage_shap = totalPages;
-        
-                const start = (currentPage_shap - 1) * pageSize_shap;
-                const end = Math.min(start + pageSize_shap, totalRows);
-                const pageRows = sortedData.slice(start, end);
-        
-                bodyEl_shap.innerHTML = pageRows.map(row => {{
-                    const cells = row.map((cell, i) => {{
-                        const isNum = !isNaN(cell.text) && cell.text !== "";
-                        const align = isNum ? 'text-align: right;' : '';
-                        const bg = cell.bg ? `background:${{cell.bg}};` : '';
-                        const style = (bg || align) ? ` style="${{bg}}{{align}}"` : '';
-                        return `<td${{style}}>${{cell.text}}</td>`;
-                    }}).join('');
-                    return `<tr>${{cells}}</tr>`;
-                }}).join('');
-        
-                rowCountEl_shap.textContent = `Showing ${{start + 1}}–${{end}} of ${{totalRows}}`;
-                pageInfoEl_shap.textContent = `Page ${{currentPage_shap}} / ${{totalPages}}`;
-        
-                prevBtn_shap.disabled = currentPage_shap === 1;
-                firstBtn_shap.disabled = currentPage_shap === 1;
-                nextBtn_shap.disabled = currentPage_shap === totalPages;
-                lastBtn_shap.disabled = currentPage_shap === totalPages;
-            }}
-        
+                headers_shap.forEach(header => {{
+                    header.classList.remove('sorted-asc', 'sorted-desc');
+                }});
+                th.classList.add(sortDirection_shap === 1 ? 'sorted-asc' : 'sorted-desc');
+                renderTableShap();
+            }});
+        }});
+    
+        firstBtn_shap.addEventListener('click', () => {{
+            currentPage_shap = 1;
             renderTableShap();
-        </script>
-        """
+        }});
+        prevBtn_shap.addEventListener('click', () => {{
+            if (currentPage_shap > 1) currentPage_shap--;
+            renderTableShap();
+        }});
+        nextBtn_shap.addEventListener('click', () => {{
+            const totalPages = Math.max(1, Math.ceil(data_shap.length / pageSize_shap));
+            if (currentPage_shap < totalPages) currentPage_shap++;
+            renderTableShap();
+        }});
+        lastBtn_shap.addEventListener('click', () => {{
+            currentPage_shap = Math.max(1, Math.ceil(data_shap.length / pageSize_shap));
+            renderTableShap();
+        }});
+        pageSizeSelect_shap.addEventListener('change', (e) => {{
+            pageSize_shap = parseInt(e.target.value, 10);
+            currentPage_shap = 1;
+            renderTableShap();
+        }});
+    
+        function renderTableShap() {{
+            let sortedData = [...data_shap];
+            if (sortColumn_shap !== null) {{
+                sortedData.sort((a, b) => {{
+                    const aText = a[sortColumn_shap].text;
+                    const bText = b[sortColumn_shap].text;
+                    const aVal = parseFloat(aText);
+                    const bVal = parseFloat(bText);
+                    if (!isNaN(aVal) && !isNaN(bVal)) {{
+                        return sortDirection_shap * (aVal - bVal);
+                    }}
+                    return sortDirection_shap * aText.localeCompare(bText);
+                }});
+            }}
+    
+            const totalRows = sortedData.length;
+            const totalPages = Math.max(1, Math.ceil(totalRows / pageSize_shap));
+            if (currentPage_shap > totalPages) currentPage_shap = totalPages;
+    
+            const start = (currentPage_shap - 1) * pageSize_shap;
+            const end = Math.min(start + pageSize_shap, totalRows);
+            const pageRows = sortedData.slice(start, end);
+    
+            bodyEl_shap.innerHTML = pageRows.map(row => {{
+                const cells = row.map((cell, i) => {{
+                    const isNum = !isNaN(cell.text) && cell.text !== "";
+                    const align = isNum ? 'text-align: right;' : '';
+                    const bg = cell.bg ? `background:${{cell.bg}};` : '';
+                    const style = (bg || align) ? ` style="${{bg}}{{align}}"` : '';
+                    return `<td${{style}}>${{cell.text}}</td>`;
+                }}).join('');
+                return `<tr>${{cells}}</tr>`;
+            }}).join('');
+    
+            rowCountEl_shap.textContent = `Showing ${{start + 1}}–${{end}} of ${{totalRows}}`;
+            pageInfoEl_shap.textContent = `Page ${{currentPage_shap}} / ${{totalPages}}`;
+    
+            prevBtn_shap.disabled = currentPage_shap === 1;
+            firstBtn_shap.disabled = currentPage_shap === 1;
+            nextBtn_shap.disabled = currentPage_shap === totalPages;
+            lastBtn_shap.disabled = currentPage_shap === totalPages;
+        }}
+    
+        renderTableShap();
+    </script>
+    """
 
-    components.html(html_table_shap, height=1550, scrolling=True)
+    try:
+        nrows_shap = len(table_data_shap)
+        computed_height_shap = max(420, min(1200, 110 + nrows_shap * 36))
+    except Exception:
+        computed_height_shap = 800
+
+    components.html(html_table_shap, height=computed_height_shap, scrolling=True)
 
 
 # ---------------- Player tab ----------------
@@ -1521,7 +1543,7 @@ elif page == "Player":
         headshot_html = f'<img src="{fallback_url}" style="height:{headshot_size}px;width:{headshot_size}px;object-fit:cover;border-radius:14px;vertical-align:middle;margin-right:18px;background:transparent;" />'
 
     if player_season_selected is not None:
-        player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select} <span style="font-size:0.6em;color:#5b6b82; font-weight:600;">{player_season_selected}</span></span>'
+        player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select} <span style="font-size:0.6em;color:#6b7280;">{player_season_selected}</span></span>'
         player_title = f"{player_select} {player_season_selected}"
     else:
         player_name_html = f'<span style="font-size:2.3em;font-weight:800;color:#183153;letter-spacing:0.01em;vertical-align:middle;margin:0 20px;">{player_select}</span>'
@@ -1622,20 +1644,20 @@ elif page == "Player":
     st.markdown(
         f"""
         <div style="display: flex; justify-content: center; gap: 32px; margin-top: 0px; margin-bottom: 28px;">
-          <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
+          <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 24px 32px; text-align: center; min-width: 160px;">
             <div style="font-size: 2.2em; font-weight: 700; color: {swing_color};">{player_row.get('Swing+', np.nan):.2f}</div>
             <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">Swing+</div>
-            <span style="background: #FFC10733; color: #B71C1C; border-radius: 10px; font-size: 0.98em; padding: 2px 10px;">Rank {p_swing_rank if p_swing_rank is not None else 'N/A'} of {total_players if total_players is not None else 'N/A'}</span>
+            <span style="background: #FFC10733; color: #B71C1C; border-radius: 10px; font-size: 0.98em; padding: 6px 10px;">Rank {p_swing_rank if p_swing_rank is not None else 'N/A'} of {total_players}</span>
           </div>
-          <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
+          <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 24px 32px; text-align: center; min-width: 160px;">
             <div style="font-size: 2.2em; font-weight: 700; color: {proj_color};">{player_row.get('ProjSwing+', player_row.get('HitSkillPlus', np.nan)):.2f}</div>
             <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">BatToBall+</div>
-            <span style="background: #C8E6C933; color: #1B5E20; border-radius: 10px; font-size: 0.98em; padding: 2px 10px;">Rank {p_proj_rank if p_proj_rank is not None else 'N/A'} of {total_players if total_players is not None else 'N/A'}</span>
+            <span style="background: #C8E6C933; color: #1B5E20; border-radius: 10px; font-size: 0.98em; padding: 6px 10px;">Rank {p_proj_rank if p_proj_rank is not None else 'N/A'} of {total_players}</span>
           </div>
-          <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px #0001; padding: 24px 32px; text-align: center; min-width: 160px;">
+          <div style="background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 24px 32px; text-align: center; min-width: 160px;">
             <div style="font-size: 2.2em; font-weight: 700; color: {power_color};">{player_row.get('PowerIndex+', player_row.get('ImpactPlus', np.nan)):.2f}</div>
             <div style="font-size: 1.1em; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px;">Impact+</div>
-            <span style="background: #B3E5FC33; color: #01579B; border-radius: 10px; font-size: 0.98em; padding: 2px 10px;">Rank {p_power_rank if p_power_rank is not None else 'N/A'} of {total_players if total_players is not None else 'N/A'}</span>
+            <span style="background: #B3E5FC33; color: #01579B; border-radius: 10px; font-size: 0.98em; padding: 6px 10px;">Rank {p_power_rank if p_power_rank is not None else 'N/A'} of {total_players}</span>
           </div>
         </div>
         """,
@@ -1694,7 +1716,7 @@ elif page == "Player":
             f"""
             <div id="savantviz-anchor"></div>
             <div style="display: flex; justify-content: center;">
-                <video id="player-savant-video" width="900" height="480" style="border-radius:9px; box-shadow:0 2px 12px #0002;" autoplay muted playsinline key="{player_id}-{video_year}-{bat_side}">
+                <video id="player-savant-video" width="900" height="480" style="border-radius:9px; box-shadow:0 2px 12px rgba(0,0,0,0.12);" autoplay muted playsinline key="{player_id}-{video_year}-{bat_side}">
                     <source src="{video_url}" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
@@ -1998,7 +2020,7 @@ elif page == "Player":
                             <style>
                             .sim-container { width: 100%; max-width: 1160px; margin: 12px auto 10px auto; display: flex; flex-direction: column; align-items: center; }
                             .sim-list { width: 100%; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-                            .sim-item { display: flex; align-items: center; background: #ffffff; border-radius: 12px; padding: 10px 14px; gap: 12px; width: 100%; border: 1px solid #eef4f8; box-shadow: 0 6px 18px rgba(15,23,42,0.04); }
+                            .sim-item { display: flex; align-items: center; background: #ffffff; border-radius: 12px; padding: 10px 14px; gap: 12px; width: 100%; border: 1px solid #eef4f8; box-shadow: 0 4px 12px rgba(16,24,40,0.04); }
                             .sim-rank { font-size: 1em; font-weight: 700; color: #183153; min-width: 36px; text-align: center; }
                             .sim-headshot-compact { height: 48px; width: 48px; border-radius: 8px; object-fit: cover; box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
                             .sim-name-compact { flex: 1; font-size: 1em; color: #183153; }
@@ -2013,7 +2035,7 @@ elif page == "Player":
                             unsafe_allow_html=True
                         )
 
-                        st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to {player_title}</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players</div>')
                         st.markdown('<div class="sim-list">', unsafe_allow_html=True)
 
                         for idx, sim in enumerate(sim_rows, 1):
@@ -2272,7 +2294,10 @@ elif page == "Compare":
                 if stat == "Age":
                     disp = f"{int(v)}" if pd.notnull(v) else "N/A"
                 else:
-                    disp = f"{v:.2f}" if isinstance(v, (int, float)) else "N/A"
+                    try:
+                        disp = f"{v:.2f}" if isinstance(v, (int, float)) else "N/A"
+                    except Exception:
+                        disp = "N/A"
     
                 display_name = stat_labels.get(stat, stat)
     
