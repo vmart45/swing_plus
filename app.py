@@ -897,7 +897,7 @@ if page == "Main":
     except Exception:
         computed_height_main = 800
 
-    components.html(html_table, height=1550, scrolling=True)
+    components.html(html_table, height=computed_height_main, scrolling=True)
 
     # ===== LOAD NEW SHAP CSV =====
     shap_df = pd.read_csv("SwingPlus_SHAP_20_80_Profile.csv")
@@ -1408,7 +1408,7 @@ if page == "Main":
     except Exception:
         computed_height_shap = 800
 
-    components.html(html_table_shap, height=1550, scrolling=True)
+    components.html(html_table_shap, height=computed_height_shap, scrolling=True)
 
 
 # ---------------- Player tab ----------------
@@ -2035,7 +2035,7 @@ elif page == "Player":
                             unsafe_allow_html=True
                         )
 
-                        st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to {player_title}</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players</div>')
                         st.markdown('<div class="sim-list">', unsafe_allow_html=True)
 
                         for idx, sim in enumerate(sim_rows, 1):
