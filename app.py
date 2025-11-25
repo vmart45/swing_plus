@@ -1044,25 +1044,38 @@ if page == "Main":
     sort_col_shap = "Swing+" if "Swing+" in display_df_shap.columns else display_df_shap.columns[0]
     styled_shap = display_df_shap.sort_values(by=sort_col_shap, ascending=False).reset_index(drop=True)
 
-    def format_cell_shap (val, col_name=None):
-        if pd.isna(val):
-            return ""
+    def value_to_color_20_80(val):
+        try:
+            if pd.isna(val):
+                return "#ffffff"
     
-        # Importance percentage columns
-        if col_name and col_name.endswith("_importance_pct"):
-            return f"{val:.1f}%"
+            val = float(val)
     
-        # 20–80 grade columns
-        if col_name and col_name.endswith("_grade"):
-            return f"{val:.1f}"
+            # Clamp to 20–80
+            val = max(min(val, 80), 20)
     
-        if isinstance(val, (float, np.floating)):
-            return f"{val:.1f}"
+            # Normalize around 50
+            if val == 50:
+                return "#ffffff"
     
-        if isinstance(val, (int, np.integer)):
-            return f"{val:d}"
+            if val < 50:
+                # Blue scale (poor)
+                ratio = (50 - val) / 30
+                r, g, b = (31, 119, 180)
+            else:
+                # Red scale (elite)
+                ratio = (val - 50) / 30
+                r, g, b = (214, 39, 40)
     
-        return str(val)
+            r = int(255 + (r - 255) * ratio)
+            g = int(255 + (g - 255) * ratio)
+            b = int(255 + (b - 255) * ratio)
+    
+            return f"#{r:02x}{g:02x}{b:02x}"
+    
+        except Exception:
+            return "#ffffff"
+
 
     
     # =============================
@@ -1084,16 +1097,20 @@ if page == "Main":
         unsafe_allow_html=True
     )
 
+    grade_columns = [c for c in styled_shap.columns if c.endswith("(20-80)")]
+    
     for idx, (_, row) in enumerate(styled_shap.iterrows(), start=1):
         row_cells = [{"text": str(idx), "bg": ""}]
     
         for c in styled_shap.columns:
             val = row[c]
+    
             if c == "Team" and val in image_dict:
                 content = f'<img src="{image_dict[val]}" alt="{val}" style="height:28px; display:block; margin:0 auto;" />'
             else:
-                content = format_cell_shap (val, c)
-            bg = value_to_color(val) if c in plus_labels_shap else ""
+                content = format_cell_shap(val, c)
+    
+            bg = value_to_color_20_80(val) if c in grade_columns else ""
             row_cells.append({"text": content, "bg": bg})
     
         table_data_shap.append(row_cells)
