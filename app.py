@@ -1045,24 +1045,24 @@ if page == "Main":
     styled_shap = display_df_shap.sort_values(by=sort_col_shap, ascending=False).reset_index(drop=True)
 
     def format_cell_shap (val, col_name=None):
-    if pd.isna(val):
-        return ""
-
-    # Importance percentage columns
-    if col_name and col_name.endswith("_importance_pct"):
-        return f"{val:.1f}%"
-
-    # 20–80 grade columns
-    if col_name and col_name.endswith("_grade"):
-        return f"{val:.1f}"
-
-    if isinstance(val, (float, np.floating)):
-        return f"{val:.1f}"
-
-    if isinstance(val, (int, np.integer)):
-        return f"{val:d}"
-
-    return str(val)
+        if pd.isna(val):
+            return ""
+    
+        # Importance percentage columns
+        if col_name and col_name.endswith("_importance_pct"):
+            return f"{val:.1f}%"
+    
+        # 20–80 grade columns
+        if col_name and col_name.endswith("_grade"):
+            return f"{val:.1f}"
+    
+        if isinstance(val, (float, np.floating)):
+            return f"{val:.1f}"
+    
+        if isinstance(val, (int, np.integer)):
+            return f"{val:d}"
+    
+        return str(val)
 
     
     # =============================
