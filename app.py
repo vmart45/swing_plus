@@ -897,7 +897,7 @@ if page == "Main":
     except Exception:
         computed_height_main = 800
 
-    components.html(html_table, height=computed_height_main, scrolling=True)
+    components.html(html_table, height=1550, scrolling=True)
 
     # ===== LOAD NEW SHAP CSV =====
     shap_df = pd.read_csv("SwingPlus_SHAP_20_80_Profile.csv")
@@ -1408,7 +1408,7 @@ if page == "Main":
     except Exception:
         computed_height_shap = 800
 
-    components.html(html_table_shap, height=computed_height_shap, scrolling=True)
+    components.html(html_table_shap, height=1550, scrolling=True)
 
 
 # ---------------- Player tab ----------------
