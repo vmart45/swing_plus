@@ -891,8 +891,8 @@ if page == "Main":
 
     components.html(html_table, height=1550, scrolling=True)
 
-    # ===== LOAD SHAP CSV =====
-    shap_df = pd.read_csv("SwingPlus_SHAP_Values.csv")
+    # ===== LOAD NEW SHAP CSV =====
+    shap_df = pd.read_csv("SwingPlus_SHAP_20_80_Profile.csv")
     
     # =============================
     # FIX NAME & TEAM FORMATTING
@@ -927,7 +927,7 @@ if page == "Main":
     shap_df = shap_df.rename(columns=plus_rename_map)
     
     # =============================
-    # APPLY FILTERS
+    # APPLY FILTERS (UNCHANGED)
     # =============================
     df_shap_filtered = shap_df.copy()
     
@@ -946,18 +946,8 @@ if page == "Main":
             (df_shap_filtered["Age"] <= age_max)
         ]
     
-    # =====================================================
-    # NORMALIZE SHAP + IMPORTANCE → SIGNED SHARE (NO % SYMBOL)
-    # =====================================================
-    share_cols = [c for c in df_shap_filtered.columns if c.endswith("_shap") or c.endswith("_importance")]
-    
-    if share_cols:
-        share_sum = df_shap_filtered[share_cols].abs().sum(axis=1)
-        for col in share_cols:
-            df_shap_filtered[col] = (df_shap_filtered[col] / share_sum * 100).fillna(0)
-    
     # =============================
-    # COLUMN ORDER STRUCTURE
+    # COLUMN STRUCTURE (NEW FORMAT)
     # =============================
     all_stats_shap = ["Name", "Team", "year", "pa"]
     
@@ -976,130 +966,89 @@ if page == "Main":
         "avg_batter_y_position", "avg_batter_x_position",
         "swing_length", "avg_foot_sep", "avg_stance_angle"
     ]:
-        for suffix in ["_shap", "_importance"]:
+        for suffix in ["_grade", "_importance_pct"]:
             col = f"{base}{suffix}"
             if col in df_shap_filtered.columns:
                 all_stats_shap.append(col)
     
-    removed_cols_shap = ["id", "bip", "batter_run_value", "est_ba", "est_slg", "est_woba", "side"]
-    display_cols_shap = [c for c in all_stats_shap if c in df_shap_filtered.columns and c not in removed_cols_shap]
+    removed_cols_shap = [
+        "id", "bip", "batter_run_value", "est_ba", "est_slg",
+        "est_woba", "side"
+    ]
+    
+    display_cols_shap = [
+        c for c in all_stats_shap
+        if c in df_shap_filtered.columns and c not in removed_cols_shap
+    ]
     
     display_df_shap = df_shap_filtered[display_cols_shap].copy()
     
     # =============================
-    # ROUNDING (SIGNED SHARES)
+    # ROUNDING
     # =============================
     for col in display_df_shap.columns:
-        # SHAP share values → 1 decimal
-        if col.endswith("_shap"):
+        if col.endswith("_grade"):
             display_df_shap[col] = display_df_shap[col].round(1)
-    
-        # IMPORTANCE share values → percentage with 2 decimals
-        elif col.endswith("_importance"):
-            display_df_shap[col] = display_df_shap[col].round(2)
-    
+        elif col.endswith("_importance_pct"):
+            display_df_shap[col] = display_df_shap[col].round(1)
         elif display_df_shap[col].dtype.kind in "fc":
             display_df_shap[col] = display_df_shap[col].round(2)
     
-        elif display_df_shap[col].dtype.kind in "i":
-            display_df_shap[col] = display_df_shap[col].astype("Int64")
+    # =============================
+    # UPDATED ABBREVIATION MAP
+    # =============================
+    abbrev_map = {
+        "batted_ball_events": "BBE",
+        "pa": "PA",
+        "year": "Season",
+    
+        "avg_bat_speed_grade": "BatS (20-80)",
+        "avg_bat_speed_importance_pct": "BatS (%)",
+    
+        "swing_tilt_grade": "SwT (20-80)",
+        "swing_tilt_importance_pct": "SwT (%)",
+    
+        "attack_angle_grade": "AA (20-80)",
+        "attack_angle_importance_pct": "AA (%)",
+    
+        "attack_direction_grade": "AD (20-80)",
+        "attack_direction_importance_pct": "AD (%)",
+    
+        "avg_intercept_y_vs_plate_grade": "IvP (20-80)",
+        "avg_intercept_y_vs_plate_importance_pct": "IvP (%)",
+    
+        "avg_intercept_y_vs_batter_grade": "IvB (20-80)",
+        "avg_intercept_y_vs_batter_importance_pct": "IvB (%)",
+    
+        "avg_batter_y_position_grade": "BY (20-80)",
+        "avg_batter_y_position_importance_pct": "BY (%)",
+    
+        "avg_batter_x_position_grade": "BX (20-80)",
+        "avg_batter_x_position_importance_pct": "BX (%)",
+    
+        "swing_length_grade": "SwL (20-80)",
+        "swing_length_importance_pct": "SwL (%)",
+    
+        "avg_foot_sep_grade": "FS (20-80)",
+        "avg_foot_sep_importance_pct": "FS (%)",
+    
+        "avg_stance_angle_grade": "StA (20-80)",
+        "avg_stance_angle_importance_pct": "StA (%)"
+    }
+    
+    display_df_shap = display_df_shap.rename(columns=abbrev_map)
     
     # =============================
-    for col in display_df_shap.columns:
-        if display_df_shap[col].dtype.kind in "fc":
-            display_df_shap[col] = display_df_shap[col].round(3)
-        elif display_df_shap[col].dtype.kind in "i":
-            display_df_shap[col] = display_df_shap[col].astype("Int64")
-    
-    # =============================
-    # YOUR ORIGINAL ABBREV MAP (UNCHANGED)
-    # =============================
-    abbrev_map = { "Competitive Swings": "CS",
-                   "batted_ball_events": "BBE",
-                   "pa": "PA",
-                   "year": "Season",
-                   "avg_bat_speed_shap": "BatS (SH)",
-                   "avg_bat_speed_importance": "BatS (Imp)",
-                   "swing_tilt_shap": "SwT (SH)",
-                   "swing_tilt_importance": "SwT (Imp)",
-                   "attack_angle_shap": "AA (SH)",
-                   "attack_angle_importance": "AA (Imp)",
-                   "attack_direction_shap": "AD (SH)",
-                   "attack_direction_importance": "AD (Imp)",
-                   "avg_intercept_y_vs_plate_shap": "IvP (SH)",
-                   "avg_intercept_y_vs_plate_importance": "IvP (Imp)",
-                   "avg_intercept_y_vs_batter_shap": "IvB (SH)",
-                   "avg_intercept_y_vs_batter_importance": "IvB (Imp)",
-                   "avg_batter_y_position_shap": "BatterY (SH)",
-                   "avg_batter_y_position_importance": "BatterY (Imp)",
-                   "avg_batter_x_position_shap": "BatterX (SH)",
-                   "avg_batter_x_position_importance": "BatterX (Imp)",
-                   "swing_length_shap": "SwL (SH)",
-                   "swing_length_importance": "SwL (Imp)",
-                   "avg_foot_sep_shap": "FS (SH)",
-                   "avg_foot_sep_importance": "FS (Imp)",
-                   "avg_stance_angle_shap": "StA (SH)",
-                   "avg_stance_angle_importance": "StA (Imp)"
-                 }
-    
-    # =============================
-    # SORTING (BY Swing+)
+    # SORT BY Swing+
     # =============================
     sort_col_shap = "Swing+" if "Swing+" in display_df_shap.columns else display_df_shap.columns[0]
     styled_shap = display_df_shap.sort_values(by=sort_col_shap, ascending=False).reset_index(drop=True)
     
     # =============================
-    # COLOR + FORMAT FUNCTIONS
-    # =============================
-    
-    def value_to_color(val, center=100, vmin=70, vmax=130):
-        try:
-            if pd.isna(val):
-                return "#ffffff"
-            val = float(val)
-            val = max(min(val, vmax), vmin)
-            if val == center:
-                return "#ffffff"
-            if val < center:
-                ratio = (center - val) / (center - vmin)
-                r, g, b = (31, 119, 180)
-            else:
-                ratio = (val - center) / (vmax - center)
-                r, g, b = (214, 39, 40)
-            r = int(255 + (r - 255) * ratio)
-            g = int(255 + (g - 255) * ratio)
-            b = int(255 + (b - 255) * ratio)
-            return f"#{r:02x}{g:02x}{b:02x}"
-        except Exception:
-            return "#ffffff"
-    
-    
-    def format_cell(val, col_name=None):
-        if pd.isna(val):
-            return ""
-    
-        # Importance columns are true percentages
-        if col_name and col_name.endswith("_importance"):
-            return f"{val:.2f}%"
-    
-        if isinstance(val, (float, np.floating)):
-            return f"{val:.1f}"
-    
-        if isinstance(val, (int, np.integer)):
-            return f"{val:d}"
-    
-        return str(val)
-    
-    # =============================
-    # COLOR TARGET COLUMNS
-    # =============================
-    plus_labels_shap = ["Swing+", "BatToBall+", "Impact+"]
-    
-    # =============================
-    # FINAL TABLE DATA
+    # FINAL TABLE OUTPUT
     # =============================
     columns_order_shap = ["#"] + list(styled_shap.columns)
-    table_data_shap = []
+    table_data_shap = styled_shap
     
     st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
     st.markdown(
