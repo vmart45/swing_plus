@@ -2036,13 +2036,14 @@ elif page == "Player":
         
                 st.markdown(html_table, unsafe_allow_html=True)
     
+    
     st.markdown("<hr/>", unsafe_allow_html=True)
     st.markdown(
         """
         <h3 style="text-align:center; margin-top:6px; font-size:1.05em; color:#183153;">
             Year-to-Year SHAP Contributions for Mechanical Groupings
         </h3>
-        <div style="text-align:center; color:#6b7280; margin-bottom:12px; font-size:0.95em;">
+        <div style="text-align:center; color:#6b7280; margin-bottom:8px; font-size:0.95em;">
             Line plots show per-year SHAP contribution for each metric in the grouping for this player.
         </div>
         """,
@@ -2074,9 +2075,10 @@ elif page == "Player":
     else:
         seasons_for_player = []
     
-    if not seasons_for_player and season_col and season_col in df.columns:
-        seasons_for_player = sorted(df[season_col].dropna().unique())
-    
+    if not seasons_for_player:
+        if season_col and season_col in df.columns:
+            seasons_for_player = sorted(df[season_col].dropna().unique())
+    seasons_for_player = [s for s in seasons_for_player]
     seasons_labels = [str(s) for s in seasons_for_player]
     
     if not model_loaded or explainer is None:
@@ -2100,7 +2102,7 @@ elif page == "Player":
                 per_season_shap[s] = pd.Series(0.0, index=mech_features_available)
     
         col_a, col_b, col_c = st.columns(3)
-        palette = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#6366f1", "#ec4899"]
+        palette = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"]
     
         for (group_name, feats), col in zip(groupings.items(), [col_a, col_b, col_c]):
             y_series = {f: [] for f in feats}
@@ -2119,9 +2121,9 @@ elif page == "Player":
                     y=y_series[f],
                     mode="lines+markers",
                     name=label,
-                    line=dict(color=color, width=2.5),
-                    marker=dict(size=5),
-                    hoverinfo="skip",
+                    line=dict(color=color, width=3),
+                    marker=dict(size=6),
+                    hoverinfo="skip",         # Disable hover popups
                     showlegend=True
                 ))
     
@@ -2130,34 +2132,37 @@ elif page == "Player":
                     text=f"<b>{group_name}</b>",
                     x=0.5,
                     xanchor='center',
-                    font=dict(size=15, color="#1e293b")
+                    font=dict(size=16, color="#111827")
                 ),
-                height=310,
-                margin=dict(l=30, r=20, t=40, b=30),
+                height=360,
+                margin=dict(l=40, r=30, t=50, b=50),
                 template="plotly_white",
-                font=dict(size=11, color="#374151"),
+                font=dict(size=12, color="#1f2937"),
                 xaxis=dict(
-                    title=dict(text="Season", font=dict(size=11)),
+                    title=dict(text="Season", font=dict(size=12)),
                     showgrid=True,
-                    gridcolor="#e5e7eb"
+                    gridcolor="#e5e7eb",
+                    zeroline=False,
                 ),
                 yaxis=dict(
-                    title=dict(text="SHAP Contribution", font=dict(size=11)),
+                    title=dict(text="SHAP Contribution", font=dict(size=12)),
                     showgrid=True,
-                    gridcolor="#e5e7eb"
+                    gridcolor="#e5e7eb",
+                    zeroline=False,
                 ),
                 legend=dict(
                     orientation="h",
-                    yanchor="bottom",
-                    y=1.02,
+                    yanchor="top",
+                    y=-0.2,
                     xanchor="center",
                     x=0.5,
-                    font=dict(size=10)
+                    font=dict(size=11),
+                    bgcolor="rgba(0,0,0,0)"
                 )
             )
     
             with col:
-                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False, "staticPlot": True})
 
     # Mechanical similarity cluster
     TOP_N = 10
