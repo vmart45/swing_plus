@@ -1489,6 +1489,8 @@ elif page == "Player":
         unsafe_allow_html=True
     )
 
+    st.markdown("---")
+
     params = st.experimental_get_query_params()
     qp_player = None
     qp_season_local = None
