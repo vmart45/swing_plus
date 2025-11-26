@@ -626,19 +626,44 @@ if page == "Main":
     columns_order = ["#"] + list(styled.columns)
     table_data = []
         
+    # Base URL template provided by user — used for opening player page in new tab
+    base_player_url = "https://swing-plus.streamlit.app/~/+/"
+    # Season param for links (respect the global season filter)
+    season_param = ""
+    if season_selected_global is not None:
+        try:
+            season_param = f"&season={quote(str(season_selected_global))}"
+        except Exception:
+            season_param = f"&season={quote(str(season_selected_global))}"
+
     for idx, (_, row) in enumerate(styled.iterrows(), start=1):
         row_cells = [{"text": str(idx), "bg": ""}]
         for c in styled.columns:
             val = row[c]
             if c == "Team" and val in image_dict:
                 content = f'<img src="{image_dict[val]}" alt="{val}" style="height:28px; display:block; margin:0 auto;" />'
+                text_for_sort = str(val)
             else:
-                content = format_cell(val)
+                # Make player names clickable: open player page in a new tab, preserve season filter
+                if c == "Name" and pd.notna(val):
+                    player_name = str(val)
+                    try:
+                        player_q = quote(player_name)
+                    except Exception:
+                        player_q = quote(str(player_name))
+                    link = f'{base_player_url}?player={player_q}&page=Player{season_param}'
+                    safe_name = html.escape(player_name)
+                    content = f'<a href="{link}" target="_blank" rel="noopener noreferrer" style="color:#183153;text-decoration:none;font-weight:700;">{safe_name}</a>'
+                    text_for_sort = player_name
+                else:
+                    content = format_cell(val)
+                    text_for_sort = format_cell(val)
             bg = value_to_color(val) if c in plus_labels else ""
-            row_cells.append({"text": content, "bg": bg})
+            # keep the cell text as rendered HTML/strings so JS will place it directly into the table
+            row_cells.append({"text": content, "bg": bg, "sort_text": text_for_sort})
         table_data.append(row_cells)
         
-    # rest of your HTML/JS script stays the same
+    # rest of your HTML/JS script stays the same, but update the client JS to prefer sort_text when present
     html_table = f"""
     <style>
         .main-table-container {{
@@ -784,6 +809,7 @@ if page == "Main":
     </div>
     
     <script>
+        // table_data rows include objects with optional "sort_text" used for sorting to avoid HTML interference
         const data = {json.dumps(table_data)};
         const columns = {json.dumps(columns_order)};
         let pageSize = 30;
@@ -842,14 +868,25 @@ if page == "Main":
             renderTable();
         }});
     
+        function getCellComparableText(cell) {{
+            // Prefer explicit sort_text if provided (plain text), otherwise use raw text (may contain HTML)
+            if (cell && typeof cell === 'object') {{
+                if ('sort_text' in cell && cell.sort_text !== null && cell.sort_text !== undefined) {{
+                    return String(cell.sort_text);
+                }}
+                return String(cell.text).replace(/<[^>]*>/g, ''); // strip HTML tags fallback
+            }}
+            return String(cell);
+        }}
+    
         function renderTable() {{
             let sortedData = [...data];
             if (sortColumn !== null) {{
                 sortedData.sort((a, b) => {{
-                    const aText = a[sortColumn].text;
-                    const bText = b[sortColumn].text;
-                    const aVal = parseFloat(aText);
-                    const bVal = parseFloat(bText);
+                    const aText = getCellComparableText(a[sortColumn]);
+                    const bText = getCellComparableText(b[sortColumn]);
+                    const aVal = parseFloat(aText.replace(/[^0-9+-.]/g, ''));
+                    const bVal = parseFloat(bText.replace(/[^0-9+-.]/g, ''));
                     if (!isNaN(aVal) && !isNaN(bVal)) {{
                         return sortDirection * (aVal - bVal);
                     }}
@@ -867,11 +904,12 @@ if page == "Main":
     
             bodyEl.innerHTML = pageRows.map(row => {{
                 const cells = row.map((cell, i) => {{
-                    const isNum = !isNaN(cell.text) && cell.text !== "";
+                    const raw = (cell && cell.text !== undefined) ? cell.text : (cell || "");
+                    const isNum = !isNaN((cell && cell.sort_text) ? cell.sort_text : (String(raw).replace(/<[^>]*>/g, ''))) && String((cell && cell.sort_text) ? cell.sort_text : raw).trim() !== "";
                     const align = isNum ? 'text-align: right;' : '';
-                    const bg = cell.bg ? `background:${{cell.bg}};` : '';
+                    const bg = (cell && cell.bg) ? `background:${{cell.bg}};` : '';
                     const style = (bg || align) ? ` style="${{bg}}{{align}}"` : '';
-                    return `<td${{style}}>${{cell.text}}</td>`;
+                    return `<td${{style}}>${{raw}}</td>`;
                 }}).join('');
                 return `<tr>${{cells}}</tr>`;
             }}).join('');
