@@ -2069,7 +2069,6 @@ elif page == "Player":
         ]
     }
     
-    # Get sorted seasons for this player
     if season_col:
         seasons_for_player = sorted(df[df["Name"] == player_select][season_col].dropna().unique())
     else:
@@ -2138,14 +2137,12 @@ elif page == "Player":
                 template="plotly_white",
                 font=dict(size=11, color="#374151"),
                 xaxis=dict(
-                    title="Season",
-                    titlefont=dict(size=11),
+                    title=dict(text="Season", font=dict(size=11)),
                     showgrid=True,
                     gridcolor="#e5e7eb"
                 ),
                 yaxis=dict(
-                    title="SHAP Contribution",
-                    titlefont=dict(size=11),
+                    title=dict(text="SHAP Contribution", font=dict(size=11)),
                     showgrid=True,
                     gridcolor="#e5e7eb"
                 ),
