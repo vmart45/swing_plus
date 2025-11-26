@@ -2035,6 +2035,138 @@ elif page == "Player":
                 )
         
                 st.markdown(html_table, unsafe_allow_html=True)
+
+    st.markdown("<hr/>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <h3 style="text-align:center; margin-top:6px; font-size:1.05em; color:#183153;">
+            Year-to-Year SHAP Contributions for Mechanical Groupings
+        </h3>
+        <div style="text-align:center; color:#6b7280; margin-bottom:8px; font-size:0.95em;">
+            Line plots show per-year SHAP contribution for each metric in the grouping for this player.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Define groupings and corresponding feature keys
+    groupings = {
+        "Stance": [
+            "avg_stance_angle",
+            "avg_batter_y_position",
+            "avg_batter_x_position",
+            "avg_foot_sep"
+        ],
+        "Timing & Direction": [
+            "avg_intercept_y_vs_plate",
+            "avg_intercept_y_vs_batter",
+            "attack_angle",
+            "attack_direction"
+        ],
+        "Swing Mechanics": [
+            "avg_bat_speed",
+            "swing_length",
+            "swing_tilt"
+        ]
+    }
+
+    # Gather seasons for this player (sorted)
+    if season_col:
+        seasons_for_player = sorted(df[df["Name"] == player_select][season_col].dropna().unique())
+    else:
+        seasons_for_player = []
+
+    # If no seasons, try to use "year" column if present or fallback to unique years in df
+    if not seasons_for_player:
+        if season_col and season_col in df.columns:
+            seasons_for_player = sorted(df[season_col].dropna().unique())
+    # ensure seasons are simple types (strings/int)
+    seasons_for_player = [s for s in seasons_for_player]
+    # convert to list of strings for plotting labels
+    seasons_labels = [str(s) for s in seasons_for_player]
+
+    # If model/explainer not available, show informative message
+    if not model_loaded or explainer is None:
+        st.info("Model or SHAP explainer not available — cannot compute year-to-year SHAP contributions.")
+    elif not seasons_for_player:
+        st.info("No season history available for this player to plot year-to-year contributions.")
+    else:
+        # For each season compute shap values for player (if season row exists use that, otherwise use best available)
+        per_season_shap = {}
+        for s in seasons_for_player:
+            # find the row for this player+season, fallback to any row for the player
+            try:
+                subset = df[(df["Name"] == player_select) & (df[season_col] == s)]
+                if len(subset) > 0:
+                    row = subset.iloc[0]
+                else:
+                    row = df[df["Name"] == player_select].iloc[0]
+            except Exception:
+                row = df[df["Name"] == player_select].iloc[0]
+            # compute shap (returns Series indexed by feature names)
+            try:
+                shap_ser, _, _ = compute_shap(row, mech_features_available)
+                if shap_ser is None:
+                    shap_ser = pd.Series(0.0, index=mech_features_available)
+                # align index to allow lookup by our feature keys
+                per_season_shap[s] = shap_ser
+            except Exception:
+                per_season_shap[s] = pd.Series(0.0, index=mech_features_available)
+
+        # Build three columns for plots
+        col_a, col_b, col_c = st.columns(3)
+
+        # Color palette
+        palette = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"]
+
+        for (group_name, feats), col in zip(groupings.items(), [col_a, col_b, col_c]):
+            # Prepare data matrix: rows = seasons, cols = feats
+            y_series = {f: [] for f in feats}
+            for s in seasons_for_player:
+                shap_ser = per_season_shap.get(s, pd.Series(0.0, index=mech_features_available))
+                for f in feats:
+                    # Attempt alternative keys if model uses slightly different naming
+                    val = None
+                    if f in shap_ser.index:
+                        val = float(shap_ser.get(f, 0.0))
+                    else:
+                        # try lower/underscore variants
+                        alt = f.replace(" ", "_")
+                        if alt in shap_ser.index:
+                            val = float(shap_ser.get(alt, 0.0))
+                        else:
+                            # fallback 0
+                            val = 0.0
+                    y_series[f].append(val)
+
+            # Create plotly line figure
+            fig = go.Figure()
+            for i, f in enumerate(feats):
+                color = palette[i % len(palette)]
+                label = FEATURE_LABELS.get(f, f)
+                fig.add_trace(go.Scatter(
+                    x=seasons_labels,
+                    y=y_series[f],
+                    mode="lines+markers",
+                    name=label,
+                    line=dict(color=color, width=3),
+                    marker=dict(size=6),
+                    hovertemplate=f"{label}<br>Season: %{{x}}<br>SHAP: %{{y:.3f}}<extra></extra>"
+                ))
+
+            fig.update_layout(
+                title=dict(text=group_name, x=0.5, xanchor='center', font=dict(size=14, color="#183153")),
+                margin=dict(l=40, r=24, t=50, b=40),
+                height=320,
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+                xaxis=dict(title="Season"),
+                yaxis=dict(title="SHAP contribution to Swing+"),
+                template="simple_white",
+                font=dict(size=11)
+            )
+
+            with col:
+                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
    
     # Mechanical similarity cluster
     TOP_N = 10
