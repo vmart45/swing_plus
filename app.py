@@ -327,6 +327,7 @@ params = st.experimental_get_query_params()
 qp_player = None
 qp_player_b = None
 qp_page = None
+qp_season = None
 
 if "player" in params and len(params["player"]) > 0:
     try:
@@ -351,6 +352,13 @@ if "page" in params and len(params["page"]) > 0:
         qp_page = unquote(params["page"][0])
     except Exception:
         qp_page = params["page"][0]
+
+# capture a single 'season' param for Player links (so clicking link with &season=2024 will set player tab season)
+if "season" in params and len(params["season"]) > 0:
+    try:
+        qp_season = unquote(params["season"][0])
+    except Exception:
+        qp_season = params["season"][0]
 
 qp_season_a = params.get("seasonA", [None])[0] if "seasonA" in params else None
 qp_season_b = params.get("seasonB", [None])[0] if "seasonB" in params else None
@@ -1157,8 +1165,37 @@ if page == "Main":
     # FINAL TABLE OUTPUT
     # =============================
     columns_order_shap = ["#"] + list(styled_shap.columns)
-    table_data_shap = styled_shap
+    table_data_shap = []
     
+    # Build clickable name links for SHAP table as well, respecting the global season filter
+    for idx, (_, row) in enumerate(styled_shap.iterrows(), start=1):
+        row_cells = [{"text": str(idx), "bg": ""}]
+    
+        for c in styled_shap.columns:
+            val = row[c]
+    
+            if c == "Team" and val in image_dict:
+                content = f'<img src="{image_dict[val]}" alt="{val}" style="height:28px; display:block; margin:0 auto;" />'
+                sort_text = str(val)
+            elif c == "Name" and pd.notna(val):
+                player_name = str(val)
+                try:
+                    player_q = quote(player_name)
+                except Exception:
+                    player_q = quote(str(player_name))
+                link = f'{base_player_url}?player={player_q}&page=Player{season_param}'
+                safe_name = html.escape(player_name)
+                content = f'<a href="{link}" target="_blank" rel="noopener noreferrer" style="color:#183153;text-decoration:none;font-weight:700;">{safe_name}</a>'
+                sort_text = player_name
+            else:
+                content = format_cell_shap(val, c)
+                sort_text = format_cell_shap(val, c)
+    
+            bg = value_to_color_20_80(val) if c.endswith("(20-80)") else ""
+            row_cells.append({"text": content, "bg": bg, "sort_text": sort_text})
+    
+        table_data_shap.append(row_cells)
+
     st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
     st.markdown(
         """
@@ -1171,25 +1208,6 @@ if page == "Main":
         """,
         unsafe_allow_html=True
     )
-    
-    table_data_shap = []
-    grade_columns = [c for c in styled_shap.columns if c.endswith("(20-80)")]
-    
-    for idx, (_, row) in enumerate(styled_shap.iterrows(), start=1):
-        row_cells = [{"text": str(idx), "bg": ""}]
-    
-        for c in styled_shap.columns:
-            val = row[c]
-    
-            if c == "Team" and val in image_dict:
-                content = f'<img src="{image_dict[val]}" alt="{val}" style="height:28px; display:block; margin:0 auto;" />'
-            else:
-                content = format_cell_shap(val, c)
-    
-            bg = value_to_color_20_80(val) if c in grade_columns else ""
-            row_cells.append({"text": content, "bg": bg})
-    
-        table_data_shap.append(row_cells)
 
     html_table_shap = f"""
     <style>
@@ -1393,14 +1411,24 @@ if page == "Main":
             renderTableShap();
         }});
     
+        function getCellComparableText(cell) {{
+            if (cell && typeof cell === 'object') {{
+                if ('sort_text' in cell && cell.sort_text !== null && cell.sort_text !== undefined) {{
+                    return String(cell.sort_text);
+                }}
+                return String(cell.text).replace(/<[^>]*>/g, '');
+            }}
+            return String(cell);
+        }}
+    
         function renderTableShap() {{
             let sortedData = [...data_shap];
             if (sortColumn_shap !== null) {{
                 sortedData.sort((a, b) => {{
-                    const aText = a[sortColumn_shap].text;
-                    const bText = b[sortColumn_shap].text;
-                    const aVal = parseFloat(aText);
-                    const bVal = parseFloat(bText);
+                    const aText = getCellComparableText(a[sortColumn_shap]);
+                    const bText = getCellComparableText(b[sortColumn_shap]);
+                    const aVal = parseFloat(aText.replace(/[^0-9+-.]/g, ''));
+                    const bVal = parseFloat(bText.replace(/[^0-9+-.]/g, ''));
                     if (!isNaN(aVal) && !isNaN(bVal)) {{
                         return sortDirection_shap * (aVal - bVal);
                     }}
@@ -1418,11 +1446,12 @@ if page == "Main":
     
             bodyEl_shap.innerHTML = pageRows.map(row => {{
                 const cells = row.map((cell, i) => {{
-                    const isNum = !isNaN(cell.text) && cell.text !== "";
+                    const raw = (cell && cell.text !== undefined) ? cell.text : (cell || "");
+                    const isNum = !isNaN((cell && cell.sort_text) ? cell.sort_text : (String(raw).replace(/<[^>]*>/g, ''))) && String((cell && cell.sort_text) ? cell.sort_text : raw).trim() !== "";
                     const align = isNum ? 'text-align: right;' : '';
-                    const bg = cell.bg ? `background:${{cell.bg}};` : '';
+                    const bg = (cell && cell.bg) ? `background:${{cell.bg}};` : '';
                     const style = (bg || align) ? ` style="${{bg}}{{align}}"` : '';
-                    return `<td${{style}}>${{cell.text}}</td>`;
+                    return `<td${{style}}>${{raw}}</td>`;
                 }}).join('');
                 return `<tr>${{cells}}</tr>`;
             }}).join('');
@@ -1462,11 +1491,17 @@ elif page == "Player":
 
     params = st.experimental_get_query_params()
     qp_player = None
+    qp_season_local = None
     if "player" in params and len(params["player"]) > 0:
         try:
             qp_player = unquote(params["player"][0])
         except Exception:
             qp_player = params["player"][0]
+    if "season" in params and len(params["season"]) > 0:
+        try:
+            qp_season_local = unquote(params["season"][0])
+        except Exception:
+            qp_season_local = params["season"][0]
 
     # Player selector uses full df so tab not affected by main filters
     player_options = sorted(df["Name"].unique())
@@ -1493,7 +1528,27 @@ elif page == "Player":
             )
     
             if player_seasons:
+                # prefer season passed via link (qp_season_local) then qp_season (global captured earlier)
+                preferred_season = None
+                if qp_season_local is not None:
+                    preferred_season = qp_season_local
+                elif qp_season is not None:
+                    preferred_season = qp_season
+
+                # find a season value in player_seasons that matches preferred_season when cast to str
                 default_player_season = player_seasons[-1]
+                if preferred_season is not None:
+                    match = None
+                    for s in player_seasons:
+                        try:
+                            if str(s) == str(preferred_season):
+                                match = s
+                                break
+                        except Exception:
+                            continue
+                    if match is not None:
+                        default_player_season = match
+
                 idx = player_seasons.index(default_player_season) if default_player_season in player_seasons else 0
     
                 with col2:
@@ -2449,6 +2504,9 @@ elif page == "Compare":
             else:
                 importance = pd.Series(1.0 / len(feats), index=feats)
 
+        # ensure importance is a Series indexed by feats
+        importance = importance.reindex(feats).fillna(0)
+
         # -------------------------------------------------
         # QUICK TAKEAWAYS
         # -------------------------------------------------
@@ -2579,7 +2637,8 @@ elif page == "Compare":
             unsafe_allow_html=True
         )
         
-        order = importance.sort_values(ascending=False).index
+        # Ensure ordering by importance (desc) so plots align with Player tab behavior
+        order = importance.sort_values(ascending=False).index.tolist()
         shapA_ord = shapA.reindex(order).fillna(0)
         shapB_ord = shapB.reindex(order).fillna(0)
         labels = [FEATURE_LABELS.get(f, f) for f in order]
