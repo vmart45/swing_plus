@@ -2140,55 +2140,55 @@ elif page == "Player":
                     y_series[f].append(val)
 
             # Create plotly line figure
-        fig = go.Figure()
-        for i, f in enumerate(feats):
-            color = palette[i % len(palette)]
-            label = FEATURE_LABELS.get(f, f)
-            fig.add_trace(go.Scatter(
-                x=seasons_labels,
-                y=y_series[f],
-                mode="lines+markers",
-                name=label,
-                line=dict(color=color, width=2.5),
-                marker=dict(size=5),
-                hoverinfo="skip",  # disables hover
-                showlegend=True
-            ))
-        
-        fig.update_layout(
-            title=dict(
-                text=f"<b>{group_name}</b>",
-                x=0.5,
-                xanchor='center',
-                font=dict(size=15, color="#1e293b")
-            ),
-            height=290,
-            margin=dict(l=20, r=20, t=40, b=30),
-            template="plotly_white",
-            font=dict(size=11, color="#374151"),
-            xaxis=dict(
-                title="Season",
-                titlefont=dict(size=11),
-                showgrid=True,
-                gridcolor="#e5e7eb"
-            ),
-            yaxis=dict(
-                title="SHAP Contribution",
-                titlefont=dict(size=11),
-                showgrid=True,
-                gridcolor="#e5e7eb"
-            ),
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="center",
-                x=0.5,
-                font=dict(size=10)
-            )
+    fig = go.Figure()
+    for i, f in enumerate(feats):
+        color = palette[i % len(palette)]
+        label = FEATURE_LABELS.get(f, f)
+        fig.add_trace(go.Scatter(
+            x=seasons_labels,
+            y=y_series[f],
+            mode="lines+markers",
+            name=label,
+            line=dict(color=color, width=2.5),
+            marker=dict(size=5),
+            hoverinfo="skip",  # disables hover
+            showlegend=True
+        ))
+    
+    fig.update_layout(
+        title=dict(
+            text=f"<b>{group_name}</b>",
+            x=0.5,
+            xanchor='center',
+            font=dict(size=15, color="#1e293b")
+        ),
+        height=290,
+        margin=dict(l=20, r=20, t=40, b=30),
+        template="plotly_white",
+        font=dict(size=11, color="#374151"),
+        xaxis=dict(
+            title="Season",
+            titlefont=dict(size=11),
+            showgrid=True,
+            gridcolor="#e5e7eb"
+        ),
+        yaxis=dict(
+            title="SHAP Contribution",
+            titlefont=dict(size=11),
+            showgrid=True,
+            gridcolor="#e5e7eb"
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=10)
         )
-            with col:
-                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    )
+        with col:
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
    
     # Mechanical similarity cluster
     TOP_N = 10
