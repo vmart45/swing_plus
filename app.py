@@ -2131,6 +2131,19 @@ elif page == "Player":
                         st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to {player_title}</div>', unsafe_allow_html=True)
                         st.markdown('<div class="sim-list">', unsafe_allow_html=True)
 
+                        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+                        st.markdown(
+                            """
+                            <h3 style="text-align:center; margin-top:6px; font-size:1.08em; color:#183153; letter-spacing:0.01em;">
+                                Top {TOP_N} mechanically similar players to {player_title}
+                            </h3>
+                            <div style="text-align:center; color:#6b7280; margin-bottom:6px; font-size:0.95em;">
+                                Cosine Similarity
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
                         for idx, sim in enumerate(sim_rows, 1):
                             pct = max(0.0, min(1.0, float(sim['score'])))
                             width_pct = int(round(pct * 100))
