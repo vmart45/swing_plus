@@ -2249,12 +2249,16 @@ elif page == "Compare":
 
     mech_features_available = [f for f in mechanical_features if f in df.columns]
 
-    st.markdown("""
-        <h2 style="text-align:center;margin-top:0.4em;margin-bottom:1.0em;
-        font-size:1.9em;font-weight:800;color:#0F1A34;">
+    st.markdown(
+        """
+        <h2 style="text-align:center; margin-top:1.2em; margin-bottom:0.6em; font-size:1.6em; letter-spacing:0.01em; color:#2a3757;">
             Compare Players
         </h2>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown("---")
 
     # Replace the player dropdowns block in the Compare tab with this snippet.
     player_options = sorted(df["Name"].dropna().unique())
