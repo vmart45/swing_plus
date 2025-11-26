@@ -2265,6 +2265,9 @@ elif page == "Compare":
     if not player_options:
         st.warning("No players available.")
         st.stop()
+
+        st.markdown("---")
+
     
     # determine sensible defaults (respect query params if present)
     default_a = None
