@@ -2128,7 +2128,7 @@ elif page == "Player":
                             unsafe_allow_html=True
                         )
 
-                        st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players</div>')
+                        st.markdown(f'<div class="sim-container"><div class="sim-header" style="text-align:center;color:#183153;font-weight:700;margin-bottom:10px;">Top {TOP_N} mechanically similar players to {player_title}</div>', unsafe_allow_html=True)
                         st.markdown('<div class="sim-list">', unsafe_allow_html=True)
 
                         for idx, sim in enumerate(sim_rows, 1):
