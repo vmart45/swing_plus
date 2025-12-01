@@ -119,11 +119,11 @@ This case study highlights one of the most important strengths of Swing+ and SHA
 
 ![Schwarber SHAP](pngs/Schwarber_SHAP.png)
 
-Kyle Schwarber sits 6th in baseball in Swing+ and the SHAP breakdown makes it clear that his profile is heavily driven by bat speed. A large percentage of his positive contribution comes from how fast the bat moves through the zone, with only moderate reinforcement from his mechanical variables. His swing works, and it works well, but it is more dependent on a physical trait that historically degrades with age. If Schwarber were to lose meaningful bat speed, there is less mechanical efficiency underneath to stabilize his overall swing quality. His ceiling remains high, but the floor drops more quickly if that primary driver fades.
+[Kyle Schwarber](https://swing-plus.streamlit.app/~/+/?player=Kyle%20Schwarber&page=Player&season=2025) sits 6th in baseball in Swing+ and the SHAP breakdown makes it clear that his profile is heavily driven by bat speed. A large percentage of his positive contribution comes from how fast the bat moves through the zone, with only moderate reinforcement from his mechanical variables. His swing works, and it works well, but it is more dependent on a physical trait that historically degrades with age. If Schwarber were to lose meaningful bat speed, there is less mechanical efficiency underneath to stabilize his overall swing quality. His ceiling remains high, but the floor drops more quickly if that primary driver fades.
 
 ![Soto SHAP](pngs/Soto_SHAP.png)
 
-Juan Soto and Corey Seager present a different picture. Soto, ranked 2nd in Swing+, is supported by both elite bat speed and highly optimized mechanics. SHAP shows that his swing quality is distributed across multiple traits. His bat path, attack direction, tilt, stance, and intercept positioning all contribute positively and consistently. This balance creates resilience. Even if Soto experiences a decline in raw bat speed over time, the efficiency of how he moves the bat gives him structural stability in his swing profile.
+[Juan Soto](https://swing-plus.streamlit.app/~/+/?player=Juan%20Soto&page=Player&season=2025) and [Corey Seager](https://swing-plus.streamlit.app/~/+/?player=Corey%20Seager&page=Player&season=2025) present a different picture. Soto, ranked 2nd in Swing+, is supported by both elite bat speed and highly optimized mechanics. SHAP shows that his swing quality is distributed across multiple traits. His bat path, attack direction, tilt, stance, and intercept positioning all contribute positively and consistently. This balance creates resilience. Even if Soto experiences a decline in raw bat speed over time, the efficiency of how he moves the bat gives him structural stability in his swing profile.
 
 ![Seager SHAP](pngs/Seager_SHAP.png)
 
@@ -135,7 +135,7 @@ In practical terms, Swing+ combined with SHAP allows us to see not just who is g
 
 ## How Swing+ Identifies Changes in Player Development: Ramon Laureano
 
-Ramon Laureano hovered around league average between 2023 and 2024, showing only marginal year-to-year improvement while bouncing between multiple organizations. He began 2023 in Oakland, moved to Cleveland midseason, was traded again to Atlanta during 2024, and ultimately landed with Baltimore in 2025. For a fringe big leaguer trying to establish long-term footing, this kind of instability can make consistent development difficult. It also makes him a perfect case study for how Swing+ can isolate which changes are actually helping and which adjustments are simply noise.
+[Ramon Laureano](https://swing-plus.streamlit.app/~/+/?player=Ramon%20Laureano&page=Player&season=2025) hovered around league average between 2023 and 2024, showing only marginal year-to-year improvement while bouncing between multiple organizations. He began 2023 in Oakland, moved to Cleveland midseason, was traded again to Atlanta during 2024, and ultimately landed with Baltimore in 2025. For a fringe big leaguer trying to establish long-term footing, this kind of instability can make consistent development difficult. It also makes him a perfect case study for how Swing+ can isolate which changes are actually helping and which adjustments are simply noise.
 
 ![Laureano YoY](pngs/Laureano_YoY.png)
 
