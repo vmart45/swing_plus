@@ -68,6 +68,7 @@ In the context of Swing+, SHAP transforms the metric from a simple number into a
 In practical terms, SHAP provides transparency. It connects model output to real-world movement patterns, making Swing+ actionable rather than abstract. It tells us not just what the model believes, but the reasoning behind that belief, which is critical for player development, coaching decisions, and long-term evaluation.
 
 ## What Swing+ Values Represent Through SHAP
+![Swing+ SHAP](pngs/SwingPlus_SHAP_Clean.png)
 
 The SHAP visualization illustrates how each swing component contributes to a player's final Swing+ score and, more importantly, how changes in those components influence the model's evaluation of swing quality. Each point represents an individual swing observation, and its horizontal position shows whether that feature pushes the Swing+ value higher or lower. Points to the right increase Swing+, points to the left decrease it. Color indicates the magnitude of the feature itself, with warmer colors representing higher values and cooler colors representing lower ones.
 
