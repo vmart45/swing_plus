@@ -21,6 +21,9 @@ For Swing+ the focus was strictly on the physical and spatial components of the 
 
 These individual components were then modeled against the target variable xwOBA. This allowed us to evaluate how specific swing characteristics correlate with offensive success while keeping result-based data out of the inputs. The intent was to quantify swing quality based on execution alone, creating a metric that reflects how well a hitter moves the bat rather than how the ball happened to leave it.
 
+> [!NOTE]
+> Unlike Stuff+ which is calculated pitch by pitch; Swing+, BatToBall+, and Impact+ are calculated on season averages not on a swing by swing basis
+
 ## Scale and Distribution
 
 It is important to note that Swing+ is not scaled in the same way as many traditional "plus" metrics, where 100 represents league average and each point above or below corresponds to a one percent change from that average. Instead, Swing+ was weighted to align more closely with modeled metrics such as Stuff+, where the distribution is based on standard deviation rather than percentage difference.
