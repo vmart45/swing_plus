@@ -101,7 +101,7 @@ Together, BatToBall+ and Impact+ allow for a more complete mechanical profile. B
 
 ![Noel vs. Adell Table](pngs/Noel_Adell_Table.png)
 
-At first glance, Jo Adell and Jhonkensy Noel look similar in one of the most important components of Swing+: bat speed. Their average bat speeds are separated by just 0.27 mph, and SHAP confirms bat speed is the single largest contributor to Swing+. If bat speed alone defined swing quality, these two hitters would live in similar territory. Instead, Adell ranks 20th in baseball in Swing+ while Noel sits 626th out of 661. That gap is not a contradiction of the model. It is exactly what the model is designed to capture.
+At first glance, [Jo Adell]((https://swing-plus.streamlit.app/~/+/?player=Jo%20Adell&page=Player&season=2025) and Jhonkensy Noel look similar in one of the most important components of Swing+: bat speed. Their average bat speeds are separated by just 0.27 mph, and SHAP confirms bat speed is the single largest contributor to Swing+. If bat speed alone defined swing quality, these two hitters would live in similar territory. Instead, Adell ranks 20th in baseball in Swing+ while Noel sits 626th out of 661. That gap is not a contradiction of the model. It is exactly what the model is designed to capture.
 
 ![Adell SHAP](pngs/Adell_SHAP.png)
 
