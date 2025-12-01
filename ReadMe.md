@@ -47,6 +47,7 @@ What separates LightGBM from traditional boosting methods is its efficiency and 
 In this context, LightGBM evaluates how each swing component contributes to changes in xwOBA by learning patterns across thousands of swing events. The final model represents a weighted combination of those learned relationships, producing Swing+ as a score derived from how closely a hitter's swing characteristics align with patterns associated with higher offensive value.
 
 ## Why Use Swing+ Over xwOBA as the Evaluative Anchor
+!(pngs/xwOBA_SwingPlus_comp.png)
 
 The stability plots highlight a key difference between Swing+ and xwOBA that goes beyond simple performance description. While xwOBA is an excellent outcome metric, it shows noticeable volatility from season to season. The 2023 vs 2024 and 2023 vs 2025 xwOBA plots show moderate correlations, with visible dispersion and R² values indicating that a large portion of year-to-year variation remains unexplained. In practical terms, a hitter's xwOBA can swing meaningfully even when their underlying approach and mechanics may not have materially changed.
 
