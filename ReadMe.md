@@ -114,9 +114,15 @@ This is the nuance Swing+ is built to reflect. Bat speed is important, but it is
 
 This case study highlights one of the most important strengths of Swing+ and SHAP as a combined framework. It does not just rank hitters. It contextualizes how they achieve their swing quality and what that might mean for sustainability.
 
+![Schwarber SHAP](pngs/Schwarber_SHAP.png)
+
 Kyle Schwarber sits 6th in baseball in Swing+ and the SHAP breakdown makes it clear that his profile is heavily driven by bat speed. A large percentage of his positive contribution comes from how fast the bat moves through the zone, with only moderate reinforcement from his mechanical variables. His swing works, and it works well, but it is more dependent on a physical trait that historically degrades with age. If Schwarber were to lose meaningful bat speed, there is less mechanical efficiency underneath to stabilize his overall swing quality. His ceiling remains high, but the floor drops more quickly if that primary driver fades.
 
+![Soto SHAP](pngs/Soto_SHAP.png)
+
 Juan Soto and Corey Seager present a different picture. Soto, ranked 2nd in Swing+, is supported by both elite bat speed and highly optimized mechanics. SHAP shows that his swing quality is distributed across multiple traits. His bat path, attack direction, tilt, stance, and intercept positioning all contribute positively and consistently. This balance creates resilience. Even if Soto experiences a decline in raw bat speed over time, the efficiency of how he moves the bat gives him structural stability in his swing profile.
+
+![Seager SHAP](pngs/Seager_SHAP.png)
 
 Seager, ranked 8th in Swing+, leans even more heavily toward mechanical excellence. His SHAP profile shows that his value is derived less from explosive speed and more from precision and consistency of movement. His swing is clean, controlled, and repeatable, allowing him to remain highly effective even without relying on extreme physical output. This type of profile tends to age more gracefully because it is rooted in technique rather than raw force.
 
