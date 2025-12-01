@@ -96,6 +96,8 @@ Together, BatToBall+ and Impact+ allow for a more complete mechanical profile. B
 
 ## Explaining the Nuances in Swing+: Adell vs. Noel
 
+![Noel vs. Adell Table](pngs/Noel_Adell_Table.png)
+
 At first glance, Jo Adell and Jhonkensy Noel look similar in one of the most important components of Swing+: bat speed. Their average bat speeds are separated by just 0.27 mph, and SHAP confirms bat speed is the single largest contributor to Swing+. If bat speed alone defined swing quality, these two hitters would live in similar territory. Instead, Adell ranks 20th in baseball in Swing+ while Noel sits 626th out of 661. That gap is not a contradiction of the model. It is exactly what the model is designed to capture.
 
 SHAP helps explain this by showing that Swing+ is not a single-variable metric. It is an accumulation of how multiple mechanical traits interact. While both players generate strong bat speed, Adell pairs that speed with efficient supporting traits. His swing tilt, attack direction, stance angle, and intercept positioning all push his Swing+ upward. Each of these variables contributes positively, stacking on top of bat speed to create a mechanically efficient swing profile. His bat speed is not just fast, it is delivered on a path that aligns with optimal contact mechanics.
