@@ -135,7 +135,7 @@ In practical terms, Swing+ combined with SHAP allows us to see not just who is g
 
 ## How Swing+ Identifies Changes in Player Development: Ramon Laureano
 
-[Ramon Laureano](https://swing-plus.streamlit.app/~/+/?player=Ramon%20Laureano&page=Player&season=2025) hovered around league average between 2023 and 2024, showing only marginal year-to-year improvement while bouncing between multiple organizations. He began 2023 in Oakland, moved to Cleveland midseason, was traded again to Atlanta during 2024, and ultimately landed with Baltimore in 2025. For a fringe big leaguer trying to establish long-term footing, this kind of instability can make consistent development difficult. It also makes him a perfect case study for how Swing+ can isolate which changes are actually helping and which adjustments are simply noise.
+[Ramon Laureano](https://swing-plus.streamlit.app/~/+/?player=Ramón%20Laureano&page=Player&season=2025) hovered around league average between 2023 and 2024, showing only marginal year-to-year improvement while bouncing between multiple organizations. He began 2023 in Oakland, moved to Cleveland midseason, was traded again to Atlanta during 2024, and ultimately landed with Baltimore in 2025. For a fringe big leaguer trying to establish long-term footing, this kind of instability can make consistent development difficult. It also makes him a perfect case study for how Swing+ can isolate which changes are actually helping and which adjustments are simply noise.
 
 ![Laureano YoY](pngs/Laureano_YoY.png)
 
