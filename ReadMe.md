@@ -30,7 +30,6 @@ In this framework, 100 still represents league average, but every ten points abo
 Standard deviation is a statistical measure that describes how spread out values are from the average. A small standard deviation means most data points sit close to the mean, while a larger one indicates wider variation. By tying Swing+ to standard deviation, the model emphasizes how far a player's swing quality deviates from the norm in a meaningful and interpretable way, highlighting players whose mechanics are genuinely distinct rather than marginally better than average.
 
 ![Screenshot of Swing+ Bell Curve Distribution](pngs/BellCurve.png)
-
 ## Why xwOBA over xwOBAcon?
 
 xwOBA was chosen as the target variable over xwOBAcon to ensure the model reflected overall offensive value rather than contact quality alone. While xwOBAcon isolates performance strictly on balls put in play, it removes critical elements of the hitting process such as swing decisions, pitch selection, and the ability to create favorable counts. Those factors are still part of what defines an effective swing, even when contact is not made.
