@@ -84,6 +84,64 @@ def _get_model_feature_names(model_obj, fallback_features=None):
 
     return expected
 
+
+def _compute_feature_contributions(X_player):
+    active_model = model_for_shap if model_for_shap is not None else model
+
+    if explainer is not None:
+        try:
+            shap_values = explainer(X_player)
+        except Exception:
+            shap_values = explainer(X_player.values)
+
+        if hasattr(shap_values, "values"):
+            values = np.array(shap_values.values)
+            base_values = np.array(shap_values.base_values)
+            shap_values_arr = values.reshape(-1)
+            shap_base = float(base_values.reshape(-1)[0]) if base_values.size else None
+            return shap_values_arr, shap_base
+
+        return np.array(shap_values).reshape(-1), None
+
+    contrib = None
+    last_error = None
+    predict_targets = [active_model]
+
+    if hasattr(active_model, "booster_"):
+        predict_targets.append(active_model.booster_)
+    if hasattr(active_model, "_Booster"):
+        predict_targets.append(active_model._Booster)
+
+    for target in predict_targets:
+        if target is None or not hasattr(target, "predict"):
+            continue
+
+        for payload in (X_player, X_player.values):
+            try:
+                contrib = target.predict(payload, pred_contrib=True)
+                break
+            except Exception as e:
+                last_error = e
+
+        if contrib is not None:
+            break
+
+    if contrib is None:
+        raise ValueError(f"Could not compute SHAP/pred_contrib values: {last_error}")
+
+    contrib = np.array(contrib)
+    if contrib.ndim == 1:
+        contrib = contrib.reshape(1, -1)
+
+    if contrib.shape[1] == X_player.shape[1] + 1:
+        shap_values_arr = contrib[0, :-1]
+        shap_base = float(contrib[0, -1])
+    else:
+        shap_values_arr = contrib[0, :X_player.shape[1]]
+        shap_base = None
+
+    return np.array(shap_values_arr).flatten(), shap_base
+
 def create_centered_cmap(center=100, vmin=70, vmax=130):
     """
     Create a diverging colormap centered at a specific value (default 100).
@@ -286,12 +344,9 @@ if os.path.exists(MODEL_PATH):
         if explainer is None:
             try:
                 explainer = shap.TreeExplainer(model_for_shap if model_for_shap is not None else model)
-            except Exception:
-                try:
-                    explainer = shap.Explainer(model_for_shap if model_for_shap is not None else model)
-                except Exception as e:
-                    explainer = None
-                    model_error = str(e)
+            except Exception as e:
+                explainer = None
+                model_error = f"SHAP explainer init failed, using LightGBM pred_contrib fallback: {e}"
     except Exception as e:
         model_loaded = False
         model_error = str(e)
@@ -333,7 +388,7 @@ def prepare_model_input_for_player(player_row, feature_list_fallback, model_obj,
 
 @st.cache_data
 def compute_shap(player_row, mech_features_available):
-    if not model_loaded or explainer is None:
+    if not model_loaded:
         return None, None, None
     try:
         X_player = prepare_model_input_for_player(player_row, mech_features_available, model, df_reference=df)
@@ -341,16 +396,7 @@ def compute_shap(player_row, mech_features_available):
             shap_pred = float(model.predict(X_player)[0])
         except Exception:
             shap_pred = float(model.predict(X_player.values.reshape(1, -1))[0])
-        try:
-            shap_values = explainer(X_player)
-        except Exception:
-            shap_values = explainer(X_player.values)
-        if hasattr(shap_values, "values"):
-            shap_values_arr = np.array(shap_values.values).flatten()
-            shap_base = float(shap_values.base_values) if np.size(shap_values.base_values) == 1 else float(shap_values.base_values.flatten()[0])
-        else:
-            shap_values_arr = np.array(shap_values).flatten()
-            shap_base = None
+        shap_values_arr, shap_base = _compute_feature_contributions(X_player)
         shap_df = pd.Series(shap_values_arr, index=X_player.columns)
         return shap_df, shap_pred, shap_base
     except Exception:
@@ -1878,7 +1924,7 @@ elif page == "Player":
     shap_pred = None
     shap_values_arr = None
 
-    if model_loaded and explainer is not None and len(mech_features_available) >= 2:
+    if model_loaded and len(mech_features_available) >= 2:
         try:
             X_player = prepare_model_input_for_player(player_row, mech_features_available, model, df_reference=df)
             try:
@@ -1894,17 +1940,7 @@ elif page == "Player":
             except Exception:
                 shap_pred = float(model.predict(X_player.values.reshape(1, -1))[0])
 
-            try:
-                shap_values = explainer(X_player)
-            except Exception:
-                shap_values = explainer(X_player.values)
-
-            if hasattr(shap_values, "values"):
-                shap_values_arr = np.array(shap_values.values).flatten()
-                shap_base = float(shap_values.base_values) if np.size(shap_values.base_values) == 1 else float(shap_values.base_values.flatten()[0])
-            else:
-                shap_values_arr = np.array(shap_values).flatten()
-                shap_base = None
+            shap_values_arr, shap_base = _compute_feature_contributions(X_player)
 
             shap_df = pd.DataFrame({
                 "feature": X_player.columns.tolist(),
@@ -1941,7 +1977,7 @@ elif page == "Player":
 
     with col1:
         st.markdown(f"<div style='text-align:center;font-weight:700;color:#183153;'>Model prediction: {shap_pred_label} &nbsp; | &nbsp; Actual Swing+: {swing_actual_label}</div>", unsafe_allow_html=True)
-        if not model_loaded or explainer is None or shap_df is None or len(shap_df) == 0:
+        if not model_loaded or shap_df is None or len(shap_df) == 0:
             st.info("Swing+ model or SHAP explainer not available. Ensure SwingPlus.pkl is a supported model/pipeline.")
             if model_error:
                 st.caption(f"Model load error: {model_error}")
@@ -2126,7 +2162,7 @@ elif page == "Player":
     seasons_for_player = [s for s in seasons_for_player]
     seasons_labels = [str(s) for s in seasons_for_player]
     
-    if not model_loaded or explainer is None:
+    if not model_loaded:
         st.info("Model or SHAP explainer not available — cannot compute year-to-year SHAP contributions.")
     elif not seasons_for_player:
         st.info("No season history available for this player to plot year-to-year contributions.")
@@ -2669,14 +2705,46 @@ elif page == "Compare":
         # Importance: prefer SHAP sample mean, fallback to z-based importance, then uniform
         use_shap = False
         importance = None
-        if model_loaded and explainer is not None:
+        if model_loaded:
             try:
                 sampleX = df_comp[feats].head(200).fillna(df_comp[feats].mean())
-                sample_shap = explainer(sampleX)
-                if hasattr(sample_shap, "values"):
-                    mean_abs_shap = abs(sample_shap.values).mean(axis=0)
-                    importance = pd.Series(mean_abs_shap, index=feats)
-                    use_shap = True
+                if explainer is not None:
+                    sample_shap = explainer(sampleX)
+                    if hasattr(sample_shap, "values"):
+                        mean_abs_shap = abs(sample_shap.values).mean(axis=0)
+                        importance = pd.Series(mean_abs_shap, index=feats)
+                        use_shap = True
+                else:
+                    contrib = None
+                    active_model = model_for_shap if model_for_shap is not None else model
+                    predict_targets = [active_model]
+                    if hasattr(active_model, "booster_"):
+                        predict_targets.append(active_model.booster_)
+                    if hasattr(active_model, "_Booster"):
+                        predict_targets.append(active_model._Booster)
+
+                    for target in predict_targets:
+                        if target is None or not hasattr(target, "predict"):
+                            continue
+                        try:
+                            contrib = target.predict(sampleX, pred_contrib=True)
+                            break
+                        except Exception:
+                            try:
+                                contrib = target.predict(sampleX.values, pred_contrib=True)
+                                break
+                            except Exception:
+                                contrib = None
+
+                    if contrib is not None:
+                        contrib = np.array(contrib)
+                        if contrib.ndim == 1:
+                            contrib = contrib.reshape(1, -1)
+                        if contrib.shape[1] == len(feats) + 1:
+                            contrib = contrib[:, :-1]
+                        mean_abs_shap = np.abs(contrib).mean(axis=0)
+                        importance = pd.Series(mean_abs_shap, index=feats)
+                        use_shap = True
             except Exception:
                 use_shap = False
 
