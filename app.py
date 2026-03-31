@@ -325,6 +325,7 @@ def safe_rank_column(df_in, col):
 
 params = {key: st.query_params.get_all(key) for key in st.query_params}
 
+qp_player = None
 qp_player_b = None
 qp_page = None
 qp_season = None
