@@ -323,8 +323,8 @@ def safe_rank_column(df_in, col):
     filled = ranks.fillna(len(df_in) + 1).astype(int)
     return filled
 
-params = st.experimental_get_query_params()
-qp_player = None
+params = {key: st.query_params.get_all(key) for key in st.query_params}
+
 qp_player_b = None
 qp_page = None
 qp_season = None
@@ -1491,8 +1491,7 @@ elif page == "Player":
 
     st.markdown("---")
 
-    params = st.experimental_get_query_params()
-    qp_player = None
+    params = {key: st.query_params.get_all(key) for key in st.query_params}    qp_player = None
     qp_season_local = None
     if "player" in params and len(params["player"]) > 0:
         try:
