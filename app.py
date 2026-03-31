@@ -383,10 +383,10 @@ def open_compare_in_same_tab(playerA, playerB, seasonA=None, seasonB=None):
             params["seasonA"] = seasonA
         if seasonB is not None:
             params["seasonB"] = seasonB
-        st.experimental_set_query_params(**params)
+        st.query_params.from_dict(params)
     except Exception:
         try:
-            st.experimental_set_query_params(player=playerA, playerB=playerB, page="Compare")
+            st.query_params.from_dict({"player": playerA, "playerB": playerB, "page": "Compare"})
         except Exception:
             pass
 
@@ -1491,7 +1491,8 @@ elif page == "Player":
 
     st.markdown("---")
 
-    params = {key: st.query_params.get_all(key) for key in st.query_params}    qp_player = None
+    params = {key: st.query_params.get_all(key) for key in st.query_params}
+    qp_player = None
     qp_season_local = None
     if "player" in params and len(params["player"]) > 0:
         try:
