@@ -26,6 +26,64 @@ st.set_page_config(
 DATA_PATH = "Main.csv"
 MODEL_PATH = "SwingPlus.pkl"
 
+
+def _extract_loaded_model_parts(loaded_obj):
+    prediction_model = loaded_obj
+    shap_model = loaded_obj
+    loaded_explainer = None
+    feature_names = None
+
+    if isinstance(loaded_obj, dict):
+        for key in ["model", "estimator", "pipeline", "predictor"]:
+            if key in loaded_obj and loaded_obj[key] is not None:
+                prediction_model = loaded_obj[key]
+                shap_model = prediction_model
+                break
+        for key in ["explainer", "shap_explainer"]:
+            if key in loaded_obj and loaded_obj[key] is not None:
+                loaded_explainer = loaded_obj[key]
+                break
+        for key in ["feature_names", "features", "model_features"]:
+            if key in loaded_obj and loaded_obj[key] is not None:
+                try:
+                    feature_names = list(loaded_obj[key])
+                except Exception:
+                    feature_names = None
+                break
+    elif isinstance(loaded_obj, (list, tuple)) and len(loaded_obj) > 0:
+        prediction_model = loaded_obj[0]
+        shap_model = prediction_model
+
+    if hasattr(prediction_model, "steps") and len(getattr(prediction_model, "steps", [])) > 0:
+        try:
+            shap_model = prediction_model.steps[-1][1]
+        except Exception:
+            shap_model = prediction_model
+
+    return prediction_model, shap_model, loaded_explainer, feature_names
+
+
+def _get_model_feature_names(model_obj, fallback_features=None):
+    expected = None
+    try:
+        if hasattr(model_obj, "feature_name_") and model_obj.feature_name_ is not None:
+            expected = list(model_obj.feature_name_)
+        elif hasattr(model_obj, "feature_names_in_") and model_obj.feature_names_in_ is not None:
+            expected = list(model_obj.feature_names_in_)
+        elif hasattr(model_obj, "booster_") and hasattr(model_obj.booster_, "feature_name"):
+            expected = list(model_obj.booster_.feature_name())
+        elif hasattr(model_obj, "get_booster") and hasattr(model_obj.get_booster(), "feature_name"):
+            expected = list(model_obj.get_booster().feature_name())
+        elif hasattr(model_obj, "feature_name") and callable(model_obj.feature_name):
+            expected = list(model_obj.feature_name())
+    except Exception:
+        expected = None
+
+    if (expected is None or len(expected) == 0) and fallback_features:
+        expected = list(fallback_features)
+
+    return expected
+
 def create_centered_cmap(center=100, vmin=70, vmax=130):
     """
     Create a diverging colormap centered at a specific value (default 100).
@@ -210,26 +268,30 @@ for c in ["swings_competitive", "competitive_swings"]:
 name_col = "Name"
 
 model = None
+model_for_shap = None
 explainer = None
 model_loaded = False
 model_error = None
+model_feature_names = None
 
 if os.path.exists(MODEL_PATH):
     try:
         try:
-            model = joblib.load(MODEL_PATH)
+            loaded_artifact = joblib.load(MODEL_PATH)
         except Exception:
             with open(MODEL_PATH, "rb") as f:
-                model = pickle.load(f)
+                loaded_artifact = pickle.load(f)
+        model, model_for_shap, explainer, model_feature_names = _extract_loaded_model_parts(loaded_artifact)
         model_loaded = True
-        try:
-            explainer = shap.TreeExplainer(model)
-        except Exception:
+        if explainer is None:
             try:
-                explainer = shap.Explainer(model)
-            except Exception as e:
-                explainer = None
-                model_error = str(e)
+                explainer = shap.TreeExplainer(model_for_shap if model_for_shap is not None else model)
+            except Exception:
+                try:
+                    explainer = shap.Explainer(model_for_shap if model_for_shap is not None else model)
+                except Exception as e:
+                    explainer = None
+                    model_error = str(e)
     except Exception as e:
         model_loaded = False
         model_error = str(e)
@@ -237,19 +299,7 @@ else:
     model_loaded = False
 
 def prepare_model_input_for_player(player_row, feature_list_fallback, model_obj, df_reference=None):
-    expected = None
-    try:
-        if hasattr(model_obj, "feature_name_") and model_obj.feature_name_ is not None:
-            expected = list(model_obj.feature_name_)
-        elif hasattr(model_obj, "booster_") and hasattr(model_obj.booster_, "feature_name"):
-            expected = list(model_obj.booster_.feature_name())
-        elif hasattr(model_obj, "get_booster") and hasattr(model_obj.get_booster(), "feature_name"):
-            expected = list(model_obj.get_booster().feature_name())
-    except Exception:
-        expected = None
-
-    if expected is None or len(expected) == 0:
-        expected = list(feature_list_fallback)
+    expected = _get_model_feature_names(model_obj, fallback_features=model_feature_names or feature_list_fallback)
 
     row = {}
     for feat in expected:
@@ -1832,13 +1882,7 @@ elif page == "Player":
         try:
             X_player = prepare_model_input_for_player(player_row, mech_features_available, model, df_reference=df)
             try:
-                expected_names = None
-                if hasattr(model, "feature_name_") and model.feature_name_ is not None:
-                    expected_names = list(model.feature_name_)
-                elif hasattr(model, "booster_") and hasattr(model.booster_, "feature_name"):
-                    expected_names = list(model.booster_.feature_name())
-                elif hasattr(model, "get_booster") and hasattr(model.get_booster(), "feature_name"):
-                    expected_names = list(model.get_booster().feature_name())
+                expected_names = _get_model_feature_names(model, fallback_features=model_feature_names)
                 if expected_names is not None and X_player.shape[1] != len(expected_names):
                     model_error = f"Prepared input has {X_player.shape[1]} features but model expects {len(expected_names)} features."
                     raise ValueError(model_error)
